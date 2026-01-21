@@ -228,7 +228,7 @@ cython_debug/
 
 # don't push log files
 *.hoot
-*.log
+*.wpilog
     
 # rnote files
 *.rnote
