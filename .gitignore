@@ -22,7 +22,8 @@
 .AppleDouble
 .LSOverride
 
-# Icon must end with two 
+# Icon must end with two 
+
 Icon
 
 # Thumbnails
@@ -224,4 +225,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# don't push log files
+*.hoot
+*.log
     
+# rnote files
+*.rnote
