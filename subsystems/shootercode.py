@@ -5,11 +5,13 @@ from wpilib import XboxController
 
 
 class shooterAuto(Subsystem):
-    
+
     def __init__(self):
         self.motor = TalonFX(1)
         self.motor2 = TalonFX(2)
         #insert self.sensor here
+        self.velocity = 0
+        self.angle = 0#%
 
     def getSpinnerAngle(self):
         return self.motor2.get_position
@@ -17,12 +19,11 @@ class shooterAuto(Subsystem):
     def setSpinnerAngle(self, angle):
         self.motor.set(angle)
 
+    def setVelocity(self, velocity):
+        self.velocity.set(velocity)
+
     def getVelocity(self):
         return self.motor2.get_velocity
-    
-    def setVelocity(self, velocity):
-        self.motor.set(velocity)
-        self.motor2.set(velocity)
     
     def getSpinnerSpeed(self):
         return self.motor.get_velocity().value_as_double
