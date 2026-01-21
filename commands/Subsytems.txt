@@ -1,0 +1,7 @@
+Subsytems
+What I have/need
+LEDs, Data
+What data do I track?
+Color, Brightness
+Set/Gets
+Set colors, set brightness, track points scored and ranking points, etc.

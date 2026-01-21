@@ -8,7 +8,7 @@ from wpimath import applyDeadband
 from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
-from subsystems.vision import Vision
+# from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -20,6 +20,12 @@ from ntcore.util import ntproperty
 from wpilib import PowerDistribution, SmartDashboard
 
 from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
+
+from subsystems.leds import Leds
+from commands.ledorange import LedOrange
+from commands.ledrainbow import LedRainbow
+from commands.ledoff import LedOff
+from commands.ledwhite import LedWhite
 
 
 class RobotContainer:
@@ -62,11 +68,11 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        self.vision = Vision(
-            self.drivetrain.add_vision_measurement,
-            lambda: self.drivetrain.get_state().pose,
-            lambda: self.drivetrain.get_state().speeds,
-        )
+        # self.vision = Vision(
+        #     self.drivetrain.add_vision_measurement,
+        #     lambda: self.drivetrain.get_state().pose,
+        #     lambda: self.drivetrain.get_state().speeds,
+        # )
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -78,6 +84,8 @@ class RobotContainer:
 
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.drivetrain)
+
+        self.leds = Leds()
 
     def get_velocity_x(self) -> float:
         # x and y are swapped in wpilib vs/common convention
@@ -141,9 +149,17 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(
-            self.vision.toggle_vision_measurements_command()
-        )
+        # self.driver_controller.x().onTrue(
+        #     self.vision.toggle_vision_measurements_command()
+        # )
+          # while the A button is held, run the led orange command
+        self.driver_controller.a().onTrue(LedOrange(self.leds))
+        # while the B button is held, run the led rainbow command
+        self.driver_controller.b().onTrue(LedRainbow(self.leds))
+        # when the right trigger is pressed, run the led off command
+        self.driver_controller.rightTrigger().onTrue(LedOff(self.leds))
+        # while the Y button is held, run the led white command
+        self.driver_controller.y().onTrue(LedWhite(self.leds))
 
         """Operator"""
         """
@@ -162,3 +178,6 @@ class RobotContainer:
 
     def get_auto_command(self) -> Command:
         return self.auto_chooser.getSelected()
+    
+  
+
