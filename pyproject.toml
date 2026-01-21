@@ -6,7 +6,7 @@
 [tool.robotpy]
 
 # Version of robotpy this project depends on
-robotpy_version = "2026.1.1"
+robotpy_version = "2026.2.1"
 
 # Which optional robotpy components should be installed?
 # -> equivalent to `pip install robotpy[extra1, ...]
@@ -14,9 +14,9 @@ components = [
     #"all",
     # "apriltag",
     "commands2",
-    "phoneix6",
+    "phoenix6",
     "rev",
-    "photonvision",
+    # "photonvision",
     "pathplannerlib",
     # "cscore",
     # "romi",
