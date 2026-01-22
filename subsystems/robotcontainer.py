@@ -5,15 +5,15 @@ from commands.intake import IntakeCommand
 from commands.score import Score
 from commands.score_slow import ScoreSlow
 from subsystems.my_subsystem import MySubsystem
-from subsystems.leds import LEDSubsystem
-from shootercode import shooterAuto
+from subsystems.leds import lights
+from shootercode import Shooter
 
 class RobotContainer:
     def __init__(self):
-        self.leds = LEDSubsystem()
+        self.leds = lights()
         self.joystick = CommandXboxController(0)
         self.intake = MySubsystem()
-        self.shooterAuto = shooterAuto()
+        self.shooterAuto = Shooter()
 
     def set_teleop_bindings(self):
         # while the left trigger is held, run the intake command
