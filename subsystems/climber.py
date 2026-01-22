@@ -20,38 +20,18 @@ class climber(commands2.Subsystem):
     def __init__(self):
         #def motors
         #def uhh... other stuff
-        self.leftElevator=TalonFX(1)
-        self.rightElevator=TalonFX(2)
-        self.leftClimber=TalonFX(3)
-        self.rightClimber=TalonFX(4)
-        self.elevatorPair=(self.leftElevator,self.rightElevator)
-        self.climberPair=(self.leftClimber,self.rightElevator)
-
-    def autoInit(self):
-        #get ready for auto
-        #double check everything works
-        pass
-
-    def autoPeriodic(self):
-        #do auto
-        #auto upkeep
-        pass
-
-    def teleopInit(self):
-        #stop auto
-        #start getting down from l1
-        pass
-
-    def teleopPeriodic(self):
-        #do what driver tells me
-        #teleop upkeep
-        #comfort features
-        pass
+        self.L_Elevator=TalonFX(1)
+        self.R_Elevator=TalonFX(2)
+        self.L_Climber=TalonFX(3)
+        self.R_Climber=TalonFX(4)
+        self.elevatorPair=(self.L_Elevator,self.R_Elevator)
+        self.climberPair=(self.L_Climber,self.R_Climber)
 
     def periodic(self):
         pass
 
-    def set(self,positionMeWanty):
+    def set_height(self,positionMeWanty):
+        
         pass
 
     def test(self):
