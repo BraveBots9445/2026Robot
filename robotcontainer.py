@@ -42,18 +42,14 @@ class RobotContainer:
         self._drive = (
             swerve.requests.FieldCentric()
             .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(
-                swerve.SwerveModule.DriveRequestType.OPEN_LOOP_VOLTAGE
-            )
-        )  # Use open-loop control for drive motors
+            .with_drive_request_type(swerve.SwerveModule.DriveRequestType.VELOCITY)
+        )
 
         self._robot_drive = (
             swerve.requests.RobotCentric()
             .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(
-                swerve.SwerveModule.DriveRequestType.OPEN_LOOP_VOLTAGE
-            )
-        )  # Use open-loop control for drive motors
+            .with_drive_request_type(swerve.SwerveModule.DriveRequestType.VELOCITY)
+        )
 
         self._brake = swerve.requests.SwerveDriveBrake()
         self._point = swerve.requests.PointWheelsAt()
