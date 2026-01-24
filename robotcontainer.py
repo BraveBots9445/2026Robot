@@ -58,7 +58,6 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        Rotation3d.toRotation2d
         self.vision = Vision(
             lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
                 Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
