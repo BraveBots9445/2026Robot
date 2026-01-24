@@ -5,7 +5,7 @@ from commands2 import (
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d
+from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d, Pose3d
 from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
@@ -20,6 +20,8 @@ from ntcore.util import ntproperty
 from wpilib import PowerDistribution, SmartDashboard
 
 from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
+
+from fuelFlightPathCalculations import FuelPositionCalculator
 
 
 class RobotContainer:
@@ -58,7 +60,6 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        Rotation3d.toRotation2d
         self.vision = Vision(
             lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
                 Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
@@ -77,6 +78,18 @@ class RobotContainer:
 
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.drivetrain)
+
+        self.fuelCalculator = FuelPositionCalculator(
+            lambda: self.drivetrain.get_state().speeds,
+            lambda: Pose3d(self.drivetrain.get_state().pose),
+            lambda: Rotation2d(),
+            lambda: Rotation2d.fromDegrees(45),
+            lambda: 3000,
+            # lambda: self.vision.getTurretAngle(),
+            # lambda: self.vision.getHoodAngle(),
+            # lambda: self.vision.getShooterWheelSpeed(),
+            0.0762,  # shooter wheel radius in meters (3 inches)
+        )
 
     def get_velocity_x(self) -> float:
         # x and y are swapped in wpilib vs/common convention
