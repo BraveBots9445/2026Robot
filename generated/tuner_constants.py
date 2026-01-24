@@ -50,7 +50,7 @@ class TunerConstants:
 
     # The remote sensor feedback type to use for the steer motors;
     # When not Pro-licensed, Fused*/Sync* automatically fall back to Remote*
-    _steer_feedback_type = swerve.SteerFeedbackType.FUSED_CANCODER
+    _steer_feedback_type = swerve.SteerFeedbackType.REMOTE_CANCODER
 
     # The stator current at which the wheels start to slip;
     # This needs to be tuned to your individual robot
@@ -75,7 +75,7 @@ class TunerConstants:
 
     # Theoretical free speed (m/s) at 12 V applied output;
     # This needs to be tuned to your individual robot
-    speed_at_12_volts: units.meters_per_second = 1
+    speed_at_12_volts: units.meters_per_second = 3
 
     # Every 1 rotation of the azimuth results in _couple_ratio drive motor turns;
     # This may need to be tuned to your individual robot

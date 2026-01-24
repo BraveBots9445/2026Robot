@@ -3,12 +3,11 @@ from typing import Callable
 from commands2 import Command, InstantCommand, Subsystem
 from wpilib import RobotBase, SmartDashboard
 from math import e, pi
-from ntcore import NetworkTableInstance
-from photonlibpy import photonCamera, photonPoseEstimator
-
+from ntcore import NetworkTableInstance, StructArrayPublisher
+from ntcore.util import ntproperty
 
 from robotpy_apriltag import AprilTagFieldLayout, AprilTagField
-from wpimath.units import inchesToMeters
+from wpimath.units import inchesToMeters, degreesToRadians
 from wpimath.geometry import (
     Pose2d,
     Translation3d,
@@ -28,294 +27,219 @@ from wpimath.kinematics import ChassisSpeeds
 
 from wpilib import RobotBase
 
+from photonlibpy.simulation import visionSystemSim
+
+from .visionCamera import VisionCamera
+
 
 class Vision(Subsystem):
-    enabled: bool = True
+    _enabled = ntproperty("000Vision/Enabled", True)
 
-    strategy: photonPoseEstimator.PoseStrategy = (
-        photonPoseEstimator.PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR
+    # these names and their associated positions are fake
+    _turretCamera: VisionCamera
+    _frontLeftCamera: VisionCamera
+    _frontRightCamera: VisionCamera
+    _rearCamera: VisionCamera
+
+    # TODO: The below offsets are all garbage from copilot
+    _turretCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(0), inchesToMeters(0), inchesToMeters(10)),
+        Rotation3d(0, 0, 0),
     )
 
-    max_omega: degrees_per_second = 90
-    max_velocity: meters_per_second = 4
+    _frontLeftCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(10), inchesToMeters(10), inchesToMeters(10)),
+        Rotation3d.fromDegrees(0, 0, 45),
+    )
 
-    std_devs = (1, 1, pi / 2)
-    std_dev_target_factor = 1.75
+    _frontRightCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(10), inchesToMeters(-10), inchesToMeters(10)),
+        Rotation3d.fromDegrees(0, 0, -45),
+    )
+
+    _rearCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(-10), inchesToMeters(0), inchesToMeters(10)),
+        Rotation3d.fromDegrees(0, 0, 180),
+    )
+
+    _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
+        # AprilTagField.kDefaultField
+        AprilTagField.k2026RebuiltWelded
+    )
+
+    _getRobotPose: Callable[[], Pose2d] | None
+
+    _poseEstPub: StructArrayPublisher
+    """
+    A publisher for the estimated positions from each camera to be sent to the dashboard/advantagescope
+    sends list[Pose2d]
+    """
+
+    _detectedTagsPub: StructArrayPublisher
+    """
+    A publisher to send the list of currently detected tags to the dashboard/advantagescope 
+    sends list[Pose3d]
+    """
 
     def __init__(
         self,
-        log_vision_measurement: Callable[
-            [Pose2d, seconds, tuple[meters, meters, radians]], None
+        logVisionMeasurement: Callable[
+            [Pose3d, int, tuple[float, float, float] | None], None
         ],
-        get_robot_pose: Callable[[], Pose2d],
-        get_robot_velocity: Callable[[], ChassisSpeeds],
+        getRobotVelocity: Callable[[], ChassisSpeeds],
+        getRobotPose: Callable[[], Pose2d],
     ):
-        self.field_layout = AprilTagFieldLayout.loadField(AprilTagField.kDefaultField)
-        self.log_vision_measurement = log_vision_measurement
-        self.get_robot_pose = get_robot_pose
-        self.get_speeds = get_robot_velocity
+        """
+        Construct the Vision subsystem
 
-        self.nettable = NetworkTableInstance.getDefault().getTable("Vision")
-        self.sightline_pub = self.nettable.getStructArrayTopic(
-            "VisibleTargets", Pose3d
+        :param logVisionMeasurement: A callable to add vision measurement results to the drivetrain
+        :type logVisionMeasurement: Callable[[Pose2d, int, tuple[float, float, float] | None], None]
+        :param getRobotVelocity: A callable to get the current robot velocity
+        :type getRobotVelocity: Callable[[], ChassisSpeeds]
+        :param getRobotPose: A callable to get the current robot pose for simulation purposes only
+        :type getRobotPose: Callable[[], Pose2d]
+        """
+        self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
+
+        self._turretCamera = VisionCamera(
+            "TurretCamera",
+            self._tagLayout,
+            self._turretCameraToRobot,
+            lambda _arg1, _arg2, _arg3: None,  # the turret never does pose estimation - it just tracks targets
+            lambda: ChassisSpeeds(0, 0, 0),
+        )
+
+        self._frontLeftCamera = VisionCamera(
+            "FrontLeftCamera",
+            self._tagLayout,
+            self._frontLeftCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
+
+        self._frontRightCamera = VisionCamera(
+            "FrontRightCamera",
+            self._tagLayout,
+            self._frontRightCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
+
+        self._rearCamera = VisionCamera(
+            "RearCamera",
+            self._tagLayout,
+            self._rearCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
+
+        self._poseEstPub = self.nettable.getStructArrayTopic(
+            "EstimatedPoses",
+            Pose2d,
         ).publish()
-        self.pose_est_pub = self.nettable.getStructArrayTopic(
-            "EstimatedPoses", Pose3d
+
+        self._detectedTagsPub = self.nettable.getStructArrayTopic(
+            "DetectedTags",
+            Pose3d,
         ).publish()
 
-        self.to_fl = Transform3d(
-            Translation3d(inchesToMeters(14), inchesToMeters(14), inchesToMeters(7)),
-            Rotation3d.fromDegrees(0, 15, -25),
-        )
-        self.fl = photonCamera.PhotonCamera("Arducam_FL (1)")
-
-        self.to_fr = Transform3d(
-            Translation3d(inchesToMeters(14), -inchesToMeters(14), inchesToMeters(7)),
-            Rotation3d.fromDegrees(0, 15, 25),
-        )
-        self.fr = photonCamera.PhotonCamera("Arducam_FR")
-
-        self.to_bl = Transform3d(
-            Translation3d(-inchesToMeters(14), inchesToMeters(14), inchesToMeters(7)),
-            Rotation3d.fromDegrees(0, 15, -155),
-        )
-        self.bl = photonCamera.PhotonCamera("Arducam_BL")
-
-        self.to_br = Transform3d(
-            Translation3d(-inchesToMeters(14), -inchesToMeters(14), inchesToMeters(7)),
-            Rotation3d.fromDegrees(0, 15, 155),
-        )
-        self.br = photonCamera.PhotonCamera("Arducam_BR")
-
-        self.fl_est = photonPoseEstimator.PhotonPoseEstimator(
-            self.field_layout,
-            self.strategy,
-            self.fl,
-            self.to_fl,
-        )
-        self.fr_est = photonPoseEstimator.PhotonPoseEstimator(
-            self.field_layout,
-            self.strategy,
-            self.fr,
-            self.to_fr,
-        )
-        self.bl_est = photonPoseEstimator.PhotonPoseEstimator(
-            self.field_layout,
-            self.strategy,
-            self.bl,
-            self.to_bl,
-        )
-        self.br_est = photonPoseEstimator.PhotonPoseEstimator(
-            self.field_layout,
-            self.strategy,
-            self.br,
-            self.to_br,
-        )
-
-        if False and RobotBase.isSimulation():
-            from photonlibpy.simulation import (
-                visionSystemSim,
-                simCameraProperties,
-                photonCameraSim,
+        if RobotBase.isSimulation():
+            self._getRobotPose = getRobotPose
+            self._visionSim = visionSystemSim.VisionSystemSim("photonvisionSim")
+            self._visionSim.addAprilTags(self._tagLayout)
+            self._visionSim.addCamera(self._turretCamera.getCameraSim(), self._turretCameraToRobot)  # type: ignore
+            self._visionSim.addCamera(
+                self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
             )
-
-            self.vision_sim = visionSystemSim.VisionSystemSim("Vision Sim")
-            self.vision_sim.addAprilTags(self.field_layout)
-            # TODO: Determine based on our cameras
-            camera_properties = simCameraProperties.SimCameraProperties()
-            camera_properties.setCalibrationFromFOV(
-                1920,
-                1080,
-                Rotation2d.fromDegrees(105),
-                # 1280,
-                # 720,
-                # Rotation2d.fromDegrees(68.5),
+            self._visionSim.addCamera(
+                self._frontRightCamera.getCameraSim(), self._frontRightCameraToRobot  # type: ignore
             )
-            # camera_properties.setCalibError(0.35, 0.1)
-            camera_properties.setFPS(15)
-            camera_properties.setAvgLatency(50 / 1000)
-            camera_properties.setLatencyStdDev(15 / 1000)
-
-            fl_sim = photonCameraSim.PhotonCameraSim(self.fl, camera_properties)
-            fr_sim = photonCameraSim.PhotonCameraSim(self.fr, camera_properties)
-            bl_sim = photonCameraSim.PhotonCameraSim(self.bl, camera_properties)
-            br_sim = photonCameraSim.PhotonCameraSim(self.br, camera_properties)
-
-            self.vision_sim.addCamera(fl_sim, self.to_fl)
-            self.vision_sim.addCamera(fr_sim, self.to_fr)
-            self.vision_sim.addCamera(bl_sim, self.to_bl)
-            self.vision_sim.addCamera(br_sim, self.to_br)
-
-            for k, v in [
-                ("fl", self.to_fl),
-                ("fr", self.to_fr),
-                ("bl", self.to_bl),
-                ("br", self.to_br),
-            ]:
-                self.nettable.putNumber(f"{k}/x", v.X())
-                self.nettable.putNumber(f"{k}/y", v.Y())
-                self.nettable.putNumber(f"{k}/z", v.Z())
-                self.nettable.putNumber(f"{k}/roll", v.rotation().x)
-                self.nettable.putNumber(f"{k}/pitch", v.rotation().y)
-                self.nettable.putNumber(f"{k}/yaw", v.rotation().z)
-
-            # Not yet implemented in photonlibpy
-            # See https://github.com/BrysonSmith15/PhotonvisionWireframeNetworkTables
-            # for instructions on viewing simulated vision data with wireframe
-            # fl_sim.enableDrawWireframe(True)
-            # fr_sim.enableDrawWireframe(True)
-            # bl_sim.enableDrawWireframe(True)
-            # br_sim.enableDrawWireframe(True)
-            SmartDashboard.putData(self.vision_sim.getDebugField())
+            self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
+            SmartDashboard.putData(self._visionSim.getDebugField())
 
     def periodic(self) -> None:
-        self.nettable.putBoolean("Enabled", self.enabled)
-        speeds = self.get_speeds()
-        if (
-            not self.enabled
-            or abs(speeds.omega_dps) > self.max_omega
-            or abs(speeds.vx) >= self.max_velocity
-            or abs(speeds.vy) >= self.max_velocity
-        ):
-            self.sightline_pub.set([])
-            self.pose_est_pub.set([])
+        # turret camera does not do pose estimation
+
+        if not self._enabled:
             return
-        seen_ids: list[int] = []
-        estimated_poses: list[Pose3d] = []
+        estFL, tagsFL = self._frontLeftCamera.update()
+        estFR, tagsFR = self._frontRightCamera.update()
+        estR, tagsR = self._rearCamera.update()
+        _estTu, tagsTu = self._turretCamera.update()
 
-        fr_est = self.fr_est.update()
-        if fr_est:
-            if len(fr_est.targetsUsed) > 0:
-                fr_pose = fr_est.estimatedPose.toPose2d()
-                dist = fr_est.estimatedPose.translation().distance(
-                    self.to_fr.translation()
-                )
-                self.log_vision_measurement(
-                    fr_pose,
-                    fr_est.timestampSeconds,
-                    self._calc_std_dev(dist, len(fr_est.targetsUsed)),
-                )
-
-                seen_ids.extend([target.fiducialId for target in fr_est.targetsUsed])
-
-                estimated_poses.append(fr_est.estimatedPose)
-
-        fl_est = self.fl_est.update()
-        if fl_est:
-            if len(fl_est.targetsUsed) > 0:
-                fl_pose = fl_est.estimatedPose.toPose2d()
-                dist = fl_est.estimatedPose.translation().distance(
-                    self.to_fl.translation()
-                )
-                self.log_vision_measurement(
-                    fl_pose,
-                    fl_est.timestampSeconds,
-                    self._calc_std_dev(dist, len(fl_est.targetsUsed)),
-                )
-
-                seen_ids.extend([target.fiducialId for target in fl_est.targetsUsed])
-                estimated_poses.append(fl_est.estimatedPose)
-
-        bl_est = self.bl_est.update()
-        if bl_est:
-            if len(bl_est.targetsUsed) > 0:
-                bl_pose = bl_est.estimatedPose.toPose2d()
-                dist = bl_est.estimatedPose.translation().distance(
-                    self.to_bl.translation()
-                )
-                self.log_vision_measurement(
-                    bl_pose,
-                    bl_est.timestampSeconds,
-                    self._calc_std_dev(dist, len(bl_est.targetsUsed)),
-                )
-
-                seen_ids.extend([target.fiducialId for target in bl_est.targetsUsed])
-                estimated_poses.append(bl_est.estimatedPose)
-
-        br_est = self.br_est.update()
-        if br_est:
-            if len(br_est.targetsUsed) > 0:
-                br_pose = br_est.estimatedPose.toPose2d()
-                dist = br_est.estimatedPose.translation().distance(
-                    self.to_br.translation()
-                )
-                self.log_vision_measurement(
-                    br_pose,
-                    br_est.timestampSeconds,
-                    self._calc_std_dev(dist, len(br_est.targetsUsed)),
-                )
-
-                seen_ids.extend([target.fiducialId for target in br_est.targetsUsed])
-                estimated_poses.append(br_est.estimatedPose)
-
-        self.sightline_pub.set([self.field_layout.getTagPose(id) for id in seen_ids])
-        self.pose_est_pub.set(estimated_poses)
-
-    def simulationPeriodic(self) -> None:
-        self.vision_sim.update(self.get_robot_pose())
-
-    # calculate standard deviation based on the target distance
-    def _calc_std_dev(
-        self, dist: float, targets_used: int = 1
-    ) -> tuple[float, float, float]:
-        # stddevs increase with distance, 0 is full trust. Distance is in meters
-        return (
-            (self.std_dev_target_factor**-targets_used) * self.std_devs[0] * dist**2,
-            (self.std_dev_target_factor**-targets_used) * self.std_devs[1] * dist**2,
-            (self.std_dev_target_factor**-targets_used) * self.std_devs[2] * dist**2,
+        self._poseEstPub.set(
+            []
+            + ([self._pose3dToPose2d(estFL)] if estFL is not None else [])
+            + ([self._pose3dToPose2d(estFR)] if estFR is not None else [])
+            + ([self._pose3dToPose2d(estR)] if estR is not None else [])
+        )
+        self._detectedTagsPub.set(
+            list(
+                self._tagLayout.getTagPose(tag)
+                for tag in tagsFL + tagsFR + tagsR + tagsTu
+            )
         )
 
-    def disable_measurements(self) -> None:
-        self.enabled = False
+    def simulationPeriodic(self) -> None:
+        # self._getRobotPose should never be None in simulation, so type: ignore is safe
+        self._visionSim.update(self._getRobotPose())  # type: ignore
 
-    def enable_measurements(self) -> None:
-        self.enabled = True
+    def setEnabled(self, enabled: bool) -> None:
+        """
+        Enable or disable vision processing
 
-    def toggle_vision_measurements(self) -> None:
-        self.enabled = not self.enabled
+        :param enabled: Whether vision processing should be enabled
+        :type enabled: bool
+        """
+        self._enabled = enabled
 
-    def toggle_vision_measurements_command(self) -> Command:
-        return InstantCommand(self.toggle_vision_measurements)
+    def toggleEnabled(self) -> None:
+        """
+        Toggle whether vision processing is enabled
+        """
+        self._enabled = not self._enabled
 
-    def get_offset_to_target(self, target_id: int) -> Transform3d | None:
-        # performance might be an issue with using all of the readings and averaging,
-        # but it should be more accurate and it should not happen often.
-        out_options: list[Transform3d] = []
-        for camera, offset in zip(
-            [self.fl, self.fr, self.bl, self.br],
-            [self.to_fl, self.to_fr, self.to_bl, self.to_br],
-        ):
-            results = camera.getLatestResult()
-            for result in results.getTargets():
-                if result.fiducialId == target_id:
-                    out_options.append(offset + result.getBestCameraToTarget())
+    def isEnabled(self) -> bool:
+        """
+        Check whether vision processing is enabled
+        :return: True if vision processing is enabled, False otherwise
+        """
+        return self._enabled
 
-        if len(out_options) == 0:
-            return None
-        # average the values in out_options
-        x: meters = 0
-        y: meters = 0
-        z: meters = 0
-        roll: radians = 0
-        pitch: radians = 0
-        yaw: radians = 0
-        for option in out_options:
-            x += option.X()
-            y += option.Y()
-            z += option.Z()
-            roll += option.rotation().x
-            pitch += option.rotation().y
-            yaw += option.rotation().z
-        x /= len(out_options)
-        y /= len(out_options)
-        z /= len(out_options)
-        roll /= len(out_options)
-        pitch /= len(out_options)
-        yaw /= len(out_options)
-        return Transform3d(Translation3d(x, y, z), Rotation3d(roll, pitch, yaw + pi))
+    def toggleEnabledCommand(self) -> Command:
+        """
+        Get a command that toggles whether vision processing is enabled
 
-    def _transform3d_to_pose3d(self, transform: Transform3d) -> Pose3d:
-        return Pose3d(transform.translation(), transform.rotation())
+        :return: A command that toggles vision processing
+        :rtype: Command
+        """
+        return InstantCommand(self.toggleEnabled, self)
 
-    def _pose3d_to_transform3d(self, pose: Pose3d) -> Transform3d:
-        return Transform3d(pose.translation(), pose.rotation())
+    def enableCommand(self) -> Command:
+        """
+        Get a command that enables vision processing
+
+        :return: A command that enables vision processing
+        :rtype: Command
+        """
+        return InstantCommand(lambda: self.setEnabled(True), self)
+
+    def disableCommand(self) -> Command:
+        """
+        Get a command that disables vision processing
+
+        :return: A command that disables vision processing
+        :rtype: Command
+        """
+        return InstantCommand(lambda: self.setEnabled(False), self)
+
+    def _pose3dToPose2d(self, pose3d: Pose3d) -> Pose2d:
+        """
+        Convert a Pose3d to a Pose2d by dropping the z component and converting rotation
+
+        :param pose3d: The Pose3d to convert
+        :type pose3d: Pose3d
+        :return: The converted Pose2d
+        :rtype: Pose2d
+        """
+        return Pose2d(pose3d.X(), pose3d.Y(), pose3d.rotation().toRotation2d())
