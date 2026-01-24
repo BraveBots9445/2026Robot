@@ -29,7 +29,9 @@ from phoenix6.configs import (
     Slot0Configs,
     FeedbackConfigs,
     CurrentLimitsConfigs,
+    MotorOutputConfigs,
 )
+from phoenix6.signals import NeutralModeValue
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotations_per_second
 from phoenix6.controls import VelocityVoltage, Follower
@@ -92,15 +94,15 @@ class Shooter(Subsystem):
 
     _flywheelSlot0Configs: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(0)
+        .with_k_p(0.01)
         .with_k_i(0)
-        .with_k_d(0)
+        .with_k_d(0.0)
         .with_k_s(0)
-        .with_k_v(0.01)
+        .with_k_v(0)
         .with_k_a(0)
     )
 
-    _gearRatio: float = 1 / 1
+    _gearRatio: float = 1 / 4
     """
     The ratio between rotations of the motor and rotations of the flywheel
     This is calculated as (flywheel rotations) / (motor rotations)
@@ -237,13 +239,22 @@ class Shooter(Subsystem):
             TalonFXConfiguration()
             .with_slot0(self._flywheelSlot0Configs)
             .with_feedback(
-                FeedbackConfigs().with_sensor_to_mechanism_ratio(self._gearRatio)
+                FeedbackConfigs().with_sensor_to_mechanism_ratio(
+                    self._gearRatio * kSECONDS_PER_MINUTE
+                )
             )
             .with_current_limits(currentLimits)
+            .with_motor_output(
+                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
+            )
         )
 
-        self._flywheelFollowerConfig = TalonFXConfiguration().with_current_limits(
-            currentLimits
+        self._flywheelFollowerConfig = (
+            TalonFXConfiguration()
+            .with_current_limits(currentLimits)
+            .with_motor_output(
+                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
+            )
         )  # this will follow, so no closed loop configuration
 
         self._flywheelMasterMotor.configurator.apply(self._flywheelMasterConfig)
@@ -326,7 +337,7 @@ class Shooter(Subsystem):
         self._getFollowerDutyCycleSignal.refresh()
 
         # log data
-        flywheelVelocity = self.getFlywheelVelocity() * kSECONDS_PER_MINUTE
+        flywheelVelocity = self.getFlywheelVelocity()
         desiredFlywheelVelocity = self.getFlywheelSetpoint()
         hoodAngle = self.getHoodAngle()
         hoodAngleSetpoint = self.getHoodAngleSetpoint()
@@ -353,7 +364,10 @@ class Shooter(Subsystem):
 
         # set controls
         self._flywheelMasterMotor.set_control(
-            VelocityVoltage(self._flyWheelSetpoint * kSECONDS_PER_MINUTE)
+            VelocityVoltage(
+                self._flyWheelSetpoint
+                / self._flywheelMasterConfig.feedback.sensor_to_mechanism_ratio
+            )
         )
 
         class tmpBool:  # this is to make set_control not fail when calling .value on the bool passed in
@@ -365,8 +379,9 @@ class Shooter(Subsystem):
 
     def simulationPeriodic(self) -> None:
         self._flywheelSim.setInput(
-            [self._flywheelMasterMotor.get_motor_voltage().value_as_double]
+            [self._flywheelMasterMotor.get_motor_voltage().value_as_double * 2]
         )
+        print(self._flywheelMasterMotor.get_motor_voltage().value_as_double * 2)
         self._flywheelSim.update(0.02)
         self._flywheelSim.getAngularVelocity()
 
@@ -427,7 +442,11 @@ class Shooter(Subsystem):
         :rtype: revolutions_per_minute
         """
         # refreshes in periodic
-        return self._getVelocitySignal.value_as_double / kSECONDS_PER_MINUTE
+        return (
+            self._getVelocitySignal.value_as_double
+            * kSECONDS_PER_MINUTE
+            * self._gearRatio
+        )
 
     def _tmpSetVelocityCommand(self, velocity: revolutions_per_minute) -> Command:
         """
@@ -460,13 +479,7 @@ class Shooter(Subsystem):
         """
 
         hoodAngle = self.getHoodAngle()
-        muzzleVelocity = (
-            self.getFlywheelVelocity()
-            * 2
-            * pi
-            * self._flywheelRadius
-            * kSECONDS_PER_MINUTE
-        )
+        muzzleVelocity = self.getFlywheelVelocity() * 2 * pi * self._flywheelRadius
 
         v0 = muzzleVelocity * hoodAngle.sin()
         det = (v0**2) - 2 * 9.81 * (launchHeight - impactHeight)
