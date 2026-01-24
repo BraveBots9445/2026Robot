@@ -113,10 +113,25 @@ class Telemetry:
             module_targets_array.append(state.module_targets[i].angle.radians())
             module_targets_array.append(state.module_targets[i].speed)
 
-        SignalLogger.write_double_array("DriveState/Pose", pose_array)
-        SignalLogger.write_double_array("DriveState/ModuleStates", module_states_array)
-        SignalLogger.write_double_array(
-            "DriveState/ModuleTargets", module_targets_array
+        # SignalLogger.write_double_array("DriveState/Pose", pose_array)
+        # SignalLogger.write_double_array("DriveState/ModuleStates", module_states_array)
+        # SignalLogger.write_double_array("DriveState/ModuleTargets", module_targets_array)
+        # SignalLogger.write_double("DriveState/OdometryPeriod", state.odometry_period, "seconds")
+
+        SignalLogger.write_struct(
+            "DriveState/Pose", Pose2d, state.pose
+        )
+        SignalLogger.write_struct(
+            "DriveState/Speeds", ChassisSpeeds, state.speeds
+        )
+        SignalLogger.write_struct_array(
+            "DriveState/ModuleStates", SwerveModuleState, state.module_states
+        )
+        SignalLogger.write_struct_array(
+            "DriveState/ModuleTargets", SwerveModuleState, state.module_targets
+        )
+        SignalLogger.write_struct_array(
+            "DriveState/ModulePositions", SwerveModulePosition, state.module_positions
         )
         SignalLogger.write_double(
             "DriveState/OdometryPeriod", state.odometry_period, "seconds"

@@ -8,7 +8,7 @@ from wpimath import applyDeadband
 from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
-from subsystems.vision import Vision
+# from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -21,6 +21,9 @@ from wpilib import PowerDistribution, SmartDashboard
 
 from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 
+from subsystems.turret import Turret
+from commands.turretByStick import TurretByStick
+from commands.turretToRotation import TurretToRotation
 
 class RobotContainer:
     _max_speed_percent = ntproperty("MaxVelocityPercent", 1.0)
@@ -62,11 +65,11 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        self.vision = Vision(
-            self.drivetrain.add_vision_measurement,
-            lambda: self.drivetrain.get_state().pose,
-            lambda: self.drivetrain.get_state().speeds,
-        )
+        # self.vision = Vision(
+        #     self.drivetrain.add_vision_measurement,
+        #     lambda: self.drivetrain.get_state().pose,
+        #     lambda: self.drivetrain.get_state().speeds,
+        # )
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -76,8 +79,11 @@ class RobotContainer:
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
+        self.turret = Turret()
+
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.drivetrain)
+        SmartDashboard.putData(self.turret)
 
     def get_velocity_x(self) -> float:
         # x and y are swapped in wpilib vs/common convention
@@ -141,9 +147,18 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(
-            self.vision.toggle_vision_measurements_command()
+        # self.driver_controller.x().onTrue(
+        #     self.vision.toggle_vision_measurements_command()
+        # )
+
+        self.turret.setDefaultCommand(
+            TurretByStick( self.turret, lambda: self.driver_controller.getLeftTriggerAxis() - self.driver_controller.getRightTriggerAxis() )
         )
+        self.driver_controller.y().onTrue( TurretToRotation( self.turret, 0 ) )
+        self.driver_controller.x().onTrue( TurretToRotation( self.turret, 90 ) )
+        self.driver_controller.a().onTrue( TurretToRotation( self.turret, 180 ) )
+        self.driver_controller.b().onTrue( TurretToRotation( self.turret, -90 ) )
+        
 
         """Operator"""
         """
