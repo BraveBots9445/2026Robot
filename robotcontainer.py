@@ -151,6 +151,16 @@ class RobotContainer:
         Insert code here for the secondary driver
         """
 
+        self.operator_controller.a().onTrue(
+            self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(30))
+        )
+        self.operator_controller.b().onTrue(
+            self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(0))
+        )
+
+        self.operator_controller.x().onTrue(self.shooter._tmpSetVelocityCommand(3000))
+        self.operator_controller.y().onTrue(self.shooter._tmpSetVelocityCommand(0))
+
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
         self.test_remote = CommandXboxController(2)

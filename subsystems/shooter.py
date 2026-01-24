@@ -5,7 +5,7 @@ from commands2 import Subsystem, Command
 
 from ntcore import NetworkTable, NetworkTableInstance, DoublePublisher, StructPublisher
 
-from wpilib import Servo, Mechanism2d, MechanismLigament2d
+from wpilib import Servo, Mechanism2d, MechanismLigament2d, SmartDashboard
 from wpilib.simulation import FlywheelSim
 
 from wpimath.units import (
@@ -96,7 +96,7 @@ class Shooter(Subsystem):
         .with_k_i(0)
         .with_k_d(0)
         .with_k_s(0)
-        .with_k_v(0)
+        .with_k_v(0.01)
         .with_k_a(0)
     )
 
@@ -108,12 +108,12 @@ class Shooter(Subsystem):
 
     ########################## SETPOINTS ##########################
 
-    _flyWheelSetpoint: revolutions_per_minute
+    _flyWheelSetpoint: revolutions_per_minute = 0
     """
     The target speed for the flywheel in RPM
     """
 
-    _hoodAngleSetpoint: Rotation2d
+    _hoodAngleSetpoint: Rotation2d = Rotation2d()
     """
     The desired hood angle that the fuel should launch from 
     This is measured from the horizontal 
@@ -281,6 +281,13 @@ class Shooter(Subsystem):
             "Flywheel/FollowerMotorCurrentAmps"
         ).publish()
 
+        self._masterMotorDutyCyclePub = self._nettable.getDoubleTopic(
+            "Flywheel/MasterMotorDutyCycle"
+        ).publish()
+        self._followerMotorDutyCyclePub = self._nettable.getDoubleTopic(
+            "Flywheel/FollowerMotorDutyCycle"
+        ).publish()
+
         self._actualHoodAnglePub = self._nettable.getStructTopic(
             "Hood/ActualAngle", Rotation2d
         ).publish()
@@ -305,6 +312,10 @@ class Shooter(Subsystem):
             ),
             DCMotor.krakenX60(2),
         )
+
+        SmartDashboard.putData("Shooter Flywheel Mech", flywheelMech)
+        SmartDashboard.putData("Shooter Hood Mech", hoodMech)
+        SmartDashboard.putData("Shooter", self)
 
     def periodic(self) -> None:
         # refresh signals
@@ -344,11 +355,18 @@ class Shooter(Subsystem):
         self._flywheelMasterMotor.set_control(
             VelocityVoltage(self._flyWheelSetpoint * kSECONDS_PER_MINUTE)
         )
+
+        class tmpBool:  # this is to make set_control not fail when calling .value on the bool passed in
+            value: bool = True
+
         self._flywheelFollowerMotor.set_control(
-            Follower(self._flywheelMasterMotor.device_id, True)
+            Follower(self._flywheelMasterMotor.device_id, tmpBool())  # type: ignore
         )
 
     def simulationPeriodic(self) -> None:
+        self._flywheelSim.setInput(
+            [self._flywheelMasterMotor.get_motor_voltage().value_as_double]
+        )
         self._flywheelSim.update(0.02)
         self._flywheelSim.getAngularVelocity()
 
