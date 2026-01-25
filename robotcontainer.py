@@ -5,10 +5,18 @@ from commands2 import (
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d
-from wpimath.units import inchesToMeters
+from wpimath.geometry import (
+    Transform2d,
+    Rotation2d,
+    Pose2d,
+    Rotation3d,
+    Pose3d,
+    Transform3d,
+)
+from wpimath.units import inchesToMeters, meters_per_second
 
 from subsystems.vision import Vision
+from subsystems.shootOnMoveCalculator import ShootOnMoveCalculator
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -64,6 +72,18 @@ class RobotContainer:
             ),
             lambda: self.drivetrain.get_state().speeds,
             lambda: self.drivetrain.get_state().pose,
+        )
+
+        self.shootOnMoveCalculator = ShootOnMoveCalculator(
+            # lambda: Pose3d(self.drivetrain.get_state().pose),
+            lambda: Pose3d(),
+            lambda: self.drivetrain.get_state().speeds,
+            Transform3d(),
+            lambda v: v / inchesToMeters(4),
+            meters_per_second(0),
+            meters_per_second(20),
+            Rotation2d.fromDegrees(15),
+            Rotation2d.fromDegrees(70),
         )
 
         self.drivetrain.register_telemetry(

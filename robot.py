@@ -4,10 +4,15 @@ from wpilib import (
     TimedRobot,
     run,
     DataLogManager,
+    Mechanism2d,
+    SmartDashboard,
 )
 import wpilib
 
 from robotcontainer import RobotContainer
+
+from subsystems.shootOnMoveCalculator import StateSetpoint, ShootOnMoveCalculator
+from wpimath.geometry import Pose3d, Rotation3d
 
 
 class Robot(TimedRobot):
@@ -71,10 +76,28 @@ class Robot(TimedRobot):
 
     # Simulation Robot Functions
     def _simulationInit(self) -> None:
-        pass
+        turretAngleMech = Mechanism2d(100, 100)
+        self.turretAngleIndicator = turretAngleMech.getRoot(
+            "Turret Angle", 50, 50
+        ).appendLigament("Turret", 40, 0)
+
+        hoodAngleMech = Mechanism2d(100, 100)
+        self.hoodAngleIndicator = hoodAngleMech.getRoot(
+            "Hood Angle", 50, 50
+        ).appendLigament("Hood", 40, 0)
+
+        self.shootOnMoveCalculator = self.m_robotContainer.shootOnMoveCalculator
+
+        SmartDashboard.putData("Turret Angle Mech", turretAngleMech)
+        SmartDashboard.putData("Hood Angle Mech", hoodAngleMech)
 
     def _simulationPeriodic(self) -> None:
-        pass
+        stateSetpoint: StateSetpoint | None = self.shootOnMoveCalculator.getSetpoints(
+            Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
+        )
+        if stateSetpoint is not None:
+            self.turretAngleIndicator.setAngle(stateSetpoint.turretAngle.degrees())
+            self.hoodAngleIndicator.setAngle(stateSetpoint.hoodAngle.degrees())
 
 
 # Start the Robot when Executing Code
