@@ -54,16 +54,16 @@ class Turret(Subsystem):
         self.setPosition( rotationsToDegrees( self._sensor.get_absolute_position().value_as_double ) )
 
         self._logger = NetworkTableInstance.getDefault().getTable("000Turret")
-        self._topic = self._logger.getStructTopic( "000Turret/Rotation", Rotation2d )
+        self._logRotation = self._logger.getStructTopic( "Rotation", Rotation2d ).publish()
+
+        self.__kraken = DCMotor.krakenX60(1)
 
     def periodic(self):
         self._motor.set_control( PositionDutyCycle( degreesToRotations( self.getDesiredPosition() ) ) )
-        self._topic.publish().set( self.getRotation() )
-        self._logger.getStructTopic( "000Turret/Rotation", Rotation2d ).publish().set( self.getRotation() )
+        self._logRotation.set( self.getRotation() )
 
     def simulationPeriodic(self):
-        kraken = DCMotor.krakenX60(1)
-        motorRps = self._motor.get() * ( kraken.freeSpeed / ( 2 * math.pi ) )
+        motorRps = self._motor.get() * ( self.__kraken.freeSpeed / ( 2 * math.pi ) )
         sensorRps = motorRps / self._motorToSensorRatio
 
         self._motor.sim_state.set_rotor_velocity( motorRps )
@@ -71,7 +71,6 @@ class Turret(Subsystem):
 
         self._sensor.sim_state.set_velocity( sensorRps )
         self._sensor.sim_state.add_position( sensorRps * 0.02 )
-        ...
 
     def getRotation(self) -> Rotation2d:
         return Rotation2d().fromDegrees( self.getPosition() )
@@ -82,6 +81,7 @@ class Turret(Subsystem):
     
     def setPosition(self, position: degrees) -> None:
         self._desiredPosition = position
+        # self._motor.set_control( PositionDutyCycle( degreesToRotations( self.getDesiredPosition() ) ) )
 
     def getDesiredPosition(self) -> degrees:
         return self._desiredPosition

@@ -17,7 +17,7 @@ from commands2.button import CommandXboxController
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
 
-from wpilib import PowerDistribution, SmartDashboard
+from wpilib import PowerDistribution, SmartDashboard, DriverStation
 
 from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 
@@ -33,6 +33,7 @@ class RobotContainer:
     _max_angular_rate = 0.75  # radians per second
 
     def __init__(self) -> None:
+        DriverStation.silenceJoystickConnectionWarning(True)
         self.driver_controller = CommandXboxController(0)
         self.operator_controller = CommandXboxController(1)
         self.pdh = PowerDistribution()
