@@ -387,9 +387,7 @@ class Shooter(Subsystem):
         self._flywheelSim.setInput(
             [self._flywheelMasterMotor.get_motor_voltage().value_as_double * 2]
         )
-        print(self._flywheelMasterMotor.get_motor_voltage().value_as_double * 2)
         self._flywheelSim.update(0.02)
-        self._flywheelSim.getAngularVelocity()
 
         self._flywheelMasterMotorSimState.set_rotor_velocity(
             self._flywheelSim.getAngularVelocity() / self._gearRatio

@@ -11,10 +11,12 @@ from ntcore import (
 )
 
 from wpimath.geometry import Rotation2d
-from wpimath.units import amperes
+from wpimath.units import amperes, kilogram_square_meters, meters
 from wpimath import angleModulus
+from wpimath.system.plant import DCMotor, LinearSystemId
 
 from wpilib import Mechanism2d, MechanismLigament2d, SmartDashboard, RobotBase
+from wpilib.simulation import SingleJointedArmSim
 
 from phoenix6.hardware import TalonFX, CANcoder
 from phoenix6.configs import (
@@ -29,6 +31,7 @@ from phoenix6.configs import (
 from phoenix6.status_signal import StatusSignal
 from phoenix6.signals import NeutralModeValue
 from phoenix6.controls import MotionMagicVoltage, PositionVoltage
+from phoenix6.sim import TalonFXSimState
 
 
 class Turret(Subsystem):
@@ -68,7 +71,7 @@ class Turret(Subsystem):
     "canivore" for the CANivore CAN bus, "rio" or "" for the RoboRIO CAN bus.
     """
 
-    _gearRatio: float = 1 / 1
+    _gearRatio: float = 1 / 10
     """
     The gear ratio of the turret mechanism.
     This is measured as turret rotations / motor rotations
@@ -86,7 +89,7 @@ class Turret(Subsystem):
 
     _closedLoopConfig: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(1.0)
+        .with_k_p(10000.0)
         .with_k_i(0)
         .with_k_d(0)
         .with_k_s(0)
@@ -182,6 +185,31 @@ class Turret(Subsystem):
     The cached status signal to get the motor position.
     """
 
+    ########## SIMULATION ##########
+    # _turretSim: SingleJointedArmSim
+    # """
+    # The simulation model for the turret.
+    # A single jointed arm without gravity is a turret
+    # """
+
+    _motorSimState: TalonFXSimState
+    """
+    The simulation state for the turret motor.
+    """
+
+    # _turretMOI: kilogram_square_meters = 0.1
+    # """
+    # The moment of inertia of the turret.
+    # This should come from CAD
+    # """
+
+    # _turretRadius: meters = 0.3
+    # """
+    # The radius of the turret.
+    # This should come from CAD.
+    # This should be from the center of rotation to the furthest point on the turret.
+    # """
+
     def __init__(self) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000Turret")
 
@@ -199,7 +227,7 @@ class Turret(Subsystem):
                 .with_stator_current_limit_enable(True)
             )
             .with_motor_output(
-                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
+                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.BRAKE)
             )
             .with_motion_magic(
                 MotionMagicConfigs()
@@ -237,6 +265,23 @@ class Turret(Subsystem):
             "Turret", 40, 0
         )
 
+        # self._turretSim = SingleJointedArmSim(
+        #     LinearSystemId.singleJointedArmSystem(
+        #         DCMotor.krakenX60(1), self._turretMOI, self._gearRatio
+        #     ),
+        #     DCMotor.krakenX60(1),
+        #     self._gearRatio,
+        #     self._turretRadius,
+        #     -float("inf"),
+        #     float("inf"),
+        #     # Rotation2d.fromDegrees(-180).radians(),
+        #     # Rotation2d.fromDegrees(180).radians(),
+        #     False,
+        #     0,
+        # )
+
+        self._simMotor = self._motor.sim_state
+
         SmartDashboard.putData("Turret Mech", turretMech)
         SmartDashboard.putData("Turret", self)
 
@@ -266,8 +311,33 @@ class Turret(Subsystem):
 
         self._motor.set_control(
             # MotionMagicVoltage(self._rotation2dToRotations(self._rotationSetpoint))
-            PositionVoltage(self._rotation2dToRotations(self._rotationSetpoint))
+            PositionVoltage(
+                (self._rotationSetpoint.degrees() / 360 / self._gearRatio)
+                # self._rotation2dToRotations(self._rotationSetpoint) / self._gearRatio
+            )
         )
+
+        print(
+            self._rotationSetpoint.degrees() / 360,
+            self._motor.get_closed_loop_error().value_as_double,
+            self._motor.get_closed_loop_output().value_as_double,
+        )
+
+    def simulationPeriodic(self) -> None:
+        motor = DCMotor.krakenX60(1)
+        motorRps = self._motor.get() * (motor.freeSpeed / (2 * pi))
+
+        self._motor.sim_state.set_rotor_velocity(motorRps)
+        self._motor.sim_state.add_rotor_position(motorRps * 0.02)
+
+        # self._turretSim.setInput([self._motor.get_motor_voltage().value_as_double])
+
+        # self._turretSim.update(0.02)
+
+        # vel = self._turretSim.getVelocity()
+
+        # self._simMotor.add_rotor_position(vel / (2 * pi) * 0.02)
+        # self._simMotor.set_rotor_velocity(vel / (2 * pi))
 
     def setSetpoint(self, angle: Rotation2d) -> None:
         """
@@ -276,7 +346,7 @@ class Turret(Subsystem):
         :param angle: The desired rotation setpoint of the turret. A Rotation2d.fromDegrees(0) is straight forward.
         :type angle: Rotation2d
         """
-        self._rotationSetpoint = angle + Rotation2d.fromDegrees(180)
+        self._rotationSetpoint = angle  # + Rotation2d.fromDegrees(180)
 
     def getSetpoint(self) -> Rotation2d:
         """
@@ -294,7 +364,7 @@ class Turret(Subsystem):
         :return The current rotation of the turret.
         :rtype: Rotation2d
         """
-        return Rotation2d.fromDegrees(self._motorPositionSignal.value_as_double % 360.0)
+        return Rotation2d.fromDegrees(self._motorPositionSignal.value_as_double * 360.0)
 
     def _rotation2dToRotations(self, angle: Rotation2d) -> float:
         return angleModulus(angle.radians()) / (2 * pi)
