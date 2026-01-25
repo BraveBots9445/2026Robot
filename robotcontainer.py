@@ -80,8 +80,7 @@ class RobotContainer:
         self.shooter = Shooter()
         self.turret = Turret()
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
-            # lambda: Pose3d(self.drivetrain.get_state().pose),
-            lambda: Pose3d(),
+            lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
             Transform3d(),
             lambda v: v / inchesToMeters(4),
