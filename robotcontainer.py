@@ -5,12 +5,20 @@ from commands2 import (
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d
-from wpimath.units import inchesToMeters
+from wpimath.geometry import (
+    Transform2d,
+    Rotation2d,
+    Pose2d,
+    Rotation3d,
+    Pose3d,
+    Transform3d,
+)
+from wpimath.units import inchesToMeters, meters_per_second
 
 from subsystems.vision import Vision
 from subsystems.shooter import Shooter
 
+from subsystems.shootOnMoveCalculator import ShootOnMoveCalculator
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -60,7 +68,6 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        Rotation3d.toRotation2d
         self.vision = Vision(
             lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
                 Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
@@ -70,6 +77,17 @@ class RobotContainer:
         )
 
         self.shooter = Shooter()
+        self.shootOnMoveCalculator = ShootOnMoveCalculator(
+            # lambda: Pose3d(self.drivetrain.get_state().pose),
+            lambda: Pose3d(),
+            lambda: self.drivetrain.get_state().speeds,
+            Transform3d(),
+            lambda v: v / inchesToMeters(4),
+            meters_per_second(0),
+            meters_per_second(20),
+            Rotation2d.fromDegrees(15),
+            Rotation2d.fromDegrees(70),
+        )
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
