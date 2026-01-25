@@ -17,8 +17,9 @@ from wpimath.units import inchesToMeters, meters_per_second
 
 from subsystems.vision import Vision
 from subsystems.shooter import Shooter
-
 from subsystems.shootOnMoveCalculator import ShootOnMoveCalculator
+from subsystems.turret import Turret
+
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -77,6 +78,7 @@ class RobotContainer:
         )
 
         self.shooter = Shooter()
+        self.turret = Turret()
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
             # lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: Pose3d(),
@@ -169,15 +171,26 @@ class RobotContainer:
         Insert code here for the secondary driver
         """
 
-        self.operator_controller.a().onTrue(
-            self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(30))
-        )
-        self.operator_controller.b().onTrue(
-            self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(0))
+        self.operator_controller.y().onTrue(
+            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
         )
 
-        self.operator_controller.x().onTrue(self.shooter._tmpSetVelocityCommand(3000))
-        self.operator_controller.y().onTrue(self.shooter._tmpSetVelocityCommand(0))
+        self.operator_controller.b().onTrue(
+            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(0))
+        )
+
+        self.operator_controller.a().onTrue(
+            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(90))
+        )
+        # self.operator_controller.a().onTrue(
+        #     self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(30))
+        # )
+        # self.operator_controller.b().onTrue(
+        #     self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(0))
+        # )
+
+        # self.operator_controller.x().onTrue(self.shooter._tmpSetVelocityCommand(3000))
+        # self.operator_controller.y().onTrue(self.shooter._tmpSetVelocityCommand(0))
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime

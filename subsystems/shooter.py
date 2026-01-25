@@ -72,6 +72,12 @@ class Shooter(Subsystem):
     """
 
     ########################## CONFIGS ##########################
+    _canBus: str = "canivore"
+    """
+    The CAN bus the turret motor and encoder are connected to.
+    "canivore" for the CANivore CAN bus, "rio" or "" for the RoboRIO CAN bus.
+    """
+
     _flywheelRadius: meters = inchesToMeters(4)
     """
     The radius in meters of the flywheel
@@ -227,8 +233,8 @@ class Shooter(Subsystem):
     def __init__(self) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000Shooter")
 
-        self._flywheelMasterMotor = TalonFX(20)
-        self._flywheelFollowerMotor = TalonFX(21)
+        self._flywheelMasterMotor = TalonFX(20, self._canBus)
+        self._flywheelFollowerMotor = TalonFX(21, self._canBus)
 
         currentLimits = (
             CurrentLimitsConfigs()
