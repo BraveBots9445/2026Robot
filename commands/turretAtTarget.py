@@ -23,7 +23,7 @@ class TurretAtTarget(Command):
         # e.g. self.addRequirements(subsystem)
 
     def initialize(self):
-        position = self.targetPosition - self.getRobotState().pose.translation()
+        position = self.targetPosition - self.turret.getAbsolutePose().translation()
         degrees = position.angle().degrees()
         self.turret.setPosition(degrees, True)
 
