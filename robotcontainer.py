@@ -1,5 +1,10 @@
+from math import pi
+
 from commands2 import (
     Command,
+    RepeatCommand,
+    WaitCommand,
+    SequentialCommandGroup,
     InstantCommand,
 )
 from phoenix6 import swerve
@@ -17,8 +22,9 @@ from wpimath.units import inchesToMeters, meters_per_second
 
 from subsystems.vision import Vision
 from subsystems.shooter import Shooter
-from subsystems.shootOnMoveCalculator import ShootOnMoveCalculator
 from subsystems.turret import Turret
+from subsystems.shootOnMoveCalculator import ShootOnMoveCalculator
+from subsystems.fuelShootingVisualizer import FuelShootingVisualizer
 
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -42,7 +48,7 @@ class RobotContainer:
 
     def __init__(self) -> None:
         self.driver_controller = CommandXboxController(0)
-        self.operator_controller = CommandXboxController(1)
+        # self.operator_controller = CommandXboxController(1)
         self.pdh = PowerDistribution()
         self.pdh.setSwitchableChannel(True)
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
@@ -78,16 +84,26 @@ class RobotContainer:
         )
 
         self.shooter = Shooter()
+        self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(45))
         self.turret = Turret()
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
             lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
             Transform3d(),
-            lambda v: v / inchesToMeters(4),
+            lambda v: v / inchesToMeters(2) * 60 / (2 * pi) / 0.7,
             meters_per_second(0),
             meters_per_second(20),
-            Rotation2d.fromDegrees(15),
-            Rotation2d.fromDegrees(70),
+            Rotation2d.fromDegrees(45),
+            Rotation2d.fromDegrees(90),
+        )
+        self.fuelShootingVisualizer = FuelShootingVisualizer(
+            lambda: Pose3d(self.drivetrain.get_state().pose),
+            lambda: self.drivetrain.get_state().speeds,
+            self.turret.getRotation,
+            self.shooter.getHoodAngle,
+            lambda: self.shooter.getFlywheelVelocity(),
+            inchesToMeters(2),
+            Transform3d(),
         )
 
         self.drivetrain.register_telemetry(
@@ -126,6 +142,22 @@ class RobotContainer:
         )
 
     def set_teleop_bindings(self) -> None:
+        RepeatCommand(
+            SequentialCommandGroup(
+                self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
+            ).ignoringDisable(True)
+        ).ignoringDisable(True).schedule()
+
+        def setStuff():
+            setpoints = self.shootOnMoveCalculator.getSetpoints(
+                Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
+            )
+            if setpoints is not None:
+                self.turret.setSetpoint(setpoints.turretAngle)
+                self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
+                self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
+
+        RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
         """driver"""
         self.drivetrain.setDefaultCommand(
             self.drivetrain.apply_request(
@@ -169,6 +201,7 @@ class RobotContainer:
         """
         Insert code here for the secondary driver
         """
+        return
 
         self.operator_controller.y().onTrue(
             self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))

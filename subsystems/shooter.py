@@ -78,7 +78,7 @@ class Shooter(Subsystem):
     "canivore" for the CANivore CAN bus, "rio" or "" for the RoboRIO CAN bus.
     """
 
-    _flywheelRadius: meters = inchesToMeters(4)
+    _flywheelRadius: meters = inchesToMeters(2)
     """
     The radius in meters of the flywheel
     """
@@ -108,10 +108,10 @@ class Shooter(Subsystem):
         .with_k_a(0)
     )
 
-    _gearRatio: float = 1 / 4
+    _gearRatio: float = 4 / 1
     """
     The ratio between rotations of the motor and rotations of the flywheel
-    This is calculated as (flywheel rotations) / (motor rotations)
+    This is calculated as (motor rotations) / (flywheel rotations) 
     """
 
     ########################## SETPOINTS ##########################
@@ -245,9 +245,7 @@ class Shooter(Subsystem):
             TalonFXConfiguration()
             .with_slot0(self._flywheelSlot0Configs)
             .with_feedback(
-                FeedbackConfigs().with_sensor_to_mechanism_ratio(
-                    self._gearRatio * kSECONDS_PER_MINUTE
-                )
+                FeedbackConfigs().with_sensor_to_mechanism_ratio(self._gearRatio)
             )
             .with_current_limits(currentLimits)
             .with_motor_output(

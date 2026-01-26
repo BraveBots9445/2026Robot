@@ -94,7 +94,7 @@ class Turret(Subsystem):
 
     _closedLoopConfig: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(0.0)
+        .with_k_p(2.0)
         .with_k_i(0.0)
         .with_k_d(0.0)
         .with_k_s(0)
@@ -296,7 +296,7 @@ class Turret(Subsystem):
             )  # facing straight forward is 0.5 rotations (exactly in the middle of the -180 to 180)
 
         self._motor.set_control(
-            PositionVoltage(
+            PositionDutyCycle(
                 # self._rotation2dToRotations(self._rotationSetpoint) / self._gearRatio
                 self._rotationSetpoint.degrees()
                 / 360
@@ -304,31 +304,7 @@ class Turret(Subsystem):
             )
         )
 
-        print(
-            self._rotationSetpoint.degrees() / 360 / self._gearRatio,
-            self._motor.get_closed_loop_error().value_as_double,
-            self._motor.get_closed_loop_output().value_as_double,
-        )
-
     def simulationPeriodic(self) -> None:
-        """
-        velocity = (
-            self._motor.get()
-            * 12.0
-            * DCMotor.krakenX60().freeSpeed
-            / (2 * pi)
-            * self._gearRatio  # should not need this?
-        )
-        print("\t\t\t\tVelocity:", velocity)
-        self._simMotor.set_rotor_velocity(velocity)
-        if (self.getRotation().degrees() >= 180 and velocity > 0) or (
-            self.getRotation().degrees() <= -180 and velocity < 0
-        ):
-            self._simMotor.set_rotor_velocity(0)
-        self._simMotor.add_rotor_position(velocity * 0.02)
-        return
-        """
-
         self._turretSim.setInputVoltage(self._motor.get_motor_voltage().value_as_double)
 
         self._turretSim.update(0.02)

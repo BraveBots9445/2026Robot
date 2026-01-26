@@ -1,4 +1,4 @@
-from math import atan2, acos, cos
+from math import atan2, atan, acos, cos, sqrt
 
 from typing import Callable
 
@@ -6,9 +6,16 @@ from dataclasses import dataclass
 
 import bisect
 
-from wpimath.geometry import Transform3d, Rotation2d, Pose3d, Rotation3d
+from wpimath.geometry import Transform3d, Rotation2d, Pose3d, Rotation3d, Translation3d
 from wpimath.kinematics import ChassisSpeeds
-from wpimath.units import revolutions_per_minute, seconds, meters_per_second
+from wpimath.units import (
+    revolutions_per_minute,
+    seconds,
+    meters_per_second,
+    inches,
+    inchesToMeters,
+    metersToInches,
+)
 
 
 @dataclass
@@ -124,9 +131,16 @@ class ShootOnMoveCalculator:
     """
 
     # TODO: Tune this lookup table to the robot and shooter
-    _timeLookup: _InterpolatingMap = _InterpolatingMap(keys=[0, 30], values=[0, 3])
+    _timeLookup: _InterpolatingMap = _InterpolatingMap(
+        keys=[0, inchesToMeters(182.11), inchesToMeters(241.650)], values=[0, 3.25, 5]
+    )
     """
     A lookup table for time to shoot based on distance to target.
+    """
+
+    _distanceAboveFunnel: inches = 20
+    """
+    The number of inches above the leading edge of the funnel the shooter is aimed at.
     """
 
     def __init__(
@@ -171,6 +185,30 @@ class ShootOnMoveCalculator:
         self._minHoodAngle = minHoodAngle
         self._maxHoodAngle = maxHoodAngle
 
+    def predictTargetPose(self, targetPose: Pose3d) -> Pose3d | None:
+        """
+        Predicts the target pose after a given time.
+
+        :param targetPose: The initial target pose.
+        :type targetPose: Pose3d
+        :return: The predicted target pose, or None if no valid prediction could be made because of the time of flight lookup table.
+        :rtype: Pose3d | None
+        """
+        timeOfFlight = self._timeLookup.get(
+            targetPose.translation().toTranslation2d().norm()
+        )
+        if timeOfFlight is None:
+            return None
+        velocity = self._getRobotVelocity()
+        return Pose3d(
+            Translation3d(
+                targetPose.X() - velocity.vx * timeOfFlight,
+                targetPose.Y() - velocity.vy * timeOfFlight,
+                targetPose.Z(),
+            ),
+            targetPose.rotation(),
+        )
+
     def getSetpoints(self, targetPose: Pose3d) -> StateSetpoint | None:
         """
         Gets the shooter setpoints for shooting at the given target pose.
@@ -179,6 +217,58 @@ class ShootOnMoveCalculator:
         :type targetPose: Pose3d
         :return: The shooter setpoints, or None if no valid setpoints could be calculated.
         """
+
+        # this implementation is based on FRC 5000 Hammerhead's implementation
+        # it can be found here: https://github.com/hammerheads5000/2026Rebuilt/blob/6ecae474f5ed81970d8727d2fe6b17e945a1f08f/src/main/java/frc/robot/subsystems/turret/TurretCalculator.java
+
+        robotPose = self._getRobotPose()
+
+        predictedTargetPose = self.predictTargetPose(targetPose)
+        if predictedTargetPose is None:
+            return None
+
+        predictedTargetPose2 = self.predictTargetPose(predictedTargetPose)
+        if predictedTargetPose2 is not None:
+            predictedTargetPose = predictedTargetPose2
+
+        targetOffset = predictedTargetPose.relativeTo(robotPose)
+        xDist = metersToInches(targetOffset.translation().toTranslation2d().norm())
+        zDist = metersToInches(
+            predictedTargetPose.translation().Z() - self._launcherTransform.Z()
+        )
+
+        realDist = metersToInches(
+            targetPose.relativeTo(robotPose).translation().toTranslation2d().norm()
+        )
+        g = 386  # gravity in in/s^2
+        funnelRadiusIn = 24
+        funnelHeightIn = 72 - 56.4
+        r = funnelRadiusIn * xDist / realDist
+        h = funnelHeightIn + self._distanceAboveFunnel
+
+        a1 = xDist * xDist
+        b1 = xDist
+        d1 = zDist
+        a2 = -xDist * xDist + (xDist - r) * (xDist - r)
+        b2 = -r
+        d2 = h
+        bm = -b2 / b1
+        a3 = bm * a1 + a2
+        d3 = bm * d1 + d2
+        a = d3 / a3
+        b = (d1 - a1 * a) / b1
+        theta = atan(b)
+        # try:
+        v0 = sqrt(-g / (2 * a * cos(theta) * cos(theta)))
+        # except ValueError:
+        #     return None
+
+        return StateSetpoint(
+            self._muzzleVelocityToFlywheelRpm(inchesToMeters(v0)),
+            Rotation2d(theta),
+            Rotation2d(atan2(targetOffset.Y(), targetOffset.X())),
+        )
+        # below is my original implementation attempt
 
         launcherPose = self._getRobotPose() + self._launcherTransform
         robotVelocity = self._getRobotVelocity()

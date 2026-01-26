@@ -16,7 +16,8 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     Subsystem so it can easily be used in command-based projects.
     """
 
-    _SIM_LOOP_PERIOD: units.second = 0.005
+    # _SIM_LOOP_PERIOD: units.second = 0.005
+    _SIM_LOOP_PERIOD: units.second = 0.01
 
     _BLUE_ALLIANCE_PERSPECTIVE_ROTATION = Rotation2d.fromDegrees(0)
     """Blue alliance sees forward as 0 degrees (toward red alliance wall)"""
