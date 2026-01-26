@@ -5,7 +5,7 @@ from commands2 import (
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d
+from wpimath.geometry import Transform2d, Rotation2d, Translation2d
 from wpimath.units import inchesToMeters
 
 # from subsystems.vision import Vision
@@ -24,6 +24,8 @@ from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 from subsystems.turret import Turret
 from commands.turretByStick import TurretByStick
 from commands.turretToRotation import TurretToRotation
+from commands.turretAtTarget import TurretAtTarget
+from commands.turretFollowTarget import TurretFollowTarget
 
 class RobotContainer:
     _max_speed_percent = ntproperty("MaxVelocityPercent", 1.0)
@@ -81,6 +83,7 @@ class RobotContainer:
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
         self.turret = Turret()
+        self.turret.setRobotPoseGetter( lambda: self.drivetrain.get_state().pose )
 
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.drivetrain)
@@ -159,6 +162,8 @@ class RobotContainer:
         self.driver_controller.x().onTrue( TurretToRotation( self.turret, 90 ) )
         self.driver_controller.a().onTrue( TurretToRotation( self.turret, 180 ) )
         self.driver_controller.b().onTrue( TurretToRotation( self.turret, -90 ) )
+        self.driver_controller.rightBumper().toggleOnTrue( TurretAtTarget( self.turret, self.drivetrain.get_state, Translation2d( 4.75, 8.17/2 ) ) )
+        self.driver_controller.leftBumper().toggleOnTrue( TurretFollowTarget( self.turret, self.drivetrain.get_state, Translation2d( 4.75, 8.17/2 ) ) )
         
 
         """Operator"""

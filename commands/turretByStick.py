@@ -14,14 +14,11 @@ class TurretByStick(Command):
         self.rotate = axis
 
         self.addRequirements(self.turret)
-        # Use addRequirements() here to declare subsystem dependencies.
-        # e.g. self.addRequirements(subsystem)
 
     def initialize(self):
         pass
 
     def execute(self):
-        currentPosition = self.turret.getPosition()
         newPosition = self.turret.getDesiredPosition() + ( self.rotate() )
         self.turret.setPosition( newPosition )
 
