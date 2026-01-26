@@ -58,7 +58,7 @@ class Turret(Subsystem):
         self.setPosition( rotationsToDegrees( self._sensor.get_absolute_position().value_as_double ) )
 
         # Robot Relative Position Data
-        self._robotPosition = Translation2d( inchesToMeters(24), inchesToMeters(24) )
+        self._robotPosition = Translation2d( inchesToMeters(8), inchesToMeters(8) )
                                           
         self._logger = NetworkTableInstance.getDefault().getTable("000Turret")
         self._logPoseRelative = self._logger.getStructTopic( "PoseRelative", Pose2d ).publish()
@@ -94,7 +94,7 @@ class Turret(Subsystem):
     ### BEGIN: POSITION BASED FUNCTIONS ###
     def setPosition(self, position: degrees, fieldRelative: bool = False) -> None:
         if fieldRelative:
-            position = ( self.getRotation2d() - self.__getRobotPose().rotation() ).degrees()
+            position = position - self.__getRobotPose().rotation().degrees()
 
         self._desiredPosition = position
         # self._motor.set_control( PositionDutyCycle( degreesToRotations( self.getDesiredPosition() ) ) )
