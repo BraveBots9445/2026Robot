@@ -16,16 +16,17 @@ import commands2
 from phoenix6.hardware import TalonFX
 from wpimath.units import inches
 
-class ClimberIsCool(commands2.Subsystem):
+class climber(commands2.Subsystem):
 
   def __init__(self,side):
     #def motors
     #def uhh... other stuff
     self.Elevator=TalonFX(side)
     self.positionMeWanty=0
+    self.velocity=1
 
   def periodic(self):
-    pass
+    self.Elevator.set(self.velocity)
   
   def simulationPeriodic(self) -> None:
     pass
@@ -44,6 +45,9 @@ class ClimberIsCool(commands2.Subsystem):
   
   def atPosition(self) -> bool:
     return ( self.getCurrentPosition() == self.getDesiredPosition() )
+  
+  def setVelocity(self,V):
+    self.velocity = V
 
 """
     ||    ||

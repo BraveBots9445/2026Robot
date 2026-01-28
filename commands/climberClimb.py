@@ -3,11 +3,13 @@ Copy this file and write your own commands based on it. This file should not be 
 """
 
 from commands2 import Command
+from subsystems.climber import climber
 
-
-class CommandTemplate(Command):
-    def __init__(self):
+class ClimberClimb(Command):
+    def __init__(self, Climber: climber):
         super().__init__()
+        self.addRequirements(self)
+        self.climber=Climber
         # Use addRequirements() here to declare subsystem dependencies.
         # e.g. self.addRequirements(subsystem)
 

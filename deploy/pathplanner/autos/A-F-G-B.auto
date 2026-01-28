@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "A to H"
+            "pathName": "A to F"
           }
         },
         {
@@ -17,9 +17,9 @@
           }
         },
         {
-          "type": "wait",
+          "type": "path",
           "data": {
-            "waitTime": 3.0
+            "pathName": "F to G"
           }
         },
         {
@@ -31,7 +31,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "H to B"
+            "pathName": "G to B"
           }
         },
         {
