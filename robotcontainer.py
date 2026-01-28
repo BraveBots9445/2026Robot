@@ -1,11 +1,13 @@
 from commands2 import (
     Command,
     InstantCommand,
+    cmd,
+    Subsystem
 )
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d, Translation2d
+from wpimath.geometry import Transform2d, Rotation2d, Translation2d, Pose3d, Translation3d, Rotation3d
 from wpimath.units import inchesToMeters
 
 # from subsystems.vision import Vision
@@ -17,7 +19,7 @@ from commands2.button import CommandXboxController
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
 
-from wpilib import PowerDistribution, SmartDashboard, DriverStation
+from wpilib import PowerDistribution, SmartDashboard, DriverStation, RobotBase
 
 from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 
@@ -26,6 +28,10 @@ from commands.turretByStick import TurretByStick
 from commands.turretToRotation import TurretToRotation
 from commands.turretAtTarget import TurretAtTarget
 from commands.turretFollowTarget import TurretFollowTarget
+from commands.launchCalculator import LaunchCalculator
+from commands.prepareShooterEstimate import PrepareShooterEstimate
+
+from tools.FuelVisualizer import Fuel, FuelVisualizer
 
 class RobotContainer:
     _max_speed_percent = ntproperty("MaxVelocityPercent", 1.0)
@@ -84,6 +90,9 @@ class RobotContainer:
 
         self.turret = Turret()
         self.turret.setRobotPoseGetter( lambda: self.drivetrain.get_state().pose )
+
+        # if RobotBase.isSimulation():
+        self.fuelVisual = FuelVisualizer()
 
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.drivetrain)
@@ -154,7 +163,8 @@ class RobotContainer:
         # self.driver_controller.x().onTrue(
         #     self.vision.toggle_vision_measurements_command()
         # )
-
+       
+        ### TURRET TESTING
         self.turret.setDefaultCommand(
             TurretByStick( self.turret, lambda: self.driver_controller.getLeftTriggerAxis() - self.driver_controller.getRightTriggerAxis() )
         )
@@ -165,7 +175,16 @@ class RobotContainer:
         self.driver_controller.rightBumper().toggleOnTrue( TurretAtTarget( self.turret, self.drivetrain.get_state, Translation2d( 4.75, 8.17/2 ) ) )
         self.driver_controller.leftBumper().toggleOnTrue( TurretFollowTarget( self.turret, self.drivetrain.get_state, Translation2d( 4.75, 8.17/2 ) ) )
         
-
+        ### FUEL SIMULATION
+        self.driver_controller.start().onTrue( cmd.runOnce( lambda: self.new_fuel() ) )
+        
+        ### LAUNCH TESTING
+        self.driver_controller.povUp().whileTrue( LaunchCalculator( self.turret.getAbsolutePose ) )
+        hoodSys = Subsystem()
+        SmartDashboard.putData( "Hood", hoodSys )
+        shooterSys = Subsystem()
+        SmartDashboard.putData( "Shooter", shooterSys )
+        self.driver_controller.povDown().whileTrue( PrepareShooterEstimate( hoodSys, shooterSys, self.turret.getAbsolutePose ) )
         """Operator"""
         """
         Insert code here for the secondary driver
@@ -183,3 +202,7 @@ class RobotContainer:
 
     def get_auto_command(self) -> Command:
         return self.auto_chooser.getSelected()
+
+    def new_fuel(self) -> None:
+        #self.fuelVisual.newFuel( Pose3d(8,4,4,Rotation3d()), Translation3d(0,0,0.0) )
+        self.fuelVisual.randomFuel()
