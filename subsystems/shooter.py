@@ -5,6 +5,7 @@ from wpilib import XboxController
 from wpimath.units import inches
 from wpimath.geometry import Translation2d
 from phoenix6 import controls
+from commands import commandTemplate
 
 class Shooter(Subsystem):
     _varName1: TalonFX
@@ -37,20 +38,20 @@ class Shooter(Subsystem):
         self.motor2.set(speed)
     
     def periodic(self):
-        pass
+        self.motor.set(self.velocity)
         #log motor and sensor info
         #do subsystem work
         #log visual output
     
     def simulationPeriodic(self) -> None:
         pass
-
+    
     def getCurrentPosition(self) -> inches:
         return self._varName1.get_position().value_as_double
     
     def setCurrentPosition(self, position:inches) -> None:
         pass
-
+    
     def getDesiredPosition(self) -> inches:
         return self._desiredPosition
     
@@ -58,4 +59,5 @@ class Shooter(Subsystem):
         pass
 
     def atPosition(self) -> bool:
-        return ( self.getCurrentPosition() == self.getDesiredPosition() )
+        return (self.getCurrentPosition() == self.getDesiredPosition())
+    
