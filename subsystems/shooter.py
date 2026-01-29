@@ -4,6 +4,7 @@ from enum import auto
 from wpilib import XboxController
 from wpimath.units import inches
 from wpimath.geometry import Translation2d
+from wpimath.system.plant import DCMotor
 from phoenix6 import controls
 from commands import commandTemplate
 
@@ -45,6 +46,10 @@ class Shooter(Subsystem):
     
     def simulationPeriodic(self) -> None:
         pass
+        simState = self.motor.sim_state
+        vel = DCMotor.krakenX60(1).freeSpeed * self.motor.get()
+        simState.add_rotor_position(vel * 0.02)
+        simState.set_rotor_velocity(vel)
     
     def getCurrentPosition(self) -> inches:
         return self._varName1.get_position().value_as_double
@@ -57,7 +62,7 @@ class Shooter(Subsystem):
     
     def setDesiredPosition(self) -> None:
         pass
-
+    
     def atPosition(self) -> bool:
         return (self.getCurrentPosition() == self.getDesiredPosition())
     

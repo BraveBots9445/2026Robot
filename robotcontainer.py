@@ -15,6 +15,7 @@ from generated.tuner_constants import TunerConstants
 
 from commands2.button import CommandXboxController
 from commands.shooterShoot import ShooterShoot
+from commands.shooterShoot import Shooter
 
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
@@ -151,7 +152,8 @@ class RobotContainer:
         """
         Insert code here for the secondary driver
         """
-        self.operator_controller.a().onTrue(ShooterShoot(self.shooter))
+        self.operator_controller.a().whileTrue(ShooterShoot(self.shooter, 0.65))
+        self.operator_controller.b().whileTrue(ShooterShoot(self.shooter, 0.01))
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
