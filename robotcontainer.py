@@ -5,7 +5,7 @@ from commands2 import (
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d
+from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d
 from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
@@ -42,18 +42,14 @@ class RobotContainer:
         self._drive = (
             swerve.requests.FieldCentric()
             .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(
-                swerve.SwerveModule.DriveRequestType.OPEN_LOOP_VOLTAGE
-            )
-        )  # Use open-loop control for drive motors
+            .with_drive_request_type(swerve.SwerveModule.DriveRequestType.VELOCITY)
+        )
 
         self._robot_drive = (
             swerve.requests.RobotCentric()
             .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(
-                swerve.SwerveModule.DriveRequestType.OPEN_LOOP_VOLTAGE
-            )
-        )  # Use open-loop control for drive motors
+            .with_drive_request_type(swerve.SwerveModule.DriveRequestType.VELOCITY)
+        )
 
         self._brake = swerve.requests.SwerveDriveBrake()
         self._point = swerve.requests.PointWheelsAt()
@@ -63,9 +59,11 @@ class RobotContainer:
         self.drivetrain = TunerConstants.create_drivetrain()
 
         self.vision = Vision(
-            self.drivetrain.add_vision_measurement,
-            lambda: self.drivetrain.get_state().pose,
+            lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
+                Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
+            ),
             lambda: self.drivetrain.get_state().speeds,
+            lambda: self.drivetrain.get_state().pose,
         )
 
         self.drivetrain.register_telemetry(
@@ -141,9 +139,7 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(
-            self.vision.toggle_vision_measurements_command()
-        )
+        self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
         """Operator"""
         """
