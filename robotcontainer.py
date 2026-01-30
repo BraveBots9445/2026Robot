@@ -5,10 +5,12 @@ from commands2 import (
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d
+from wpimath.geometry import Transform2d, Rotation2d, Transform3d, Pose2d, Rotation3d
 from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
+from subsystems.visualizer3d import Visualizer3D
+
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
