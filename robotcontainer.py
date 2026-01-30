@@ -68,6 +68,14 @@ class RobotContainer:
             lambda: self.drivetrain.get_state().pose,
         )
 
+        self.visualizer3d = Visualizer3D(
+            lambda: Transform3d(),
+            lambda: Transform3d(),
+            lambda: Transform3d(),
+            lambda: Transform3d(),
+            lambda: Rotation2d(),
+        )
+
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
         )
