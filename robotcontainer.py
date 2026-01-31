@@ -2,6 +2,8 @@ from commands2 import (
     Command,
     InstantCommand,
 )
+from commands2.button import CommandXboxController
+
 from phoenix6 import swerve
 
 from wpimath import applyDeadband
@@ -12,7 +14,9 @@ from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
-from commands2.button import CommandXboxController
+from commands.driveFieldOriented import DriveFieldOriented
+from commands.driveRobotOriented import DriveRobotOriented
+
 
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
@@ -37,22 +41,6 @@ class RobotContainer:
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
 
         self.level = 1
-
-        # Setting up bindings for necessary control of the swerve drive platform
-        self._drive = (
-            swerve.requests.FieldCentric()
-            .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(swerve.SwerveModule.DriveRequestType.VELOCITY)
-        )
-
-        self._robot_drive = (
-            swerve.requests.RobotCentric()
-            .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(swerve.SwerveModule.DriveRequestType.VELOCITY)
-        )
-
-        self._brake = swerve.requests.SwerveDriveBrake()
-        self._point = swerve.requests.PointWheelsAt()
 
         self._logger = Telemetry(self._max_speed)
 
@@ -104,19 +92,21 @@ class RobotContainer:
     def set_teleop_bindings(self) -> None:
         """driver"""
         self.drivetrain.setDefaultCommand(
-            self.drivetrain.apply_request(
-                lambda: self._drive.with_velocity_x(self.get_velocity_x())
-                .with_velocity_y(self.get_velocity_y())
-                .with_rotational_rate(self.get_angular_rate())
+            DriveFieldOriented(
+                self.drivetrain,
+                self.get_velocity_x,
+                self.get_velocity_y,
+                self.get_angular_rate,
             )
         )
 
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(
-            self.drivetrain.apply_request(
-                lambda: self._robot_drive.with_velocity_x(self.get_velocity_x())
-                .with_velocity_y(self.get_velocity_y())
-                .with_rotational_rate(self.get_angular_rate())
+            DriveRobotOriented(
+                self.drivetrain,
+                self.get_velocity_x,
+                self.get_velocity_y,
+                self.get_angular_rate,
             )
         )
 
