@@ -2,14 +2,8 @@ from typing import Callable
 
 from commands2.button import CommandXboxController
 
-add = lambda x, y: x + y
 
-
-def adder(a, addFn):
-    return addFn(a, 10)
-
-
-class CommandController9445:
+class CommandController9445(CommandXboxController):
     """
     An Xbox Controller with specific bindings based on deadbanding, sensitivity curves, and other customizations.
     """
@@ -38,6 +32,7 @@ class CommandController9445:
         deadband: float = 0.05,
         smoothingFunction: Callable[[float], float] = lambda x: x * abs(x),
     ):
+        super().__init__(port)
         """
         Construct the CommandController9445
 
@@ -48,18 +43,54 @@ class CommandController9445:
         :param smoothingFunction: A function to apply to joystick inputs for sensitivity adjustment. It should take a [-1.0, 1.0] float and return a [-1.0, 1.0] float.
         :type smoothingFunction: Callable[[float], float]
         """
-        self._controller = CommandXboxController(port)
         self._deadband = deadband
         self._smoothingFunction = smoothingFunction
 
-    def getLX(self) -> float:
+    def getFRCLX(self) -> float:
         """
-        Get the left joystick X value after applying deadband and smoothing
+        Get the left joystick X value with deadband and smoothing applied.
+        X is positive forwards
 
         :return: The processed left joystick X value
         :rtype: float
         """
-        raw_value = self._controller.getLeftX()
+        raw_value = self.getLeftY()
+        if abs(raw_value) < self._deadband:
+            return 0.0
+        return self._smoothingFunction(raw_value)
+
+    def getFRCLY(self) -> float:
+        """
+        Get the left joystick Y value with deadband and smoothing applied.
+
+        :return: The processed left joystick Y value
+        :rtype: float
+        """
+        raw_value = self.getLeftX()
+        if abs(raw_value) < self._deadband:
+            return 0.0
+        return self._smoothingFunction(raw_value)
+
+    def getFRCRX(self) -> float:
+        """
+        Get the right joystick X value with deadband and smoothing applied.
+
+        :return: The processed right joystick X value
+        :rtype: float
+        """
+        raw_value = self.getRightY()
+        if abs(raw_value) < self._deadband:
+            return 0.0
+        return self._smoothingFunction(raw_value)
+
+    def getFRCRY(self) -> float:
+        """
+        Get the right joystick Y value with deadband and smoothing applied.
+
+        :return: The processed right joystick Y value
+        :rtype: float
+        """
+        raw_value = self.getRightX()
         if abs(raw_value) < self._deadband:
             return 0.0
         return self._smoothingFunction(raw_value)
