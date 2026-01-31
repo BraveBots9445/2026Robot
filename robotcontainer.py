@@ -32,6 +32,7 @@ from commands.launchCalculator import LaunchCalculator
 from commands.prepareShooterEstimate import PrepareShooterEstimate
 
 from tools.FuelVisualizer import Fuel, FuelVisualizer
+from tools.Rebuilt import Rebuilt, RebuiltPositions
 
 class RobotContainer:
     _max_speed_percent = ntproperty("MaxVelocityPercent", 1.0)
@@ -185,6 +186,10 @@ class RobotContainer:
         shooterSys = Subsystem()
         SmartDashboard.putData( "Shooter", shooterSys )
         self.driver_controller.povDown().whileTrue( PrepareShooterEstimate( hoodSys, shooterSys, self.turret.getAbsolutePose ) )
+
+        ### Rebuilt Position Tools
+        self.publishers = Rebuilt.publishPositions()
+
         """Operator"""
         """
         Insert code here for the secondary driver

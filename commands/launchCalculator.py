@@ -23,11 +23,9 @@ class LaunchCalculator(Command):
         self._log = _nt.getStructArrayTopic( "LaunchTrajectory", Pose3d ).publish()
 
     def initialize(self):
-        print( "Start Thread:" )
         self.keepRunning = True
         self.myThread = Thread( target=self._createTrajectory )
         self.myThread.start()
-        print("End of Start:")
         
     def execute(self):
         self._createTrajectory()
