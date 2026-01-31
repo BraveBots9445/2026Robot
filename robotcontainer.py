@@ -9,6 +9,9 @@ from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
+from commands.intakeIntake import IntakeIntake
+from commands.intakeRotationSpin import IntakeRoationSpin
+from subsystems.intake import Intake
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -61,12 +64,13 @@ class RobotContainer:
         self._logger = Telemetry(self._max_speed)
 
         self.drivetrain = TunerConstants.create_drivetrain()
+        self.intake = Intake()
 
-        self.vision = Vision(
-            self.drivetrain.add_vision_measurement,
-            lambda: self.drivetrain.get_state().pose,
-            lambda: self.drivetrain.get_state().speeds,
-        )
+        #self.vision = Vision(
+         #   self.drivetrain.add_vision_measurement,
+          #  lambda: self.drivetrain.get_state().pose,
+           # lambda: self.drivetrain.get_state().speeds,
+        #)
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -141,14 +145,20 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(
-            self.vision.toggle_vision_measurements_command()
-        )
+       # self.driver_controller.x().onTrue(
+        #    self.vision.toggle_vision_measurements_command()
+        #)
 
         """Operator"""
         """
         Insert code here for the secondary driver
         """
+        self.operator_controller.rightTrigger().whileTrue(
+            IntakeIntake(self.intake)
+        )
+        self.operator_controller.leftTrigger().whileTrue(
+            IntakeRoationSpin(self.intake)
+        )
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime

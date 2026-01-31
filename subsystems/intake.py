@@ -2,12 +2,16 @@ from commands2 import Command
 from commands2 import Subsystem
 from ntcore import NetworkTableInstance
 from phoenix6.hardware import TalonFX
+from wpimath.system.plant import DCMotor
+from wpimath.units import radiansToRotations
 
 class Intake(Subsystem):
     intakenumber = 0
     indexed = 0
     intakelocation = 0
     stored = 0
+
+    simTalon = DCMotor.krakenX60()
 
     def __init__(self):
         self.nettable = NetworkTableInstance.getDefault().getTable("000Intake")
@@ -24,6 +28,14 @@ class Intake(Subsystem):
 
         self.nettable.putNumber("motor_current", self.spinmotor.get_torque_current().value_as_double)
 
+    def simulationPeriodic(self):
+        rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.rotationmotor.get() ) 
+        self.rotationmotor.sim_state.add_rotor_position( rotation_rotationsPerSecond * 0.02 )
+        self.rotationmotor.sim_state.set_rotor_velocity( rotation_rotationsPerSecond )
+
+        speed_rotationsPerPeriodic = radiansToRotations( self.simTalon.freeSpeed * self.spinmotor.get() )
+        self.spinmotor.sim_state.add_rotor_position( speed_rotationsPerPeriodic * 0.02 )
+        self.spinmotor.sim_state.set_rotor_velocity( speed_rotationsPerPeriodic )
         
     def get_speed(self):
         return self.spinmotor.get()
