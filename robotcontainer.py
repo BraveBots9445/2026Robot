@@ -9,6 +9,7 @@ from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
 # from subsystems.vision import Vision
+from subsystems.turret import Turret
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -26,6 +27,7 @@ from commands.ledorange import LedOrange
 from commands.ledrainbow import LedRainbow
 from commands.ledoff import LedOff
 from commands.ledwhite import LedWhite
+from commands.turretpositioner import TurretPositionCommand
 
 
 class RobotContainer:
@@ -73,6 +75,10 @@ class RobotContainer:
         #     lambda: self.drivetrain.get_state().pose,
         #     lambda: self.drivetrain.get_state().speeds,
         # )
+
+        # turret testing thing
+        self.turret = Turret()
+        SmartDashboard.putData(self.turret)
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -160,6 +166,11 @@ class RobotContainer:
         self.driver_controller.rightTrigger().onTrue(LedOff(self.leds))
         # while the Y button is held, run the led white command
         self.driver_controller.y().onTrue(LedWhite(self.leds))
+        # turret positioner test commands
+        self.operator_controller.povUp().onTrue(TurretPositionCommand(self.turret, 0))
+        self.operator_controller.povRight().onTrue(TurretPositionCommand(self.turret, 90))
+        self.operator_controller.povDown().onTrue(TurretPositionCommand(self.turret, 180))
+        self.operator_controller.povLeft().onTrue(TurretPositionCommand(self.turret, 270))
 
         """Operator"""
         """
