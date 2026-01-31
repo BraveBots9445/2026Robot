@@ -15,6 +15,8 @@ what it will do:
 import commands2
 from phoenix6.hardware import TalonFX
 from wpimath.units import inches
+from wpimath.system.plant import DCMotor
+from wpimath.units import radiansToRotations
 
 class Climber(commands2.Subsystem):
 
@@ -23,6 +25,7 @@ class Climber(commands2.Subsystem):
     #def uhh... other stuff
     self.LElevator=TalonFX(1)
     self.RElevator=TalonFX(2)
+    self.simTalon=DCMotor.krakenX60(1)
     self.LWanty=0
     self.RWanty=0
     self.velocity=1
@@ -33,7 +36,13 @@ class Climber(commands2.Subsystem):
     self.LElevator.set(self.velocity)
   
   def simulationPeriodic(self) -> None:
-    pass
+    rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.LElevator.get() )
+    self.LElevator.sim_state.add_rotor_position ( rotation_rotationsPerSecond * 0.02 )
+    self.LElevator.sim_state.set_rotor_velocity ( rotation_rotationsPerSecond )
+
+    rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.RElevator.get() )
+    self.RElevator.sim_state.add_rotor_position ( rotation_rotationsPerSecond * 0.02)
+    self.RElevator.sim_state.set_rotor_velocity ( rotation_rotationsPerSecond )
   
   def getCurrentPosition(self,side) -> inches:
     if side==("L"):
@@ -62,12 +71,14 @@ class Climber(commands2.Subsystem):
     else:
       self.error
 
-  
   def atPosition(self) -> bool:
     return ( self.getCurrentPosition() == self.getDesiredPosition() )
   
   def setVelocity(self,V):
     self.velocity = V
+    
+  def getHeight(self):
+    return
 
   def error(self):
     print ("I don't know what side that's pertaining to! use L or R when specifying which elevator.")
@@ -80,5 +91,5 @@ class Climber(commands2.Subsystem):
     ||    ||
   <=++====++=>
     ||    ||
-   /II    II/
+   /II    II/    [_]
 ----++----++----"""
