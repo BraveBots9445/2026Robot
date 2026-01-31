@@ -11,6 +11,7 @@ from wpimath.units import inchesToMeters
 from subsystems.vision import Vision
 from commands.intakeIntake import IntakeIntake
 from commands.intakeRotationSpin import IntakeRoationSpin
+from commands.intakeSetSetpoint import IntakeSetsetpoint
 from subsystems.intake import Intake
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -159,6 +160,16 @@ class RobotContainer:
         self.operator_controller.leftTrigger().whileTrue(
             IntakeRoationSpin(self.intake)
         )
+        self.operator_controller.b().whileTrue(
+            IntakeSetsetpoint(self.intake, -0.5)
+         )
+        self.operator_controller.a().whileTrue(
+            IntakeSetsetpoint(self.intake, 0)
+         )
+        self.operator_controller.y().whileTrue(
+            IntakeSetsetpoint(self.intake, 0.5)
+         )
+
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime

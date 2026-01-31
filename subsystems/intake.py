@@ -6,25 +6,25 @@ from wpimath.system.plant import DCMotor
 from wpimath.units import radiansToRotations
 
 class Intake(Subsystem):
-    intakenumber = 0
-    indexed = 0
-    intakelocation = 0
-    stored = 0
-
     simTalon = DCMotor.krakenX60()
 
-    def __init__(self):
+    def __init__(self,):
         self.nettable = NetworkTableInstance.getDefault().getTable("000Intake")
         self.rotationmotor = TalonFX(1)
         self.spinmotor = TalonFX(2)
+        self.setpoint = .25
         self.speed = 0
-        self.angle = 0
 
     def periodic(self):
         self.nettable.putNumber("motor_speed", self.get_speed())
 
+        error = self.setpoint - self.get_angle()
+
+        output = .15 * error
+
         self.spinmotor.set(self.speed)
-        self.rotationmotor.set(self.angle)
+
+        self.rotationmotor.set(output)
 
         self.nettable.putNumber("motor_current", self.spinmotor.get_torque_current().value_as_double)
 
@@ -38,10 +38,10 @@ class Intake(Subsystem):
         self.spinmotor.sim_state.set_rotor_velocity( speed_rotationsPerPeriodic )
         
     def get_speed(self):
-        return self.spinmotor.get()
+        return self.spinmotor.get_velocity().value_as_double
     
     def get_angle(self):
-        return self.rotationmotor.get
+        return self.rotationmotor.get_position().value_as_double
 
     def set_speed(self, speed):
         if speed > 1:
@@ -55,3 +55,6 @@ class Intake(Subsystem):
         if angle < -1:
             angle = -1
         self.angle = angle
+    
+    def setsetpoint(self, setpoint):
+        self.setpoint = setpoint
