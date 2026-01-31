@@ -91,5 +91,5 @@ class Climber(commands2.Subsystem):
     ||    ||
   <=++====++=>
     ||    ||
-   /II    II/    [_]
+   /II    II/
 ----++----++----"""
