@@ -152,8 +152,8 @@ class RobotContainer:
         """
         Insert code here for the secondary driver
         """
-        self.operator_controller.a().whileTrue(ShooterShoot(self.shooter, 0.65))
-        self.operator_controller.b().whileTrue(ShooterShoot(self.shooter, 0.01))
+        self.operator_controller.a().whileTrue(ShooterShoot(self.shooter, 11))
+        self.operator_controller.b().whileTrue(ShooterShoot(self.shooter, 26))
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
