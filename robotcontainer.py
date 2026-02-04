@@ -161,13 +161,13 @@ class RobotContainer:
             IntakeRoationSpin(self.intake)
         )
         self.operator_controller.b().whileTrue(
-            IntakeSetsetpoint(self.intake, -0.5)
+            IntakeSetsetpoint(self.intake, -5.2)
          )
         self.operator_controller.a().whileTrue(
             IntakeSetsetpoint(self.intake, 0)
          )
         self.operator_controller.y().whileTrue(
-            IntakeSetsetpoint(self.intake, 0.5)
+            IntakeSetsetpoint(self.intake, 3.1415926)
          )
 
 
