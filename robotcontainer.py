@@ -9,6 +9,7 @@ from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
 # from subsystems.vision import Vision
+from subsystems.flighttimingsensor import FTS
 from subsystems.turret import Turret
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -77,8 +78,8 @@ class RobotContainer:
         # )
 
         # turret testing thing
-        self.turret = Turret()
-        SmartDashboard.putData(self.turret)
+        # self.turret = Turret()
+        # SmartDashboard.putData(self.turret)
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -92,6 +93,8 @@ class RobotContainer:
         SmartDashboard.putData(self.drivetrain)
 
         self.leds = Leds()
+
+        self.tof = FTS()
 
     def get_velocity_x(self) -> float:
         # x and y are swapped in wpilib vs/common convention

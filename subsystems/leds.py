@@ -23,10 +23,6 @@ class Leds(Subsystem):
         self.led.setData(self.ledData)
         self.led.start()
 
-    def periodic(self):
-        # Fill the buffer with a rainbow
-        # self.setSolidColor(wpilib.Color.kDarkOrange)
-
         # Set the LEDs
         self.led.setData(self.ledData)
 

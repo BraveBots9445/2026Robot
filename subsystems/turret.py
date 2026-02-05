@@ -7,12 +7,10 @@ from phoenix6.hardware import TalonFX
 from wpimath.system.plant import DCMotor
 from wpimath.units import radiansToRotations
 from wpimath.geometry import Rotation2d
+from wpimath.controller import PIDController
 
 class Turret(Subsystem):
-    turretnumber = 0
-    obtained = 0
-    intakelocation = 0
-    stored = 0
+    
 
     simTalon = DCMotor.krakenX60()
 
@@ -20,6 +18,7 @@ class Turret(Subsystem):
         self.nettable = NetworkTableInstance.getDefault().getTable("000Turret")
         self.rotationmotor = TalonFX(1)
         self.angle = 0
+        PIDController(0.1, 7, 10)
 
     def periodic(self):
         self.nettable.putNumber("setpoint", self.angle)
@@ -29,15 +28,13 @@ class Turret(Subsystem):
         distance = abs(self.get_angle() - self.angle)
         speed = 1
 
-        if distance < 1:
-            speed = 0.0
-        elif distance < 7:
-            speed = 0.2
-        elif distance < 10:
-            speed = 0.3
+        PIDController(0.1, 7, 10)
+        pid = PIDController.calculate(self.get_angle(), self.angle)
+        self.rotationmotor.set(pid)
+
 
         self.nettable.putNumber("speed", speed)
-        
+
         if self.get_angle() < self.angle:
             self.rotationmotor.set(1 * speed)
         elif self.get_angle() > self.angle:
@@ -67,93 +64,4 @@ class Turret(Subsystem):
         r2d = Rotation2d.fromDegrees(angle)
         self.angle = r2d.degrees()
    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        # apologies to jax if he sees this
+    
