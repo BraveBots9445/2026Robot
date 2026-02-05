@@ -150,10 +150,10 @@ class RobotContainer:
         Insert code here for the secondary driver
         """
 
-        self.operator_controller.a().whileTrue(ClimberClimb(self.climber,0.25))
-        self.operator_controller.b().whileTrue(ClimberClimb(self.climber,-0.25))
-        self.operator_controller.x().whileTrue(ClimberClimb(self.climber,-1))
-        self.operator_controller.y().whileTrue(ClimberClimb(self.climber,1))
+        self.operator_controller.a().whileTrue(ClimberClimb(self.climber,0))
+        self.operator_controller.b().whileTrue(ClimberClimb(self.climber,10))
+        self.operator_controller.x().whileTrue(ClimberClimb(self.climber,20))
+        self.operator_controller.y().whileTrue(ClimberClimb(self.climber,30))
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime

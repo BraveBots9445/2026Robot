@@ -16,60 +16,71 @@ import commands2
 from phoenix6.hardware import TalonFX
 from wpimath.units import inches
 from wpimath.system.plant import DCMotor
-from wpimath.units import radiansToRotations
+from wpimath.units import radiansToRotations, inchesToMeters, metersToInches
+from wpimath.controller import PIDController
+from wpilib import SmartDashboard
+import math
+from wpilib.simulation import ElevatorSim
 
 class Climber(commands2.Subsystem):
 
+  drumRadius = inchesToMeters( 1 )
+  gearing = 2.0
+
   def __init__(self):
-    #def motors
-    #def uhh... other stuff
-    self.LElevator=TalonFX(1)
-    self.RElevator=TalonFX(2)
+    self.Elevator=TalonFX(1)
     self.simTalon=DCMotor.krakenX60(1)
-    self.LWanty=0
-    self.RWanty=0
+    self.Wanty=0
     self.velocity=1
+    self.setPoint:inches = 0
+    self.PID = PIDController(Kp=1.0, Ki=0, Kd=0)
+    SmartDashboard.putData(self.PID)
+    self.elevSim = ElevatorSim(
+      DCMotor.krakenX60(1), #gearbox: DCMotor,
+      self.gearing, #gearing: SupportsFloat,
+      1.0, #carriageMass: kilograms,
+      self.drumRadius, #drumRadius: meters,
+      inchesToMeters( 0 ), #minHeight: meters,
+      inchesToMeters( 720.0 ), #maxHeight: meters,
+      False, #simulateGravity: bool,
+      0.0, #startingHeight: meters
+    )
 
   def periodic(self):
-#    Lheight=self.getCurrentPosition("L")*3.14*3
-#    if Lheight>self.getDesiredPosition("L"):
-    self.LElevator.set(self.velocity)
+    self.PIDcalculate=self.PID.calculate(self.getHeight(), self.setPoint)
+    self.Elevator.set( self.PIDcalculate )
+    #SmartDashboard.putNumber( "PIDCalculate", self.PIDcalculate )
+    SmartDashboard.putNumber( "Setpoint", self.setPoint )
   
   def simulationPeriodic(self) -> None:
-    rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.LElevator.get() )
-    self.LElevator.sim_state.add_rotor_position ( rotation_rotationsPerSecond * 0.02 )
-    self.LElevator.sim_state.set_rotor_velocity ( rotation_rotationsPerSecond )
+    # rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.Elevator.get() )
+    # self.Elevator.sim_state.add_rotor_position ( rotation_rotationsPerSecond * 0.02 )
+    # self.Elevator.sim_state.set_rotor_velocity ( rotation_rotationsPerSecond )
 
-    rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.RElevator.get() )
-    self.RElevator.sim_state.add_rotor_position ( rotation_rotationsPerSecond * 0.02)
-    self.RElevator.sim_state.set_rotor_velocity ( rotation_rotationsPerSecond )
+    self.elevSim.update( 0.02 )
+    velocity_mps = self.elevSim.getVelocity()  
+    velocity_rps = velocity_mps / ( 2 * math.pi * self.drumRadius * self.gearing )
+    self.Elevator.sim_state.set_rotor_velocity( velocity_rps )
+    self.Elevator.sim_state.add_rotor_position( velocity_rps * 0.02 )
+    self.elevSim.setInputVoltage( self.Elevator.get() )
+
+    SmartDashboard.putNumber( "ElevatorSimVelocity", self.elevSim.getVelocity() )
+    SmartDashboard.putNumber( "ElevatorSimPosition", self.elevSim.getPositionInches() )
+    SmartDashboard.putNumber( "Height", self.getHeight() )
+
   
-  def getCurrentPosition(self,side) -> inches:
-    if side==("L"):
-      return self.LElevator.get_position().value_as_double
-    elif side==("R"):
-      return self.RElevator.get_position().value_as_double
-    else:
-      self.error
+  def getCurrentPosition(self) -> inches:
+    return self.Elevator.get_position().value_as_double
+  
 
   def setCurrentPosition(self) -> None:
     pass
   
-  def getDesiredPosition(self,side) -> inches:
-    if side==("L"):
-      return self.LWanty
-    elif side==("R"):
-      return self.RWanty
-    else:
-      self.error
+  def getDesiredPosition(self) -> inches:
+    return self.Wanty
   
-  def setDesiredPosition(self,position,side) -> None:
-    if side==("L"):
-      self.LWanty=(position)
-    elif side==("R"):
-      self.RWanty=(position)
-    else:
-      self.error
+  def setDesiredPosition(self,position) -> None:
+    self.Wanty=(position)
 
   def atPosition(self) -> bool:
     return ( self.getCurrentPosition() == self.getDesiredPosition() )
@@ -77,11 +88,11 @@ class Climber(commands2.Subsystem):
   def setVelocity(self,V):
     self.velocity = V
     
-  def getHeight(self):
-    return
-
-  def error(self):
-    print ("I don't know what side that's pertaining to! use L or R when specifying which elevator.")
+  def getHeight(self) -> inches:
+    return metersToInches( self.Elevator.get_rotor_position().value_as_double * 2 * math.pi * self.drumRadius * self.gearing )
+  
+  def setHeight(self, height: inches): 
+    self.setPoint = height
 
 """
     ||    ||

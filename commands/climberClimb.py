@@ -6,10 +6,10 @@ from commands2 import Command
 from subsystems.climber import Climber
 
 class ClimberClimb(Command):
-    def __init__(self, climber: Climber,speed):
+    def __init__(self, climber: Climber, height):
         super().__init__()
         self.climber = climber
-        self.speed = speed
+        self.height = height
         self.addRequirements(climber)
         # Use addRequirements() here to declare subsystem dependencies.
         # e.g. self.addRequirements(subsystem)
@@ -18,10 +18,10 @@ class ClimberClimb(Command):
         pass
 
     def execute(self):
-        self.climber.setVelocity(self.speed)
+        self.climber.setHeight(self.height)
 
     def end(self, interrupted: bool):
-        self.climber.setVelocity(0)
+        #self.climber.setVelocity(0)
         pass
 
     def isFinished(self) -> bool:
