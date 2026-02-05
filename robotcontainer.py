@@ -10,7 +10,7 @@ from wpimath import applyDeadband
 from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d
 from wpimath.units import inchesToMeters
 
-from subsystems.vision import Vision
+# from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -31,7 +31,7 @@ class RobotContainer:
     _max_angular_rate_percent = ntproperty("MaxOmegaPercent", 1.0)
 
     _max_speed = TunerConstants.speed_at_12_volts
-    _max_angular_rate = 0.75  # radians per second
+    _max_angular_rate = 3  # radians per second
 
     def __init__(self) -> None:
         self.driver_controller = CommandXboxController(0)
@@ -46,13 +46,13 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        self.vision = Vision(
-            lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
-                Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
-            ),
-            lambda: self.drivetrain.get_state().speeds,
-            lambda: self.drivetrain.get_state().pose,
-        )
+        # self.vision = Vision(
+        #     lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
+        #         Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
+        #     ),
+        #     lambda: self.drivetrain.get_state().speeds,
+        #     lambda: self.drivetrain.get_state().pose,
+        # )
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -78,7 +78,7 @@ class RobotContainer:
         return y * abs(y) * self._max_speed * self._max_speed_percent
 
     def get_angular_rate(self) -> float:
-        t = -applyDeadband(self.driver_controller.getRightX(), 0.05)
+        t = applyDeadband(self.driver_controller.getRightX(), 0.05)
         return t * abs(t) * self._max_angular_rate * self._max_angular_rate_percent
 
     def get_pathfind_constraints(self) -> PathConstraints:
@@ -129,7 +129,11 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
+        self.driver_controller.b().onTrue(
+            InstantCommand(self.drivetrain.seed_field_centric())
+        )
+
+        # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
         """Operator"""
         """
