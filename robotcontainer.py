@@ -130,7 +130,7 @@ class RobotContainer:
         ).onFalse(InstantCommand(half_speed))
 
         self.driver_controller.b().onTrue(
-            InstantCommand(self.drivetrain.seed_field_centric())
+            InstantCommand(self.drivetrain.seed_field_centric)
         )
 
         # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())

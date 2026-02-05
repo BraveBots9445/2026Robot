@@ -15,7 +15,7 @@ class TunerConstants:
     # output type specified by SwerveModuleConstants.SteerMotorClosedLoopOutput
     _steer_gains = (
         configs.Slot0Configs()
-        .with_k_p(100)
+        .with_k_p(75)
         .with_k_i(0)
         .with_k_d(0.5)
         .with_k_s(0.1)
@@ -54,7 +54,7 @@ class TunerConstants:
 
     # The stator current at which the wheels start to slip;
     # This needs to be tuned to your individual robot
-    _slip_current: units.ampere = 60
+    _slip_current: units.ampere = 50
 
     # Initial configs for the drive and steer motors and the azimuth encoder; these cannot be null.
     # Some configs will be overwritten; check the `with_*_initial_configs()` API documentation.
