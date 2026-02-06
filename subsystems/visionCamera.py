@@ -6,7 +6,7 @@ from wpilib import RobotController, RobotBase
 
 from wpimath.geometry import Transform3d, Pose3d
 from wpimath.kinematics import ChassisSpeeds
-from wpimath.units import microseconds
+from wpimath.units import microseconds, seconds
 
 from robotpy_apriltag import AprilTagFieldLayout
 
@@ -28,9 +28,10 @@ class VisionCamera:
     The camera object from photonvision
     """
 
-    _simCamera: PhotonCameraSim | None
+    _simCamera = None
     """
     The simulated camera object for use in simulation, or None if not in simulation
+    :type simCamera: PhotonCameraSim | None
     """
 
     _pose_estimator: PhotonPoseEstimator
@@ -41,7 +42,7 @@ class VisionCamera:
     _baseStdDevs: tuple[float, float, float] = (0.1, 0.1, pi / 12)
 
     _logVisionMeasurement: Callable[
-        [Pose2d, int, tuple[float, float, float] | None], None
+        [Pose3d, seconds, tuple[float, float, float] | None], None
     ]
     """
     A method of the drivetrain passed as a callable to be used to add vision measurement results 
@@ -52,7 +53,7 @@ class VisionCamera:
     A method of the drivetrain passed as a clalable to be used to determine how fast the robot is moving
     """
 
-    _offsetStore: dict[int, tuple[Transform3d, int]] | None
+    _offsetStore: dict[int, tuple[Transform3d, seconds]] | None
     """
     A lookup table of target ID to Transform3d offsets seen by this camera, and the FPGA timestamp they were seen at
     Will be a dict when _storeOffsets is True, otherwise None
@@ -71,7 +72,7 @@ class VisionCamera:
         apriltagFieldLayout: AprilTagFieldLayout,
         robotToCamera: Transform3d,
         logVisionMeasurement: Callable[
-            [Pose3d, int, tuple[float, float, float] | None], None
+            [Pose3d, seconds, tuple[float, float, float] | None], None
         ],
         getRobotVelocity: Callable[[], ChassisSpeeds],
         storeOffsets: bool = False,
@@ -87,7 +88,7 @@ class VisionCamera:
         :param robotToCamera: The offset from the center of the robot at the z level of the carpet to the camera in NWU order
         :type robotToCamera: Transform3d
         :param logVisionMeasurement: A callable to log vision measurements to the drivetrain and update its odometry
-        :type logVisionMeasurement: Callable[[Pose2d, int, tuple[float, float, float] | None], None]
+        :type logVisionMeasurement: Callable[[Pose3d, seconds, tuple[float, float, float] | None], None]
         :param getRobotVelocity: A callable to get the current robot velocity
         :type getRobotVelocity: Callable[[], ChassisSpeeds]
         :param storeOffsets: Whether to store the offsets of seen tags for later use
@@ -107,9 +108,12 @@ class VisionCamera:
         self._storeOffsets = storeOffsets
 
         if RobotBase.isSimulation():
+
             # simCameraProperties = simCameraProperties.PERFECT_90DEG() # use this to test perfect camera (no noise simulation)
-            simCameraProperties = SimCameraProperties.OV9281_1280_720()
-            self._simCamera = PhotonCameraSim(self._camera, simCameraProperties)
+            # the below are type ignore because the sim imports are conditional on RobotBase.isSimulation()
+            # that makes them potentially unbound, but always safe to use.
+            simCameraProperties = SimCameraProperties.OV9281_1280_720()  # type: ignore
+            self._simCamera = PhotonCameraSim(self._camera, simCameraProperties)  # type: ignore
             # Wireframe is not implemented in python photonvision yet
             # self._simCamera.enableDrawWireframe(True)
 
@@ -119,13 +123,13 @@ class VisionCamera:
         The Vision class is responsible for calling this periodically
 
         :return: The estimated robot pose and the list of seen target IDs
-        :rtype: tuple[Pose2d, list[int]]
+        :rtype: tuple[Pose3d | None, list[int]]
         """
         targets: list[int] = []
         result = self._camera.getLatestResult()
         bestTarget = result.getBestTarget()
         if bestTarget is None:
-            return (Pose3d(), targets)
+            return (None, targets)
         distance = bestTarget.getBestCameraToTarget()
         estPose = self._pose_estimator.estimateCoprocMultiTagPose(result)
         if estPose is None:
