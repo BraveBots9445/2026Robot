@@ -12,8 +12,10 @@ from robotpy_apriltag import AprilTagFieldLayout
 
 from photonlibpy.photonCamera import PhotonCamera
 from photonlibpy.photonPoseEstimator import PhotonPoseEstimator
-from photonlibpy.simulation.photonCameraSim import PhotonCameraSim
-from photonlibpy.simulation.simCameraProperties import SimCameraProperties
+
+if RobotBase.isSimulation():
+    from photonlibpy.simulation.photonCameraSim import PhotonCameraSim
+    from photonlibpy.simulation.simCameraProperties import SimCameraProperties
 
 
 class VisionCamera:
@@ -73,7 +75,7 @@ class VisionCamera:
         ],
         getRobotVelocity: Callable[[], ChassisSpeeds],
         storeOffsets: bool = False,
-        simCameraProperties: SimCameraProperties = SimCameraProperties.OV9281_800_600(),
+        simCameraProperties=None,
     ) -> None:
         """
         Docstring for __init__
@@ -106,6 +108,7 @@ class VisionCamera:
 
         if RobotBase.isSimulation():
             # simCameraProperties = simCameraProperties.PERFECT_90DEG() # use this to test perfect camera (no noise simulation)
+            simCameraProperties = SimCameraProperties.OV9281_1280_720()
             self._simCamera = PhotonCameraSim(self._camera, simCameraProperties)
             # Wireframe is not implemented in python photonvision yet
             # self._simCamera.enableDrawWireframe(True)

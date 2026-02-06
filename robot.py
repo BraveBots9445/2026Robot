@@ -75,8 +75,3 @@ class Robot(TimedRobot):
 
     def _simulationPeriodic(self) -> None:
         pass
-
-
-# Start the Robot when Executing Code
-if __name__ == "__main__":
-    run(Robot)

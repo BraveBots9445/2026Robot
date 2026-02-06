@@ -85,8 +85,8 @@ class TunerConstants:
     _steer_gear_ratio = 21.428571428571427
     _wheel_radius: units.meter = inchesToMeters(2)
 
-    _invert_left_side = False
-    _invert_right_side = True
+    _invert_left_side = True
+    _invert_right_side = False
 
     _pigeon_id = 0
 
