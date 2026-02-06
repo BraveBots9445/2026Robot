@@ -8,6 +8,7 @@ from typing import Callable, overload
 from wpilib import DriverStation, Notifier, RobotController
 from wpilib.sysid import SysIdRoutineLog
 from wpimath.geometry import Pose2d, Rotation2d
+from wpimath.units import radiansToDegrees
 
 
 class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
@@ -15,6 +16,26 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     Class that extends the Phoenix 6 SwerveDrivetrain class and implements
     Subsystem so it can easily be used in command-based projects.
     """
+
+    _nom_max_speed: units.meters_per_second = 4.0
+    """Nominal maximum speed of the robot in meters per second"""
+    _nom_max_angular_rate: units.radians_per_second = 2 * math.pi
+    """Nominal maximum angular rate of the robot in radians per second"""
+
+    _curr_max_speed: units.meters_per_second = _nom_max_speed
+    """Current maximum speed of the robot in meters per second"""
+    _curr_max_angular_rate: units.radians_per_second = _nom_max_angular_rate
+    """Current maximum angular rate of the robot in radians per second"""
+
+    _nom_max_speed: units.meters_per_second = 4.0
+    """Nominal maximum speed of the robot in meters per second"""
+    _nom_max_angular_rate: units.radians_per_second = 2 * math.pi
+    """Nominal maximum angular rate of the robot in radians per second"""
+
+    _curr_max_speed: units.meters_per_second = _nom_max_speed
+    """Current maximum speed of the robot in meters per second"""
+    _curr_max_angular_rate: units.radians_per_second = _nom_max_angular_rate
+    """Current maximum angular rate of the robot in radians per second"""
 
     # _SIM_LOOP_PERIOD: units.second = 0.005
     _SIM_LOOP_PERIOD: units.second = 0.01
@@ -371,3 +392,57 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
             utils.fpga_to_current_time(timestamp),
             vision_measurement_std_devs,
         )
+
+    def setMaxSpeed(self, max_speed: units.meters_per_second) -> None:
+        """
+        Sets the maximum speed of the robot.
+
+        :param max_speed: The maximum speed of the robot in meters per second
+        :type max_speed:  units.meters_per_second
+        """
+        self._curr_max_speed = max_speed
+
+    def setMaxAngularRate(self, max_angular_rate: units.radians_per_second) -> None:
+        """
+        Sets the maximum angular rate of the robot.
+
+        :param max_angular_rate: The maximum angular rate of the robot in radians per second
+        :type max_angular_rate:  units.radians_per_second
+        """
+        self._max_angular_rate = max_angular_rate
+
+    def resetMaxSpeed(self) -> None:
+        """
+        Resets the maximum speed and angular rate of the robot to their nominal values.
+        """
+        self._curr_max_speed = self._nom_max_speed
+
+    def resetMaxAngularRate(self) -> None:
+        """
+        Resets the maximum angular rate of the robot to its nominal value.
+        """
+        self._curr_max_angular_rate = self._nom_max_angular_rate
+
+    def getMaxSpeed(self) -> units.meters_per_second:
+        """
+        Gets the current maximum speed of the robot.
+
+        :return: The current maximum speed of the robot in meters per second
+        :rtype: units.meters_per_second
+        """
+        return self._curr_max_speed
+
+    def getMaxAngularRate(self) -> units.radians_per_second:
+        """
+        Gets the current maximum angular rate of the robot.
+
+        :return: The current maximum angular rate of the robot in radians per second
+        :rtype: units.radians_per_second
+        """
+        return self._curr_max_angular_rate
+
+    def getMaxAngularRateDeg(self) -> units.degrees_per_second:
+        """
+        Gets the current maximum angular rate of the robot in degrees per second.
+        """
+        return radiansToDegrees(self.getMaxAngularRate())

@@ -27,7 +27,6 @@ from wpimath.kinematics import ChassisSpeeds
 
 from wpilib import RobotBase
 
-from photonlibpy.simulation import visionSystemSim
 
 from .visionCamera import VisionCamera
 
@@ -37,8 +36,8 @@ class Vision(Subsystem):
 
     # these names and their associated positions are fake
     _turretCamera: VisionCamera
-    _frontLeftCamera: VisionCamera
     _frontRightCamera: VisionCamera
+    _frontLeftCamera: VisionCamera
     _rearCamera: VisionCamera
 
     # TODO: The below offsets are all garbage from copilot
@@ -47,19 +46,19 @@ class Vision(Subsystem):
         Rotation3d(0, 0, 0),
     )
 
-    _frontLeftCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(10), inchesToMeters(10), inchesToMeters(10)),
-        Rotation3d.fromDegrees(0, 0, 45),
+    _frontRightCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(12), inchesToMeters(-12.5), inchesToMeters(9)),
+        Rotation3d.fromDegrees(45, 0, -45),
     )
 
-    _frontRightCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(10), inchesToMeters(-10), inchesToMeters(10)),
-        Rotation3d.fromDegrees(0, 0, -45),
+    _frontLeftCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(12), inchesToMeters(12.5), inchesToMeters(9)),
+        Rotation3d.fromDegrees(45, 0, 45),
     )
 
     _rearCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-10), inchesToMeters(0), inchesToMeters(10)),
-        Rotation3d.fromDegrees(0, 0, 180),
+        Translation3d(inchesToMeters(-12), inchesToMeters(12.5), inchesToMeters(9)),
+        Rotation3d.fromDegrees(45, 0, 135),
     )
 
     _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
@@ -84,7 +83,7 @@ class Vision(Subsystem):
     def __init__(
         self,
         logVisionMeasurement: Callable[
-            [Pose3d, int, tuple[float, float, float] | None], None
+            [Pose3d, seconds, tuple[float, float, float] | None], None
         ],
         getRobotVelocity: Callable[[], ChassisSpeeds],
         getRobotPose: Callable[[], Pose2d],
@@ -93,7 +92,7 @@ class Vision(Subsystem):
         Construct the Vision subsystem
 
         :param logVisionMeasurement: A callable to add vision measurement results to the drivetrain
-        :type logVisionMeasurement: Callable[[Pose2d, int, tuple[float, float, float] | None], None]
+        :type logVisionMeasurement: Callable[[Pose3d, seconds, tuple[float, float, float] | None], None]
         :param getRobotVelocity: A callable to get the current robot velocity
         :type getRobotVelocity: Callable[[], ChassisSpeeds]
         :param getRobotPose: A callable to get the current robot pose for simulation purposes only
@@ -109,24 +108,24 @@ class Vision(Subsystem):
             lambda: ChassisSpeeds(0, 0, 0),
         )
 
-        self._frontLeftCamera = VisionCamera(
-            "FrontLeftCamera",
-            self._tagLayout,
-            self._frontLeftCameraToRobot,
-            logVisionMeasurement,
-            getRobotVelocity,
-        )
-
         self._frontRightCamera = VisionCamera(
-            "FrontRightCamera",
+            "ArducamOV9281-FL (1)",
             self._tagLayout,
             self._frontRightCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
 
+        self._frontLeftCamera = VisionCamera(
+            "ArducamOV9281-BL",
+            self._tagLayout,
+            self._frontLeftCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
+
         self._rearCamera = VisionCamera(
-            "RearCamera",
+            "Arducam_OV9281_USB_Camera (1)",
             self._tagLayout,
             self._rearCameraToRobot,
             logVisionMeasurement,
@@ -144,15 +143,17 @@ class Vision(Subsystem):
         ).publish()
 
         if RobotBase.isSimulation():
+            from photonlibpy.simulation import visionSystemSim
+
             self._getRobotPose = getRobotPose
             self._visionSim = visionSystemSim.VisionSystemSim("photonvisionSim")
             self._visionSim.addAprilTags(self._tagLayout)
-            self._visionSim.addCamera(self._turretCamera.getCameraSim(), self._turretCameraToRobot)  # type: ignore
-            self._visionSim.addCamera(
-                self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
-            )
+            # self._visionSim.addCamera(self._turretCamera.getCameraSim(), self._turretCameraToRobot)  # type: ignore
             self._visionSim.addCamera(
                 self._frontRightCamera.getCameraSim(), self._frontRightCameraToRobot  # type: ignore
+            )
+            self._visionSim.addCamera(
+                self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
             )
             self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
             SmartDashboard.putData(self._visionSim.getDebugField())
@@ -162,8 +163,8 @@ class Vision(Subsystem):
 
         if not self._enabled:
             return
-        estFL, tagsFL = self._frontLeftCamera.update()
-        estFR, tagsFR = self._frontRightCamera.update()
+        estFL, tagsFL = self._frontRightCamera.update()
+        estFR, tagsFR = self._frontLeftCamera.update()
         estR, tagsR = self._rearCamera.update()
         _estTu, tagsTu = self._turretCamera.update()
 

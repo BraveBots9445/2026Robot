@@ -26,10 +26,8 @@ class Robot(TimedRobot):
         DriverStation.startDataLog(DataLogManager.getLog())
 
     def robotPeriodic(self) -> None:
-        try:
-            CommandScheduler.getInstance().run()
-        except Exception as e:
-            wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
+        CommandScheduler.getInstance().run()
+        # wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
 
     def autonomousInit(self):
         self.m_autonomousCommand = self.m_robotContainer.get_auto_command()
@@ -98,8 +96,3 @@ class Robot(TimedRobot):
         if stateSetpoint is not None:
             self.turretAngleIndicator.setAngle(stateSetpoint.turretAngle.degrees())
             self.hoodAngleIndicator.setAngle(stateSetpoint.hoodAngle.degrees())
-
-
-# Start the Robot when Executing Code
-if __name__ == "__main__":
-    run(Robot)
