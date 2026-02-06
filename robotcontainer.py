@@ -2,7 +2,6 @@
 from math import pi
 
 ########## WPILIB IMPORTS ##########
-
 from commands2 import (
     Command,
     RepeatCommand,
@@ -12,8 +11,13 @@ from commands2 import (
 )
 from wpilib import PowerDistribution, SmartDashboard
 
-from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d, Pose2d, Rotation3d
+from wpimath.geometry import (
+    Rotation2d,
+    Pose2d,
+    Rotation3d,
+    Pose3d,
+    Transform3d,
+)
 from wpimath.units import inchesToMeters
 
 from ntcore import NetworkTableInstance
@@ -93,8 +97,8 @@ class RobotContainer:
             lambda: self.drivetrain.get_state().speeds,
             Transform3d(),
             lambda v: v / inchesToMeters(2) * 60 / (2 * pi) / 0.7,
-            meters_per_second(0),
-            meters_per_second(20),
+            0,
+            20,
             Rotation2d.fromDegrees(45),
             Rotation2d.fromDegrees(90),
         )
@@ -120,22 +124,38 @@ class RobotContainer:
         SmartDashboard.putData(self.drivetrain)
 
     def set_teleop_bindings(self) -> None:
-        RepeatCommand(
-            SequentialCommandGroup(
-                self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
-            ).ignoringDisable(True)
-        ).ignoringDisable(True).schedule()
+        # RepeatCommand(
+        #     SequentialCommandGroup(
+        #         self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
+        #     ).ignoringDisable(True)
+        # ).ignoringDisable(True).schedule()
 
-        def setStuff():
-            setpoints = self.shootOnMoveCalculator.getSetpoints(
-                Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
+        # def setStuff():
+        #     setpoints = self.shootOnMoveCalculator.getSetpoints(
+        #         Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
+        #     )
+        #     if setpoints is not None:
+        #         self.turret.setSetpoint(setpoints.turretAngle)
+        #         self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
+        #         self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
+
+        # RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
+        self.driver_controller.a().onTrue(
+            InstantCommand(
+                lambda: self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(0))
             )
-            if setpoints is not None:
-                self.turret.setSetpoint(setpoints.turretAngle)
-                self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
-                self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
+        )
+        self.driver_controller.b().onTrue(
+            InstantCommand(
+                lambda: self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(30))
+            )
+        )
+        self.driver_controller.y().onTrue(
+            InstantCommand(
+                lambda: self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(60))
+            )
+        )
 
-        RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
         """driver"""
         self.drivetrain.setDefaultCommand(
             DrivetrainDriveFieldOriented(
@@ -170,9 +190,9 @@ class RobotContainer:
             DrivetrainDoubleSpeed(self.drivetrain)
         )
 
-        self.driver_controller.b().onTrue(
-            InstantCommand(self.drivetrain.seed_field_centric)
-        )
+        # self.driver_controller.b().onTrue(
+        #     InstantCommand(self.drivetrain.seed_field_centric)
+        # )
 
         self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 

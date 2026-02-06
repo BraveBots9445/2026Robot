@@ -5,8 +5,14 @@ from commands2 import Subsystem, Command
 
 from ntcore import NetworkTable, NetworkTableInstance, DoublePublisher, StructPublisher
 
-from wpilib import Servo, Mechanism2d, MechanismLigament2d, SmartDashboard
-from wpilib.simulation import FlywheelSim
+from wpilib import (
+    Mechanism2d,
+    MechanismLigament2d,
+    SmartDashboard,
+    Color8Bit,
+    RobotBase,
+)
+from wpilib.simulation import FlywheelSim, SingleJointedArmSim
 
 from wpimath.units import (
     revolutions_per_minute,
@@ -17,6 +23,7 @@ from wpimath.units import (
     kilogram_square_meters,
     rotationsToDegrees,
     amperes,
+    radiansToRotations,
 )
 from wpimath.geometry import Rotation2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
@@ -34,7 +41,20 @@ from phoenix6.configs import (
 from phoenix6.signals import NeutralModeValue
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotations_per_second
-from phoenix6.controls import VelocityVoltage, Follower
+from phoenix6.controls import VelocityVoltage
+
+from rev import (
+    SparkMax,
+    SparkBaseConfig,
+    ResetMode,
+    PersistMode,
+    FeedbackSensor,
+    AbsoluteEncoder,
+    SparkMaxSim,
+    SparkAbsoluteEncoderSim,
+    SparkClosedLoopController,
+    FeedForwardConfig,
+)
 
 kSECONDS_PER_MINUTE = 60
 kGRAVITY_ACCELERATION: meters_per_second_squared = -9.81
@@ -46,29 +66,26 @@ class Shooter(Subsystem):
     This includes the flywheel and hooded shooter mechanisms.
     """
 
-    ########################## MOTORS ##########################
-    _flywheelMasterMotor: TalonFX
+    ########################## HARDWARE ##########################
+    _flywheelMotor: TalonFX
     """
-    The leader motor that spins the flywheel
-    """
-
-    _flywheelFollowerMotor: TalonFX
-    """
-    The follower motor that spins the flywheel
+    The motor that spins the flywheel
     """
 
-    # TODO: These servos will be controlled on a Rev Servo Hub probably.
-    # Therefore, the object will not be a wpilib.Servo, but rather a Rev Servo Hub servo object.
-    # Leaving as wpilib.Servo for now for simplicity and since Rev hub is no confirmed.
-    _hoodAngleLeft: Servo
+    _hoodMotor: SparkMax
     """
-    The linear actuator servo that adjusts the hood angle on the left side
-    Found here: https://www.studica.co/linear-rc-actuator-140mm-200n
+    The SparkMax that controls the neo550 that controls the hood angle
     """
-    _hoodAngleRight: Servo
+
+    _hoodMotorClosedLoop: SparkClosedLoopController
     """
-    The linear actuator servo that adjusts the hood angle on the right side
-    Found here: https://www.studica.co/linear-rc-actuator-140mm-200n
+    The closed loop controller for the hood motor to control it to the desired angle
+    """
+
+    _hoodEncoder: AbsoluteEncoder
+    """
+    The absolute encoder attached to the hood motor to measure the angle of the hood
+    This is a Rev Throughbore encoder. 
     """
 
     ########################## CONFIGS ##########################
@@ -88,14 +105,9 @@ class Shooter(Subsystem):
     The moment of inertia of all moving components of the flywheel system
     """
 
-    _flywheelMasterConfig: TalonFXConfiguration
+    _flywheelConfig: TalonFXConfiguration
     """
-    Current configuration for the master flywheel motor
-    """
-
-    _flywheelFollowerConfig: TalonFXConfiguration
-    """
-    Current configuration for the follower flywheel motor
+    Current configuration for the flywheel motor
     """
 
     _flywheelSlot0Configs: Slot0Configs = (
@@ -108,15 +120,57 @@ class Shooter(Subsystem):
         .with_k_a(0)
     )
 
-    _gearRatio: float = 4 / 1
+    _flywheelGearRatio: float = 1 / 1
     """
     The ratio between rotations of the motor and rotations of the flywheel
     This is calculated as (motor rotations) / (flywheel rotations) 
     """
 
+    _hoodGearRatio: float = 1 / 9
+    """
+    The gear ratio between the hood motor and the hood output. 
+    This is calculated as (motor rotations) / (hood rotations)
+    """
+
+    _hoodZeroOffset: float = 0.0
+    """
+    The offset in rotations for the hood's absolute encoder to be considered the zero position of the hood (zero launch angle)
+    """
+
+    _hoodAbsoluteEncoderInverted: bool = False
+    """
+    Whether the absolute encoder is inverted relative to the motor
+    """
+
+    _hoodMOI: kilogram_square_meters = 0.0079
+    """
+    The moment of inertia of all moving components of the hood system
+    This is about the axis of rotation of the hood
+    Derive this from CAD. The real number is slightly higher than this (changing plastic, bolts)
+    """
+
+    _hoodArmLength: meters = inchesToMeters(9.5)
+
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(20)
+    """
+    The minimum angle of the hood. This is where the hood is fully retracted
+    """
+
+    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(40)
+    """
+    The max angle of the hood. This is where the hood is fully extended 
+    """
+
+    # hood PIDs
+    _hoodP: float = 10.0
+    _hoodI: float = 0.0
+    _hoodD: float = 0.0
+
+    _hoodkG: float = 0.2
+
     ########################## SETPOINTS ##########################
 
-    _flyWheelSetpoint: revolutions_per_minute = 0
+    _flywheelSetpoint: revolutions_per_minute = 0
     """
     The target speed for the flywheel in RPM
     """
@@ -158,24 +212,14 @@ class Shooter(Subsystem):
     published as a Rotation2d   
     """
 
-    _masterMotorCurrentPub: DoublePublisher
+    _motorCurrentPub: DoublePublisher
     """
-    A publisher for the current draw of the master flywheel motor in amps
-    """
-
-    _followerMotorCurrentPub: DoublePublisher
-    """
-    A publisher for the current draw of the follower flywheel motor in amps
+    A publisher for the current draw of the flywheel motor in amps
     """
 
-    _masterMotorDutyCyclePub: DoublePublisher
+    _motorDutyCyclePub: DoublePublisher
     """
-    A publisher for the duty cycle of the master flywheel motor
-    """
-
-    _followerMotorDutyCyclePub: DoublePublisher
-    """
-    A publisher for the duty cycle of the follower flywheel motor
+    A publisher for the duty cycle of the flywheel motor
     """
 
     _flywheelMech: MechanismLigament2d
@@ -188,41 +232,41 @@ class Shooter(Subsystem):
     A mechanism2d representation of the hood for visualization
     """
 
+    _hoodSetpointMech: MechanismLigament2d
+    """
+    A mechanism2d representation of the hood angle setpoint for visualization
+    """
+
     _getVelocitySignal: StatusSignal[rotations_per_second]
     """
     The status signal cached to get the velocity of the flywheel in rotations per second
     """
 
-    _getMasterCurrentSignal: StatusSignal[amperes]
+    _getFlywheelCurrentSignal: StatusSignal[amperes]
     """
-    The status signal cached to get the current draw of the master motor in amps
-    """
-
-    _getFollowerCurrentSignal: StatusSignal[amperes]
-    """
-    The status signal cached to get the current draw of the follower motor in amps
+    The status signal cached to get the current draw of the flywheel motor in amps
     """
 
-    _getMasterDutyCycleSignal: StatusSignal[float]
+    _getDutyCycleSignal: StatusSignal[float]
     """
-    The status signal cached to get the duty cycle of the master motor
-    """
-
-    _getFollowerDutyCycleSignal: StatusSignal[float]
-    """
-    The status signal cached to get the duty cycle of the follower motor
+    The status signal cached to get the duty cycle of the motor
     """
 
     ########################## SIM ##########################
 
-    _flywheelMasterMotorSimState: TalonFXSimState
+    _flywheelMotorSimState: TalonFXSimState
     """
-    The sim state of the master flywheel motor for simulation purposes
+    The sim state of the flywheel motor for simulation purposes
     """
 
-    _flywheelFollowerMotorSimState: TalonFXSimState
+    _hoodMotorSim: SparkMaxSim
     """
-    The sim state of the follower flywheel motor for simulation purposes
+    The simulated SparkMax object for the hood
+    """
+
+    _hoodEncoderSim: SparkAbsoluteEncoderSim
+    """
+    The simulated SparkMax absolute encoder object for the hood
     """
 
     _flywheelSim: FlywheelSim
@@ -230,57 +274,67 @@ class Shooter(Subsystem):
     The simulated flywheel to improve fidelity of motor states
     """
 
+    _hoodSim: SingleJointedArmSim
+    """
+    The simulated hood to improve fidelity of motor states
+    """
+
     def __init__(self) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000Shooter")
 
-        self._flywheelMasterMotor = TalonFX(20, self._canBus)
-        self._flywheelFollowerMotor = TalonFX(21, self._canBus)
+        self._flywheelMotor = TalonFX(20, self._canBus)
+        self._hoodMotor = SparkMax(21, SparkMax.MotorType.kBrushless)
+        self._hoodMotorClosedLoop = self._hoodMotor.getClosedLoopController()
+        self._hoodEncoder = self._hoodMotor.getAbsoluteEncoder()
 
-        currentLimits = (
-            CurrentLimitsConfigs()
-            .with_stator_current_limit(70)
-            .with_stator_current_limit_enable(True)
-        )
-        self._flywheelMasterConfig = (
+        self._flywheelConfig = (
             TalonFXConfiguration()
             .with_slot0(self._flywheelSlot0Configs)
             .with_feedback(
-                FeedbackConfigs().with_sensor_to_mechanism_ratio(self._gearRatio)
+                FeedbackConfigs().with_sensor_to_mechanism_ratio(
+                    self._flywheelGearRatio
+                )
             )
-            .with_current_limits(currentLimits)
+            .with_current_limits(
+                CurrentLimitsConfigs()
+                .with_stator_current_limit(30)
+                .with_stator_current_limit_enable(True)
+            )
             .with_motor_output(
                 MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
             )
         )
 
-        self._flywheelFollowerConfig = (
-            TalonFXConfiguration()
-            .with_current_limits(currentLimits)
-            .with_motor_output(
-                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
-            )
-        )  # this will follow, so no closed loop configuration
-
-        self._flywheelMasterMotor.configurator.apply(self._flywheelMasterConfig)
-        self._flywheelFollowerMotor.configurator.apply(self._flywheelFollowerConfig)
-
-        self._getVelocitySignal = self._flywheelMasterMotor.get_velocity(False)
-        self._getMasterCurrentSignal = self._flywheelMasterMotor.get_stator_current(
-            False
+        hoodConfig = (
+            SparkBaseConfig()
+            .smartCurrentLimit(20)
+            .setIdleMode(SparkBaseConfig.IdleMode.kBrake)
+            .secondaryCurrentLimit(27)
         )
-        self._getFollowerCurrentSignal = self._flywheelFollowerMotor.get_stator_current(
-            False
+        hoodConfig.absoluteEncoder.zeroOffset(self._hoodZeroOffset).inverted(
+            self._hoodAbsoluteEncoderInverted
         )
-        self._getMasterDutyCycleSignal = self._flywheelMasterMotor.get_duty_cycle(False)
-        self._getFollowerDutyCycleSignal = self._flywheelFollowerMotor.get_duty_cycle(
-            False
+        hoodConfig.closedLoop.P(self._hoodP).I(self._hoodI).D(
+            self._hoodD
+        ).setFeedbackSensor(FeedbackSensor.kAbsoluteEncoder).feedForward.kCos(
+            self._hoodkG
+        ).kCosRatio(
+            self._hoodGearRatio
         )
 
-        self._flywheelMasterMotorSimState = self._flywheelMasterMotor.sim_state
-        self._flywheelFollowerMotorSimState = self._flywheelFollowerMotor.sim_state
+        self._flywheelMotor.configurator.apply(self._flywheelConfig)
+        self._hoodMotor.configure(
+            hoodConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters
+        )
 
-        self._hoodAngleLeft = Servo(0)
-        self._hoodAngleRight = Servo(1)
+        self._getVelocitySignal = self._flywheelMotor.get_velocity(False)
+        self._getFlywheelCurrentSignal = self._flywheelMotor.get_stator_current(False)
+        self._getDutyCycleSignal = self._flywheelMotor.get_duty_cycle(False)
+
+        self._flywheelMotorSimState = self._flywheelMotor.sim_state
+
+        self._hoodMotorSim = SparkMaxSim(self._hoodMotor, DCMotor.NEO550())
+        self._hoodEncoderSim = SparkAbsoluteEncoderSim(self._hoodMotor)
 
         self._actualFlywheelSpeedPub = self._nettable.getDoubleTopic(
             "Flywheel/ActualRPM"
@@ -289,18 +343,12 @@ class Shooter(Subsystem):
             "Flywheel/DesiredRPM"
         ).publish()
 
-        self._masterMotorCurrentPub = self._nettable.getDoubleTopic(
-            "Flywheel/MasterMotorCurrentAmps"
-        ).publish()
-        self._followerMotorCurrentPub = self._nettable.getDoubleTopic(
-            "Flywheel/FollowerMotorCurrentAmps"
+        self._motorCurrentPub = self._nettable.getDoubleTopic(
+            "Flywheel/MotorCurrentAmps"
         ).publish()
 
-        self._masterMotorDutyCyclePub = self._nettable.getDoubleTopic(
-            "Flywheel/MasterMotorDutyCycle"
-        ).publish()
-        self._followerMotorDutyCyclePub = self._nettable.getDoubleTopic(
-            "Flywheel/FollowerMotorDutyCycle"
+        self._motorDutyCyclePub = self._nettable.getDoubleTopic(
+            "Flywheel/MotorDutyCycle"
         ).publish()
 
         self._actualHoodAnglePub = self._nettable.getStructTopic(
@@ -318,27 +366,42 @@ class Shooter(Subsystem):
         self._hoodMech = hoodMech.getRoot("hood", 50, 50).appendLigament(
             "hoodPointer", 40, 0
         )
+        self._hoodSetpointMech = hoodMech.getRoot(
+            "hoodSetpoint", 50, 50
+        ).appendLigament("hoodSetpointPointer", 40, 0, color=Color8Bit(0, 0, 255))
 
         self._flywheelSim = FlywheelSim(
             LinearSystemId.flywheelSystem(
-                DCMotor.krakenX60(2),
+                DCMotor.krakenX60(1),
                 self._flywheelMOI,
-                self._gearRatio,
+                self._flywheelGearRatio,
             ),
-            DCMotor.krakenX60(2),
+            DCMotor.krakenX60(1),
         )
 
-        SmartDashboard.putData("Shooter Flywheel Mech", flywheelMech)
-        SmartDashboard.putData("Shooter Hood Mech", hoodMech)
-        SmartDashboard.putData("Shooter", self)
+        # TODO: This performs poorly - the simulated angle is far too high according to the sim, but the motor performs reasonably.
+        self._hoodSim = SingleJointedArmSim(
+            DCMotor.NEO550(),
+            1 / self._hoodGearRatio,
+            self._hoodMOI,
+            self._hoodArmLength,
+            -float("inf"),  # this is because of the angle problem
+            float("inf"),
+            # self._hoodMinAngle.radians(),
+            # self._hoodMaxAngle.radians(),
+            True,
+            self._hoodMinAngle.radians(),
+        )
+
+        SmartDashboard.putData("Shooter/Flywheel Mech", flywheelMech)
+        SmartDashboard.putData("Shooter/Hood Mech", hoodMech)
+        SmartDashboard.putData("Shooter/Subsystem", self)
 
     def periodic(self) -> None:
         # refresh signals
         self._getVelocitySignal.refresh()
-        self._getMasterCurrentSignal.refresh()
-        self._getFollowerCurrentSignal.refresh()
-        self._getMasterDutyCycleSignal.refresh()
-        self._getFollowerDutyCycleSignal.refresh()
+        self._getFlywheelCurrentSignal.refresh()
+        self._getDutyCycleSignal.refresh()
 
         # log data
         flywheelVelocity = self.getFlywheelVelocity()
@@ -349,50 +412,61 @@ class Shooter(Subsystem):
         self._desiredFlywheelSpeedPub.set(desiredFlywheelVelocity)
         self._actualHoodAnglePub.set(hoodAngle)
         self._desiredHoodAnglePub.set(hoodAngleSetpoint)
-        self._masterMotorDutyCyclePub.set(
-            self._getMasterDutyCycleSignal.value_as_double
-        )
-        self._followerMotorDutyCyclePub.set(
-            self._getFollowerDutyCycleSignal.value_as_double
-        )
-        self._masterMotorCurrentPub.set(self._getMasterCurrentSignal.value_as_double)
-        self._followerMotorCurrentPub.set(
-            self._getFollowerCurrentSignal.value_as_double
-        )
+        self._motorDutyCyclePub.set(self._getDutyCycleSignal.value_as_double)
+        self._motorCurrentPub.set(self._getFlywheelCurrentSignal.value_as_double)
 
         # update mech2d
         self._flywheelMech.setAngle(
             self._flywheelMech.getAngle() + rotationsToDegrees(flywheelVelocity) * 0.02
         )
         self._hoodMech.setAngle(hoodAngle.degrees())
-
+        self._hoodSetpointMech.setAngle(hoodAngleSetpoint.degrees())
         # set controls
-        self._flywheelMasterMotor.set_control(
+        self._flywheelMotor.set_control(
             VelocityVoltage(
-                self._flyWheelSetpoint
-                / self._flywheelMasterConfig.feedback.sensor_to_mechanism_ratio
+                self._flywheelSetpoint
+                / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
             )
         )
 
-        class tmpBool:  # this is to make set_control not fail when calling .value on the bool passed in
-            value: bool = True
-
-        self._flywheelFollowerMotor.set_control(
-            Follower(self._flywheelMasterMotor.device_id, tmpBool())  # type: ignore
+        self._hoodMotorClosedLoop.setSetpoint(
+            (self._hoodAngleSetpoint - self._hoodMinAngle).degrees() / 360,
+            SparkMax.ControlType.kPosition,
         )
 
     def simulationPeriodic(self) -> None:
         self._flywheelSim.setInput(
-            [self._flywheelMasterMotor.get_motor_voltage().value_as_double * 2]
+            [self._flywheelMotor.get_motor_voltage().value_as_double]
         )
         self._flywheelSim.update(0.02)
 
-        self._flywheelMasterMotorSimState.set_rotor_velocity(
-            self._flywheelSim.getAngularVelocity() / self._gearRatio
+        self._flywheelMotorSimState.set_rotor_velocity(
+            self._flywheelSim.getAngularVelocity() / self._flywheelGearRatio
         )
-        self._flywheelFollowerMotorSimState.set_rotor_velocity(
-            self._flywheelSim.getAngularVelocity() / self._gearRatio
+
+        self._hoodSim.setInputVoltage(
+            self._hoodMotor.getAppliedOutput() * self._hoodMotor.getBusVoltage()
         )
+        self._hoodSim.update(0.02)
+
+        hoodVelocity = (
+            radiansToRotations(self._hoodSim.getVelocity()) / self._hoodGearRatio
+        )
+        print(
+            hoodVelocity,
+            self._hoodSim.getCurrentDraw(),
+            self._hoodSim.getAngleDegrees() * self._hoodGearRatio,
+        )
+        # hoodVelocity = radiansToRotations(
+        #     self._hoodMotor.getAppliedOutput() * DCMotor.NEO550().freeSpeed
+        # )
+        # print(self._hoodMotor.getAppliedOutput(), hoodVelocity)
+        self._hoodMotorSim.iterate(
+            hoodVelocity * self._hoodGearRatio,
+            12,
+            0.02,
+        )
+        self._hoodEncoderSim.iterate(hoodVelocity, 0.02)
 
     def setFlywheelSetpoint(self, setpoint: revolutions_per_minute) -> None:
         """
@@ -401,7 +475,7 @@ class Shooter(Subsystem):
         :type setpoint: revolutions_per_minute
         """
         # TODO: Do we want to constrain this to be positive or less than some maximum?
-        self._flyWheelSetpoint = setpoint
+        self._flywheelSetpoint = setpoint
 
     def setHoodAngleSetpoint(self, setpoint: Rotation2d) -> None:
         """
@@ -417,7 +491,7 @@ class Shooter(Subsystem):
         :return: The target speed in RPM
         :rtype: revolutions_per_minute
         """
-        return self._flyWheelSetpoint
+        return self._flywheelSetpoint
 
     def getHoodAngleSetpoint(self) -> Rotation2d:
         """
@@ -434,8 +508,17 @@ class Shooter(Subsystem):
         :rtype: Rotation2d
         """
         return (
-            self.getHoodAngleSetpoint()
-        )  # TODO: not sure how to sim this yet, so just return the setpoint
+            Rotation2d.fromRotations(self._hoodEncoder.getPosition())
+            + self._hoodMinAngle
+        )
+
+    def getHoodVelocity(self) -> rotations_per_second:
+        """
+        Gets the current angular velocity of the hood
+        :return: The current hood angular velocity in rotations per second
+        :rtype: rotations_per_second
+        """
+        return self._hoodEncoder.getVelocity() / 60
 
     def getFlywheelVelocity(self) -> revolutions_per_minute:
         """
@@ -447,7 +530,7 @@ class Shooter(Subsystem):
         return (
             self._getVelocitySignal.value_as_double
             * kSECONDS_PER_MINUTE
-            * self._gearRatio
+            * self._flywheelGearRatio
         )
 
     def _tmpSetVelocityCommand(self, velocity: revolutions_per_minute) -> Command:

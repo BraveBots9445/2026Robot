@@ -74,6 +74,7 @@ class Robot(TimedRobot):
 
     # Simulation Robot Functions
     def _simulationInit(self) -> None:
+        return
         turretAngleMech = Mechanism2d(100, 100)
         self.turretAngleIndicator = turretAngleMech.getRoot(
             "Turret Angle", 50, 50
@@ -90,6 +91,7 @@ class Robot(TimedRobot):
         SmartDashboard.putData("Hood Angle Mech", hoodAngleMech)
 
     def _simulationPeriodic(self) -> None:
+        return
         stateSetpoint: StateSetpoint | None = self.shootOnMoveCalculator.getSetpoints(
             Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
         )
