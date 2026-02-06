@@ -21,10 +21,8 @@ class Robot(TimedRobot):
         DriverStation.startDataLog(DataLogManager.getLog())
 
     def robotPeriodic(self) -> None:
-        try:
-            CommandScheduler.getInstance().run()
-        except Exception as e:
-            wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
+        CommandScheduler.getInstance().run()
+        # wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
 
     def autonomousInit(self):
         self.m_autonomousCommand = self.m_robotContainer.get_auto_command()

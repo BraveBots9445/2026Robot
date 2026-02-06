@@ -1,5 +1,7 @@
 from typing import Callable
 
+from wpilib import SmartDashboard
+
 from commands2.button import CommandXboxController
 
 
@@ -32,7 +34,6 @@ class CommandController9445(CommandXboxController):
         deadband: float = 0.05,
         smoothingFunction: Callable[[float], float] = lambda x: x * abs(x),
     ):
-        super().__init__(port)
         """
         Construct the CommandController9445
 
@@ -43,6 +44,7 @@ class CommandController9445(CommandXboxController):
         :param smoothingFunction: A function to apply to joystick inputs for sensitivity adjustment. It should take a [-1.0, 1.0] float and return a [-1.0, 1.0] float.
         :type smoothingFunction: Callable[[float], float]
         """
+        super().__init__(port)
         self._deadband = deadband
         self._smoothingFunction = smoothingFunction
 
@@ -54,7 +56,7 @@ class CommandController9445(CommandXboxController):
         :return: The processed left joystick X value
         :rtype: float
         """
-        raw_value = self.getLeftY()
+        raw_value = -self.getLeftY()
         if abs(raw_value) < self._deadband:
             return 0.0
         return self._smoothingFunction(raw_value)
@@ -66,7 +68,7 @@ class CommandController9445(CommandXboxController):
         :return: The processed left joystick Y value
         :rtype: float
         """
-        raw_value = self.getLeftX()
+        raw_value = -self.getLeftX()
         if abs(raw_value) < self._deadband:
             return 0.0
         return self._smoothingFunction(raw_value)
@@ -78,7 +80,7 @@ class CommandController9445(CommandXboxController):
         :return: The processed right joystick X value
         :rtype: float
         """
-        raw_value = self.getRightY()
+        raw_value = -self.getRightY()
         if abs(raw_value) < self._deadband:
             return 0.0
         return self._smoothingFunction(raw_value)
@@ -90,7 +92,7 @@ class CommandController9445(CommandXboxController):
         :return: The processed right joystick Y value
         :rtype: float
         """
-        raw_value = self.getRightX()
+        raw_value = -self.getRightX()
         if abs(raw_value) < self._deadband:
             return 0.0
         return self._smoothingFunction(raw_value)
