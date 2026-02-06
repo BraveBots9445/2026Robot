@@ -141,19 +141,13 @@ class RobotContainer:
 
         # RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
         self.driver_controller.a().onTrue(
-            InstantCommand(
-                lambda: self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(0))
-            )
+            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
         )
         self.driver_controller.b().onTrue(
-            InstantCommand(
-                lambda: self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(30))
-            )
+            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(0))
         )
         self.driver_controller.y().onTrue(
-            InstantCommand(
-                lambda: self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(60))
-            )
+            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(90))
         )
 
         """driver"""

@@ -452,15 +452,7 @@ class Shooter(Subsystem):
         hoodVelocity = (
             radiansToRotations(self._hoodSim.getVelocity()) / self._hoodGearRatio
         )
-        print(
-            hoodVelocity,
-            self._hoodSim.getCurrentDraw(),
-            self._hoodSim.getAngleDegrees() * self._hoodGearRatio,
-        )
-        # hoodVelocity = radiansToRotations(
-        #     self._hoodMotor.getAppliedOutput() * DCMotor.NEO550().freeSpeed
-        # )
-        # print(self._hoodMotor.getAppliedOutput(), hoodVelocity)
+
         self._hoodMotorSim.iterate(
             hoodVelocity * self._hoodGearRatio,
             12,

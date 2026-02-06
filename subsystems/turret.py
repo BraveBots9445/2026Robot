@@ -11,7 +11,12 @@ from ntcore import (
 )
 
 from wpimath.geometry import Rotation2d
-from wpimath.units import amperes, kilogram_square_meters
+from wpimath.units import (
+    amperes,
+    kilogram_square_meters,
+    degreesToRadians,
+    radiansToRotations,
+)
 from wpimath import angleModulus
 from wpimath.system.plant import DCMotor, LinearSystemId
 
@@ -24,19 +29,20 @@ from wpilib import (
 )
 from wpilib.simulation import DCMotorSim, SingleJointedArmSim
 
-from phoenix6.hardware import TalonFX, CANcoder
-from phoenix6.configs import (
-    TalonFXConfiguration,
-    CANcoderConfiguration,
-    Slot0Configs,
-    FeedbackConfigs,
-    CurrentLimitsConfigs,
-    MotorOutputConfigs,
-)
+from phoenix6.hardware import CANcoder
+from phoenix6.configs import CANcoderConfiguration
 from phoenix6.status_signal import StatusSignal
-from phoenix6.signals import NeutralModeValue
-from phoenix6.controls import PositionDutyCycle, PositionVoltage
-from phoenix6.sim import TalonFXSimState
+
+from rev import (
+    SparkMax,
+    SparkMaxSim,
+    RelativeEncoder,
+    SparkRelativeEncoderSim,
+    SparkBaseConfig,
+    ResetMode,
+    PersistMode,
+    SparkClosedLoopController,
+)
 
 
 class Turret(Subsystem):
@@ -51,13 +57,22 @@ class Turret(Subsystem):
 
     ########## HARDWARE ##########
 
-    _motor: TalonFX
+    _motor: SparkMax
     """
-    The motor controller for the turret.
-    Controlling a Kraken X60 (TODO: Is that true?).
+    The motor controller for the turret controlling a neo 550
     """
 
-    _canCoder: CANcoder
+    _motorClosedLoop: SparkClosedLoopController
+    """
+    The closed loop controller for the turret motor.
+    """
+
+    _encoder: RelativeEncoder
+    """
+    The motor attached encoder for the turret 
+    """
+
+    _cancoder: CANcoder
     """
     The encoder for the turret. This is used for indexing.
     When the magnet mounted on the turret passes the CANCoder, it's position is set to zero.
@@ -70,39 +85,26 @@ class Turret(Subsystem):
     """
 
     ########## CONFIGS ##########
-    _canBus: str = "canivore"
+    _canbus: str = "canivore"
     """
-    The CAN bus the turret motor and encoder are connected to.
-    "canivore" for the CANivore CAN bus, "rio" or "" for the RoboRIO CAN bus.
+    The CAN bus the the CANCoder is on. The turret is on the rio bus
+    "canivore" for canivore, "" or "rio" for rio
     """
 
-    _gearRatio: float = 10 / 1
+    _gearRatio: float = 30 / 1
     """
     The gear ratio of the turret mechanism.
     This is measured as motor rotations / turret rotations.
     """
 
-    _motorConfig: TalonFXConfiguration
-    """
-    The current configuration for the turret motor
-    """
+    # motor PID gains
+    _motorP: float = 0.35
+    _motorI: float = 0.0
+    _motorD: float = 0.02
 
     _canCoderConfig: CANcoderConfiguration
     """
     The current configuration for the turret CANCoder
-    """
-
-    _closedLoopConfig: Slot0Configs = (
-        Slot0Configs()
-        .with_k_p(2.0)
-        .with_k_i(0.0)
-        .with_k_d(0.0)
-        .with_k_s(0)
-        .with_k_v(0)
-        .with_k_a(0)
-    )
-    """
-    The closed loop configuration for the turret motor.
     """
 
     ########## LOGGING ##########
@@ -156,21 +158,6 @@ class Turret(Subsystem):
     The cached status signal to get the CANCoder magnet status.
     """
 
-    _motorCurrentSignal: StatusSignal[amperes]
-    """
-    The cached status signal to get the motor current.
-    """
-
-    _motorDutyCycleSignal: StatusSignal[float]
-    """
-    The cached status signal to get the motor duty cycle.
-    """
-
-    _motorPositionSignal: StatusSignal[float]
-    """
-    The cached status signal to get the motor position.
-    """
-
     ########## SIMULATION ##########
     # _turretSim: SingleJointedArmSim
     # """
@@ -178,17 +165,22 @@ class Turret(Subsystem):
     # A single jointed arm without gravity is a turret
     # """
 
-    _motorSimState: TalonFXSimState
+    _motorSim: SparkMaxSim
     """
-    The simulation state for the turret motor.
+    The simulation object for the turret motor.
     """
 
-    _motorSim: DCMotorSim
+    _encoderSim: SparkRelativeEncoderSim
+    """
+    The sim object for the turret motor encoder.
+    """
+
+    _motorSimModel: DCMotorSim
     """
     The simulation model for the turret motor.
     """
 
-    _turretMOI: kilogram_square_meters = 0.06
+    _turretMOI: kilogram_square_meters = 0.08
     """
     The moment of inertia of the turret.
     This should come from CAD
@@ -204,29 +196,28 @@ class Turret(Subsystem):
     def __init__(self) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000Turret")
 
-        self._motor = TalonFX(23, self._canBus)
-        self._canCoder = CANcoder(24, self._canBus)
+        self._motor = SparkMax(23, SparkMax.MotorType.kBrushless)
+        self._motorClosedLoop = self._motor.getClosedLoopController()
+        self._encoder = self._motor.getEncoder()
+        self._cancoder = CANcoder(24, self._canbus)
 
-        self._motorConfig = (
-            TalonFXConfiguration()
-            # .with_feedback(
-            #     FeedbackConfigs().with_sensor_to_mechanism_ratio(self._gearRatio)
-            # )
-            .with_current_limits(
-                CurrentLimitsConfigs()
-                .with_stator_current_limit(40)
-                .with_stator_current_limit_enable(True)
-            )
-            .with_motor_output(
-                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
-            )
-            .with_slot0(self._closedLoopConfig)
+        motorConfig = SparkBaseConfig()
+        motorConfig.smartCurrentLimit(20).secondaryCurrentLimit(25).setIdleMode(
+            SparkBaseConfig.IdleMode.kCoast
+        )
+        motorConfig.closedLoop.pid(self._motorP, self._motorI, self._motorD)
+        motorConfig.encoder.positionConversionFactor(
+            1 / self._gearRatio
+        ).velocityConversionFactor(1 / self._gearRatio)
+
+        self._motor.configure(
+            motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters
         )
 
-        self._canCoderMagnetStatusSignal = self._canCoder.get_fault_bad_magnet(False)
-        self._motorCurrentSignal = self._motor.get_stator_current()
-        self._motorDutyCycleSignal = self._motor.get_duty_cycle()
-        self._motorPositionSignal = self._motor.get_position()
+        self._motorSim = SparkMaxSim(self._motor, DCMotor.NEO550())
+        self._encoderSim = SparkRelativeEncoderSim(self._motor)
+
+        self._canCoderMagnetStatusSignal = self._cancoder.get_fault_bad_magnet(False)
 
         self._rotationPub = self._nettable.getStructTopic(
             "Rotation", Rotation2d
@@ -253,35 +244,32 @@ class Turret(Subsystem):
         ).appendLigament("Turret Setpoint", 40, 0, color=Color8Bit(0, 0, 255))
 
         self._turretSim = SingleJointedArmSim(
-            LinearSystemId.singleJointedArmSystem(
-                DCMotor.krakenX60(1), self._turretMOI, self._gearRatio
-            ),
-            DCMotor.krakenX60(1),
+            DCMotor.NEO550(),
             self._gearRatio,
+            self._turretMOI,
             0.0,
-            Rotation2d.fromDegrees(-180).radians(),
-            Rotation2d.fromDegrees(180).radians(),
+            -float("inf"),
+            float("inf"),
+            # degreesToRadians(-180),
+            # degreesToRadians(180),
             False,
             0.0,
         )
 
-        self._simMotor = self._motor.sim_state
+        self._simMotor = SparkMaxSim(self._motor, DCMotor.NEO550())
 
         SmartDashboard.putData("Turret Mech", turretMech)
         SmartDashboard.putData("Turret", self)
 
     def periodic(self) -> None:
-        self._motorCurrentSignal.refresh()
-        self._motorDutyCycleSignal.refresh()
-        self._motorCurrentSignal.refresh()
-        self._motorPositionSignal.refresh()
+        self._canCoderMagnetStatusSignal.refresh()
 
         angle = self.getRotation()
         isMagnetDetected = self._canCoderMagnetStatusSignal.value
         self._rotationPub.set(angle)
         self._rotationSetpointPub.set(self._rotationSetpoint)
-        self._motorCurrentPub.set(self._motorCurrentSignal.value_as_double)
-        self._motorDutyCyclePub.set(self._motorDutyCycleSignal.value_as_double)
+        self._motorCurrentPub.set(self._motor.getOutputCurrent())
+        self._motorDutyCyclePub.set(self._motor.getAppliedOutput())
         self._canCoderMagnetStatusPub.set(isMagnetDetected)
 
         self._turretMech.setAngle(angle.degrees())
@@ -291,32 +279,25 @@ class Turret(Subsystem):
         # TODO: Do we need to mandate a low speed for this to happen?
         # TODO: Where is the cancoder/magnet physically located?
         if isMagnetDetected and RobotBase.isReal():
-            self._motor.set_position(
+            self._encoder.setPosition(
                 0.5
             )  # facing straight forward is 0.5 rotations (exactly in the middle of the -180 to 180)
 
-        self._motor.set_control(
-            PositionDutyCycle(
-                # self._rotation2dToRotations(self._rotationSetpoint) / self._gearRatio
-                self._rotationSetpoint.degrees()
-                / 360
-                * self._gearRatio
-            )
+        self._motorClosedLoop.setSetpoint(
+            radiansToRotations(self._rotationSetpoint.radians() * self._gearRatio),
+            SparkMax.ControlType.kPosition,
         )
 
     def simulationPeriodic(self) -> None:
-        self._turretSim.setInputVoltage(self._motor.get_motor_voltage().value_as_double)
+        self._turretSim.setInputVoltage(self._motor.getAppliedOutput() * 12)
 
         self._turretSim.update(0.02)
 
-        mechPosition = self._turretSim.getAngle()
-        mechVel = self._turretSim.getVelocity()
+        mechVel = self._turretSim.getVelocity() * self._gearRatio
 
-        rotorPosition = mechPosition * self._gearRatio / (2 * pi)
-        rotorVelocity = mechVel * self._gearRatio / (2 * pi)
-
-        self._simMotor.set_raw_rotor_position(rotorPosition)
-        self._simMotor.set_rotor_velocity(rotorVelocity)
+        self._motorSim.iterate(mechVel, 12, 0.02)
+        self._motorSim.setMotorCurrent(self._turretSim.getCurrentDraw())
+        self._encoderSim.iterate(mechVel, 0.02)
 
     def setSetpoint(self, angle: Rotation2d) -> None:
         """
@@ -343,9 +324,7 @@ class Turret(Subsystem):
         :return The current rotation of the turret.
         :rtype: Rotation2d
         """
-        return Rotation2d.fromDegrees(
-            self._motorPositionSignal.value_as_double * 360 / self._gearRatio
-        )
+        return Rotation2d.fromRotations(self._encoder.getPosition() / self._gearRatio)
 
     def _rotation2dToRotations(self, angle: Rotation2d) -> float:
         return angleModulus(angle.radians()) / (2 * pi)
