@@ -29,11 +29,7 @@ from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 
 
 ########## SUBSYSTEM IMPORTS ##########
-from subsystems.vision import Vision
-from subsystems.shooter import Shooter
-from subsystems.turret import Turret
-from subsystems.shootOnMoveCalculator import ShootOnMoveCalculator
-from subsystems.fuelShootingVisualizer import FuelShootingVisualizer
+from subsystems import *
 
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -92,6 +88,8 @@ class RobotContainer:
         self.shooter = Shooter()
         self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(45))
         self.turret = Turret()
+        self.intake = Intake()
+
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
             lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
@@ -140,6 +138,16 @@ class RobotContainer:
         #         self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
 
         # RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
+
+        self.driver_controller.a().onTrue(
+            self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(0))
+        )
+        self.driver_controller.b().onTrue(
+            self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(30))
+        )
+        self.driver_controller.y().onTrue(
+            self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(90))
+        )
 
         """driver"""
         self.drivetrain.setDefaultCommand(
