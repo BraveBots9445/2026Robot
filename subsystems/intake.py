@@ -11,7 +11,8 @@ class Intake(Subsystem):
     simTalon = DCMotor.krakenX60()
 
     def __init__(self,):
-        self.nettable = NetworkTableInstance.getDefault().getTable("000Intake")
+        self.nettable = NetworkTableInstance.getDefault().getTable("LogInputs")
+        self.subtable = NetworkTableInstance.getDefault().getTable("000Intake")
         self.rotationmotor = TalonFX(1)
         self.spinmotor = TalonFX(2)
         self.setpoint = 0
@@ -21,22 +22,24 @@ class Intake(Subsystem):
         SmartDashboard.putData(self.PID)
 
     def periodic(self):
-        self.nettable.putNumber("spin_motor_velocity", self.spinmotor.get_velocity().value_as_double)
-        self.nettable.putNumber("rotation_motor_velocity", self.rotationmotor.get_velocity().value_as_double)
-        self.nettable.putNumber("set_point", self.setpoint)
-        self.nettable.putNumber("rotation_duty_cycle", self.rotationmotor.get())
-        self.nettable.putNumber("spin_duty_cycle", self.spinmotor.get())
-        self.nettable.putNumber("rotation_motor_current", self.rotationmotor.get_torque_current().value_as_double)
-        self.nettable.putNumber("spin_motor_current", self.spinmotor.get_stator_current().value_as_double)
-        self.nettable.putNumber("rotation_motor_voltage", self.rotationmotor.get_motor_voltage().value_as_double)
-        self.nettable.putNumber("spin_motor_voltage", self.spinmotor.get_motor_voltage().value_as_double)
-        self.nettable.putNumber("rotation_motor_position", self.rotationmotor.get_position().value_as_double)
-        self.nettable.putNumber("spin_motor_position", self.spinmotor.get_position().value_as_double)
-        self.nettable.putNumber("rotation_motor_temp", self.rotationmotor.get_device_temp().value_as_double)
-        self.nettable.putNumber("spin_motor_temp", self.spinmotor.get_device_temp().value_as_double)
+        self.nettable.putNumber("spin/velocity", self.spinmotor.get_velocity().value_as_double)
+        self.nettable.putNumber("spin/dutycycle", self.spinmotor.get())
+        self.nettable.putNumber("spin/current", self.spinmotor.get_stator_current().value_as_double)
+        self.nettable.putNumber("spin/voltage", self.spinmotor.get_motor_voltage().value_as_double)
+        self.nettable.putNumber("spin/position", self.spinmotor.get_position().value_as_double)
+        self.nettable.putNumber("spin/temp", self.spinmotor.get_device_temp().value_as_double)
+        self.nettable.putNumber("rotation/velocity", self.rotationmotor.get_velocity().value_as_double)
+        self.nettable.putNumber("rotation/dutycycle", self.rotationmotor.get())
+        self.nettable.putNumber("rotation/current", self.rotationmotor.get_torque_current().value_as_double)
+        self.nettable.putNumber("rotation/voltage", self.rotationmotor.get_motor_voltage().value_as_double)
+        self.nettable.putNumber("rotation/position", self.rotationmotor.get_position().value_as_double)
+        self.nettable.putNumber("rotation/temp", self.rotationmotor.get_device_temp().value_as_double)
+        self.nettable.putNumber("spin/temp", self.spinmotor.get_device_temp().value_as_double)
+
+        self.subtable.putNumber("set_point", self.setpoint)
 
         self.PIDcalcuate=self.PID.calculate(self.get_speed(),self.setpoint)
-        self.nettable.putNumber("PID_calculate", self.PIDcalcuate)
+        self.subtable.putNumber("PID_calculate", self.PIDcalcuate)
         self.rotationmotor.set(self.angle)
 
         self.spinmotor.set(self.spinmotor.get() + self.PIDcalcuate)
