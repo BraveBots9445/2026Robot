@@ -140,15 +140,6 @@ class RobotContainer:
         #         self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
 
         # RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
-        self.driver_controller.a().onTrue(
-            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
-        )
-        self.driver_controller.b().onTrue(
-            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(0))
-        )
-        self.driver_controller.y().onTrue(
-            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(90))
-        )
 
         """driver"""
         self.drivetrain.setDefaultCommand(
