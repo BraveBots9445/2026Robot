@@ -11,7 +11,7 @@ class Intake(Subsystem):
     simTalon = DCMotor.krakenX60()
 
     def __init__(self,):
-        self.nettable = NetworkTableInstance.getDefault().getTable("LogInputs")
+        self.nettable = NetworkTableInstance.getDefault().getTable("00LogInputs/Intake")
         self.subtable = NetworkTableInstance.getDefault().getTable("000Intake")
         self.rotationmotor = TalonFX(1)
         self.spinmotor = TalonFX(2)
