@@ -124,22 +124,22 @@ class RobotContainer:
         SmartDashboard.putData(self.drivetrain)
 
     def set_teleop_bindings(self) -> None:
-        # RepeatCommand(
-        #     SequentialCommandGroup(
-        #         self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
-        #     ).ignoringDisable(True)
-        # ).ignoringDisable(True).schedule()
+        RepeatCommand(
+            SequentialCommandGroup(
+                self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
+            ).ignoringDisable(True)
+        ).ignoringDisable(True).schedule()
 
-        # def setStuff():
-        #     setpoints = self.shootOnMoveCalculator.getSetpoints(
-        #         Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
-        #     )
-        #     if setpoints is not None:
-        #         self.turret.setSetpoint(setpoints.turretAngle)
-        #         self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
-        #         self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
+        def setStuff():
+            setpoints = self.shootOnMoveCalculator.getSetpoints(
+                Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
+            )
+            if setpoints is not None:
+                self.turret.setSetpoint(setpoints.turretAngle)
+                self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
+                self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
 
-        # RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
+        RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
 
         self.driver_controller.a().onTrue(
             self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(0))
