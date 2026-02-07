@@ -2,8 +2,8 @@ from math import pi
 
 from commands2 import Subsystem, Command
 
-
 from ntcore import NetworkTable, NetworkTableInstance, DoublePublisher, StructPublisher
+from ntcore.util import ntproperty
 
 from wpilib import (
     Mechanism2d,
@@ -27,6 +27,7 @@ from wpimath.units import (
 )
 from wpimath.geometry import Rotation2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
+from wpimath.controller import BangBangController
 
 
 from phoenix6.hardware import TalonFX
@@ -95,12 +96,17 @@ class Shooter(Subsystem):
     "canivore" for the CANivore CAN bus, "rio" or "" for the RoboRIO CAN bus.
     """
 
+    _useClosedLoopFlywheel = ntproperty("UseClosedLoopFlywheel", True)
+    """
+    If True, use closed loop velocity control on the TalonFX, otherwise, use Bang-Bang
+    """
+
     _flywheelRadius: meters = inchesToMeters(2)
     """
     The radius in meters of the flywheel
     """
 
-    _flywheelMOI: kilogram_square_meters = 0.05
+    _flywheelMOI: kilogram_square_meters = 0.01
     """
     The moment of inertia of all moving components of the flywheel system
     """
@@ -112,13 +118,15 @@ class Shooter(Subsystem):
 
     _flywheelSlot0Configs: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(0.01)
+        .with_k_p(50000.0)
         .with_k_i(0)
         .with_k_d(0.0)
         .with_k_s(0)
         .with_k_v(0)
         .with_k_a(0)
     )
+
+    _flywheelBangBangController: BangBangController
 
     _flywheelGearRatio: float = 1 / 1
     """
@@ -151,18 +159,18 @@ class Shooter(Subsystem):
 
     _hoodArmLength: meters = inchesToMeters(9.5)
 
-    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(20)
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(0)
     """
     The minimum angle of the hood. This is where the hood is fully retracted
     """
 
-    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(40)
+    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(90)
     """
     The max angle of the hood. This is where the hood is fully extended 
     """
 
     # hood PIDs
-    _hoodP: float = 10.0
+    _hoodP: float = 25.0
     _hoodI: float = 0.0
     _hoodD: float = 0.0
 
@@ -287,6 +295,8 @@ class Shooter(Subsystem):
         self._hoodMotorClosedLoop = self._hoodMotor.getClosedLoopController()
         self._hoodEncoder = self._hoodMotor.getAbsoluteEncoder()
 
+        self._flywheelBangBangController = BangBangController()
+
         self._flywheelConfig = (
             TalonFXConfiguration()
             .with_slot0(self._flywheelSlot0Configs)
@@ -297,7 +307,7 @@ class Shooter(Subsystem):
             )
             .with_current_limits(
                 CurrentLimitsConfigs()
-                .with_stator_current_limit(30)
+                .with_stator_current_limit(50)
                 .with_stator_current_limit_enable(True)
             )
             .with_motor_output(
@@ -318,8 +328,6 @@ class Shooter(Subsystem):
             self._hoodD
         ).setFeedbackSensor(FeedbackSensor.kAbsoluteEncoder).feedForward.kCos(
             self._hoodkG
-        ).kCosRatio(
-            self._hoodGearRatio
         )
 
         self._flywheelMotor.configurator.apply(self._flywheelConfig)
@@ -422,12 +430,22 @@ class Shooter(Subsystem):
         self._hoodMech.setAngle(hoodAngle.degrees())
         self._hoodSetpointMech.setAngle(hoodAngleSetpoint.degrees())
         # set controls
-        self._flywheelMotor.set_control(
-            VelocityVoltage(
-                self._flywheelSetpoint
-                / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
+        if abs(desiredFlywheelVelocity) < 1:
+            self._flywheelMotor.set(0)
+        if self._useClosedLoopFlywheel:
+            self._flywheelMotor.set_control(
+                VelocityVoltage(
+                    self._flywheelSetpoint
+                    / kSECONDS_PER_MINUTE
+                    / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
+                )
             )
-        )
+        else:
+            out = self._flywheelBangBangController.calculate(
+                abs(flywheelVelocity / kSECONDS_PER_MINUTE),
+                abs(self._flywheelSetpoint / kSECONDS_PER_MINUTE),
+            ) * (1 if self._flywheelSetpoint >= 0 else -1)
+            self._flywheelMotor.set(out)
 
         self._hoodMotorClosedLoop.setSetpoint(
             (self._hoodAngleSetpoint - self._hoodMinAngle).degrees() / 360,
@@ -441,7 +459,8 @@ class Shooter(Subsystem):
         self._flywheelSim.update(0.02)
 
         self._flywheelMotorSimState.set_rotor_velocity(
-            self._flywheelSim.getAngularVelocity() / self._flywheelGearRatio
+            radiansToRotations(self._flywheelSim.getAngularVelocity())
+            / self._flywheelGearRatio
         )
 
         self._hoodSim.setInputVoltage(
@@ -467,6 +486,7 @@ class Shooter(Subsystem):
         :type setpoint: revolutions_per_minute
         """
         # TODO: Do we want to constrain this to be positive or less than some maximum?
+        setpoint = max(min(setpoint, 6000), -6000)
         self._flywheelSetpoint = setpoint
 
     def setHoodAngleSetpoint(self, setpoint: Rotation2d) -> None:
@@ -475,6 +495,10 @@ class Shooter(Subsystem):
         :param setpoint: The target hood angle
         :type setpoint: Rotation2d
         """
+        if setpoint.radians() < self._hoodMinAngle.radians():
+            setpoint = self._hoodMinAngle
+        elif setpoint.radians() > self._hoodMaxAngle.radians():
+            setpoint = self._hoodMaxAngle
         self._hoodAngleSetpoint = setpoint
 
     def getFlywheelSetpoint(self) -> revolutions_per_minute:

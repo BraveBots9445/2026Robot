@@ -54,7 +54,7 @@ class Robot(TimedRobot):
 
     # Test Robot Functions
     def testInit(self) -> None:
-        pass
+        self.m_robotContainer.set_test_bindings()
 
     def testPeriodic(self):
         pass

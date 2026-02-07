@@ -17,6 +17,7 @@ from wpimath.geometry import (
     Rotation3d,
     Pose3d,
     Transform3d,
+    Transform2d,
 )
 from wpimath.units import inchesToMeters
 
@@ -59,6 +60,7 @@ from commands import *
 
 ########## TEAM IMPORTS ##########
 from tools.CommandXboxController9445 import CommandController9445
+from tools.rebuilt import Rebuilt, RebuiltPositions
 
 
 class RobotContainer:
@@ -218,7 +220,27 @@ class RobotContainer:
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
-        self.test_remote = CommandController9445(2)
+        self.test_remote = CommandController9445(2, deadband=0.1)
+
+        self.shooter.setDefaultCommand(
+            ShooterTuneDistance(
+                self.shooter,
+                self.test_remote.getFRCLX,
+                self.test_remote.getFRCRX,
+                self.test_remote.rightTrigger().getAsBoolean,
+                lambda: Pose3d(self.drivetrain.get_state().pose)
+                .translation()
+                .distance(Rebuilt.getPosition(RebuiltPositions.Hub).translation()),
+            )
+        )
+
+        self.test_remote.rightTrigger().onTrue(
+            WaitCommand(2.0).andThen(
+                DrivetrainMoveOffset(
+                    self.drivetrain, Transform2d(-0.5, 0, Rotation2d())
+                )
+            )
+        )
 
     def set_pp_named_commands(self) -> None:
         """

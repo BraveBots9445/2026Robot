@@ -1,6 +1,6 @@
 from typing import Callable
 
-from wpilib import SmartDashboard
+from wpimath import applyDeadband
 
 from commands2.button import CommandXboxController
 
@@ -57,8 +57,7 @@ class CommandController9445(CommandXboxController):
         :rtype: float
         """
         raw_value = -self.getLeftY()
-        if abs(raw_value) < self._deadband:
-            return 0.0
+        raw_value = applyDeadband(raw_value, self._deadband)
         return self._smoothingFunction(raw_value)
 
     def getFRCLY(self) -> float:
@@ -69,8 +68,7 @@ class CommandController9445(CommandXboxController):
         :rtype: float
         """
         raw_value = -self.getLeftX()
-        if abs(raw_value) < self._deadband:
-            return 0.0
+        raw_value = applyDeadband(raw_value, self._deadband)
         return self._smoothingFunction(raw_value)
 
     def getFRCRX(self) -> float:
@@ -81,8 +79,7 @@ class CommandController9445(CommandXboxController):
         :rtype: float
         """
         raw_value = -self.getRightY()
-        if abs(raw_value) < self._deadband:
-            return 0.0
+        raw_value = applyDeadband(raw_value, self._deadband)
         return self._smoothingFunction(raw_value)
 
     def getFRCRY(self) -> float:
@@ -93,6 +90,5 @@ class CommandController9445(CommandXboxController):
         :rtype: float
         """
         raw_value = -self.getRightX()
-        if abs(raw_value) < self._deadband:
-            return 0.0
+        raw_value = applyDeadband(raw_value, self._deadband)
         return self._smoothingFunction(raw_value)
