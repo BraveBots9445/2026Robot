@@ -8,11 +8,11 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 0.3844282550507854,
-        "y": 6.515709167255842
+        "x": 0.37434933114135854,
+        "y": 6.5157108836966176
       },
       "isLocked": false,
-      "linkedName": "D"
+      "linkedName": "depotStart"
     },
     {
       "anchor": {
@@ -20,12 +20,12 @@
         "y": 5.059032258064517
       },
       "prevControl": {
-        "x": 0.3685418701281062,
-        "y": 5.308866756987931
+        "x": 0.38184608567668166,
+        "y": 5.308996824378209
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "E"
+      "linkedName": "depotEnd"
     }
   ],
   "rotationTargets": [],

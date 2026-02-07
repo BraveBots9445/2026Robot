@@ -8,24 +8,24 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 7.0368550774320955,
-        "y": 8.251845863653246
+        "x": 2.389129032258065,
+        "y": 7.443564516129032
       },
       "isLocked": false,
-      "linkedName": "A"
+      "linkedName": null
     },
     {
       "anchor": {
-        "x": 6.938758064516129,
-        "y": 6.002604838709678
+        "x": 0.37763709677104595,
+        "y": 6.873032258067597
       },
       "prevControl": {
-        "x": 6.29508064516129,
-        "y": 6.2366693548387095
+        "x": 2.389129032258065,
+        "y": 7.443564516129032
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "F"
+      "linkedName": "depotStart"
     }
   ],
   "rotationTargets": [],
@@ -42,7 +42,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 0.0
+    "rotation": -90.0
   },
   "reversed": false,
   "folder": null,

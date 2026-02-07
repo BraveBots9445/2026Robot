@@ -3,16 +3,16 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 0.37763709677104595,
-        "y": 5.059032258064517
+        "x": 0.40689516129077574,
+        "y": 0.6483790322593381
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.7548548387096785,
-        "y": 4.788395161290323
+        "x": 2.1477500000000003,
+        "y": 1.2847419354838723
       },
       "isLocked": false,
-      "linkedName": "E"
+      "linkedName": "humanStation"
     },
     {
       "anchor": {
@@ -20,12 +20,12 @@
         "y": 3.9545403225777473
       },
       "prevControl": {
-        "x": 2.2282096774193554,
-        "y": 5.059032258064517
+        "x": 1.4601854838709685,
+        "y": 3.61075806451613
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "B"
+      "linkedName": "primeShootingSpot"
     }
   ],
   "rotationTargets": [],
@@ -48,7 +48,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -89.9999999996206
+    "rotation": 180.0
   },
   "useDefaultConstraints": true
 }

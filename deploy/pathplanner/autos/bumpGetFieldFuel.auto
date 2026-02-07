@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "A to F alt"
+            "pathName": "enterThroughBump"
           }
         },
         {
@@ -19,7 +19,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "F to G"
+            "pathName": "fieldYoink"
           }
         },
         {
@@ -31,13 +31,31 @@
         {
           "type": "path",
           "data": {
-            "pathName": "G to B alt"
+            "pathName": "exitThroughBump"
           }
         },
         {
           "type": "named",
           "data": {
             "name": "shoot"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 4.0
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "beholdTower"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "climberClimb.py"
           }
         }
       ]

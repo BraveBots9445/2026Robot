@@ -68,7 +68,6 @@ class Climber(commands2.Subsystem):
     SmartDashboard.putNumber( "ElevatorSimPosition", self.elevSim.getPositionInches() )
     SmartDashboard.putNumber( "Height", self.getHeight() )
 
-  
   def getCurrentPosition(self) -> inches:
     return self.Elevator.get_position().value_as_double
   

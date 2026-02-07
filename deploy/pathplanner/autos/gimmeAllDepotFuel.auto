@@ -7,7 +7,31 @@
         {
           "type": "path",
           "data": {
-            "pathName": "A to B"
+            "pathName": "goDirectlyToDepotDoNotPassHubDoNotCollect200Fuel"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "initIntake"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "depotYoink"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "terminateIntake"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "depotToShooting"
           }
         },
         {
@@ -25,13 +49,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "B to C"
+            "pathName": "beholdTower"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "climb"
+            "name": "climberClimb.py"
           }
         }
       ]

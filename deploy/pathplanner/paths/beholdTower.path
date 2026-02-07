@@ -3,29 +3,29 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 8.87710483870977,
-        "y": 5.995290322577693
-      },
-      "prevControl": null,
-      "nextControl": {
-        "x": 3.991008064516129,
-        "y": 5.958717741935483
-      },
-      "isLocked": false,
-      "linkedName": "G"
-    },
-    {
-      "anchor": {
         "x": 2.513475806451356,
         "y": 3.9545403225777473
       },
+      "prevControl": null,
+      "nextControl": {
+        "x": 2.198951612903226,
+        "y": 3.6839032258064517
+      },
+      "isLocked": false,
+      "linkedName": "primeShootingSpot"
+    },
+    {
+      "anchor": {
+        "x": 1.3504677419354847,
+        "y": 3.7424193548387104
+      },
       "prevControl": {
-        "x": 3.991008064516129,
-        "y": 5.951403225806453
+        "x": 1.6734941430322918,
+        "y": 3.7862927270894664
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "B"
+      "linkedName": "tower"
     }
   ],
   "rotationTargets": [],

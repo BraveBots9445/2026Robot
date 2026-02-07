@@ -7,37 +7,31 @@
         {
           "type": "path",
           "data": {
-            "pathName": "A to H"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "initIntake"
-          }
-        },
-        {
-          "type": "wait",
-          "data": {
-            "waitTime": 3.0
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "terminateIntake"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "H to B"
+            "pathName": "startingFuelFirst"
           }
         },
         {
           "type": "named",
           "data": {
             "name": "shoot"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 4.0
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "beholdTower"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "climberClimb.py"
           }
         }
       ]
