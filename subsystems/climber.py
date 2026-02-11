@@ -21,6 +21,7 @@ from wpimath.controller import PIDController
 from wpilib import SmartDashboard
 import math
 from wpilib.simulation import ElevatorSim
+from ntcore import NetworkTableInstance
 
 class Climber(commands2.Subsystem):
 
@@ -35,6 +36,8 @@ class Climber(commands2.Subsystem):
     self.setPoint:inches = 0
     self.PID = PIDController(Kp=1.0, Ki=0, Kd=0)
     SmartDashboard.putData(self.PID)
+    self.subtable = NetworkTableInstance.getDefault().getTable("000climber")
+    self.nettable = NetworkTableInstance.getDefault().getTable("LogInputs")
     self.elevSim = ElevatorSim(
       DCMotor.krakenX60(1), #gearbox: DCMotor,
       self.gearing, #gearing: SupportsFloat,
@@ -47,11 +50,21 @@ class Climber(commands2.Subsystem):
     )
 
   def periodic(self):
-    self.PIDcalculate=self.PID.calculate(self.getHeight(), self.setPoint)
-    self.Elevator.set( self.PIDcalculate )
     #SmartDashboard.putNumber( "PIDCalculate", self.PIDcalculate )
     SmartDashboard.putNumber( "Setpoint", self.setPoint )
-  
+    self.nettable.putNumber("elevator/velocity",self.getVelocity())
+    self.nettable.putNumber("elevator/position",self.getCurrentPosition())
+    self.nettable.putNumber("elevator/current",self.Elevator.get_stator_current().value_as_double)
+    self.nettable.putNumber("elevator/temperture",self.Elevator.get_device_temp().value_as_double)
+    self.nettable.putNumber("elevator/voltage",self.Elevator.get_motor_voltage().value_as_double)
+    self.nettable.putNumber("elevator/duty_cycle",self.Elevator.get())
+    self.subtable.putNumber("set_point",self.setPoint)
+    
+    self.PIDcalculate=self.PID.calculate(self.getHeight(), self.setPoint)
+    self.subtable.putNumber("PID_calculate", self.PIDcalculate)
+    self.Elevator.set( self.PIDcalculate )
+
+
   def simulationPeriodic(self) -> None:
     # rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.Elevator.get() )
     # self.Elevator.sim_state.add_rotor_position ( rotation_rotationsPerSecond * 0.02 )
@@ -71,7 +84,6 @@ class Climber(commands2.Subsystem):
   def getCurrentPosition(self) -> inches:
     return self.Elevator.get_position().value_as_double
   
-
   def setCurrentPosition(self) -> None:
     pass
   
@@ -86,7 +98,10 @@ class Climber(commands2.Subsystem):
   
   def setVelocity(self,V):
     self.velocity = V
-    
+
+  def getVelocity(self):
+    return self.velocity
+
   def getHeight(self) -> inches:
     return metersToInches( self.Elevator.get_rotor_position().value_as_double * 2 * math.pi * self.drumRadius * self.gearing )
   
