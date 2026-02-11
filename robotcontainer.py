@@ -9,10 +9,13 @@ from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
+from subsystems.shooter import Shooter
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
 from commands2.button import CommandXboxController
+from commands.shooterShoot import ShooterShoot
+from commands.shooterShoot import Shooter
 
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
@@ -62,11 +65,12 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        self.vision = Vision(
-            self.drivetrain.add_vision_measurement,
-            lambda: self.drivetrain.get_state().pose,
-            lambda: self.drivetrain.get_state().speeds,
-        )
+        self.shooter = Shooter()
+
+        #self.vision = Vision(
+            #self.drivetrain.add_vision_measurement,
+            #lambda: self.drivetrain.get_state().pose,
+            #lambda: self.drivetrain.get_state().speeds,)
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -141,14 +145,15 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(
-            self.vision.toggle_vision_measurements_command()
-        )
+        #self.driver_controller.x().onTrue(
+            #self.vision.toggle_vision_measurements_command())
 
         """Operator"""
         """
         Insert code here for the secondary driver
         """
+        self.operator_controller.a().whileTrue(ShooterShoot(self.shooter, 11))
+        self.operator_controller.b().whileTrue(ShooterShoot(self.shooter, 26))
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime

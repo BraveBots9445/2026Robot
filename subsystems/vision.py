@@ -4,7 +4,7 @@ from commands2 import Command, InstantCommand, Subsystem
 from wpilib import RobotBase, SmartDashboard
 from math import e, pi
 from ntcore import NetworkTableInstance
-from photonlibpy import photonCamera, photonPoseEstimator
+from photonlibpy import photonPoseEstimator, photonCamera
 
 
 from robotpy_apriltag import AprilTagFieldLayout, AprilTagField
@@ -32,9 +32,9 @@ from wpilib import RobotBase
 class Vision(Subsystem):
     enabled: bool = True
 
-    strategy: photonPoseEstimator.PoseStrategy = (
-        photonPoseEstimator.PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR
-    )
+    # strategy: photonPoseEstimator.PoseStrategy = (
+    #     photonPoseEstimator.PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR
+    # )
 
     max_omega: degrees_per_second = 90
     max_velocity: meters_per_second = 4
@@ -89,26 +89,26 @@ class Vision(Subsystem):
 
         self.fl_est = photonPoseEstimator.PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.fl,
+            # self.strategy,
+            # self.fl,
             self.to_fl,
         )
         self.fr_est = photonPoseEstimator.PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.fr,
+            # self.strategy,
+            # self.fr,
             self.to_fr,
         )
         self.bl_est = photonPoseEstimator.PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.bl,
+            # self.strategy,
+            # self.bl,
             self.to_bl,
         )
         self.br_est = photonPoseEstimator.PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.br,
+            # self.strategy,
+            # self.br,
             self.to_br,
         )
 
