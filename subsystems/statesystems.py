@@ -40,7 +40,7 @@ class IntakeState(Enum):
                 elif state == IntakeState.Enjecting:
                     self.motor.set(-0.8)
 
-               def periodic(self): 
+            def periodic(self): 
                 elapsed = (
                     wpilib.Timer.getFPGATimestamp() - self.state_start_time
                 )      
@@ -84,4 +84,4 @@ class IntakeState(Enum):
 
                             wpilib.SmartDashboard.putString(
                                 "Intake/State", self.state.name
-                            )
+                            ) 
