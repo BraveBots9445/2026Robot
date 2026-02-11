@@ -8,9 +8,11 @@ from wpimath import applyDeadband
 from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
-from subsystems.vision import Vision
+#from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
+from commands.climberClimb import ClimberClimb
+from subsystems.climber import Climber
 
 from commands2.button import CommandXboxController
 
@@ -61,12 +63,11 @@ class RobotContainer:
         self._logger = Telemetry(self._max_speed)
 
         self.drivetrain = TunerConstants.create_drivetrain()
-
-        self.vision = Vision(
-            self.drivetrain.add_vision_measurement,
-            lambda: self.drivetrain.get_state().pose,
-            lambda: self.drivetrain.get_state().speeds,
-        )
+        self.climber=Climber()
+        #self.vision = Vision(
+            #self.drivetrain.add_vision_measurement,
+            #lambda: self.drivetrain.get_state().pose,
+            #lambda: self.drivetrain.get_state().speeds,)
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -141,14 +142,18 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(
-            self.vision.toggle_vision_measurements_command()
-        )
+        #self.driver_controller.x().onTrue(
+            #self.vision.toggle_vision_measurements_command())
 
         """Operator"""
         """
         Insert code here for the secondary driver
         """
+
+        self.operator_controller.a().whileTrue(ClimberClimb(self.climber,0))
+        self.operator_controller.b().whileTrue(ClimberClimb(self.climber,10))
+        self.operator_controller.x().whileTrue(ClimberClimb(self.climber,20))
+        self.operator_controller.y().whileTrue(ClimberClimb(self.climber,30))
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
