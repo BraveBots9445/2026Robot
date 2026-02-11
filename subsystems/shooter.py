@@ -12,25 +12,31 @@ from wpimath.controller import PIDController
 from wpimath import controller
 from wpilib import SmartDashboard
 import math
+from rev import SparkMax
+from ntcore import NetworkTableInstance
+from ntcore import NetworkTable
+from wpilib import RobotController
+
+
 
 class Shooter(Subsystem):
-    _varName1: TalonFX
     _desiredPosition: inches
     
     def __init__(self):
         self.shooterMotor = TalonFX(1)
-        self.hoodMotor = TalonFX(2)
+        self.hoodMotor = SparkMax(1, SparkMax.MotorType.kBrushless)
+        self.hoodEncoder = self.hoodMotor.getEncoder()
         #insert self.sensor here
         self.velocity: meters_per_second = 0
         self.angle = 0#%
-        self.velocity_voltage = controls.VelocityVoltage(0).with_slot(0)
+        self.velocity_voltage = controls.VelocityVoltage(0).with_slot(1)
         self.simTalon = DCMotor.krakenX60(1)
         self.PID = PIDController(Kp=0.0001, Ki=0, Kd=0)
         self.PID2 = PIDController(Kp=0.003, Ki=0, Kd=0)
+        self.netTable = NetworkTableInstance.getDefault().getTable("000Shooter")
 
-    
-    def getSpinnerAngle(self):
-        return self.hoodMotor.get_position
+    def get_position(self):
+        return self.hoodEncoder.getPosition()
     
     def setSpinnerAngle(self, angle):
         self.shooterMotor.set(angle)
@@ -51,7 +57,7 @@ class Shooter(Subsystem):
         newSpeed = self.PID.calculate(self.getVelocity(), self.velocity)
         self.shooterMotor.set(newSpeed)
 
-        
+        self.netTable.putNumber("flywheel/", self.shooterMotor.get())
         #log motor and sensor info
         #do subsystem work
         #log visual output
@@ -63,7 +69,7 @@ class Shooter(Subsystem):
         simState.set_rotor_velocity(vel)
     
     def getCurrentHoodPosition(self) -> inches:
-        return self._varName1.get_position().value_as_double
+        return self.hoodMotor
     
     def setCurrentHoodPosition(self, position:inches) -> None:
         pass
@@ -75,9 +81,9 @@ class Shooter(Subsystem):
         pass
     
     def atHoodPosition(self) -> bool:
-        return (self.getCurrentPosition() == self.getDesiredPosition())
+        return (self.getCurrentHoodPosition() == self.getDesiredHoodPosition())
     
     #PIDController (auto, auto, auto)
-    #controller.calculate(current, setPoint)
-    #motor.set(PIDcalculation)
+    #PIDController.calculate#(current, setPoint)
+    #shooterMotor:(PIDController.calculate)
     #[Tune]
