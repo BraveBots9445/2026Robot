@@ -1,82 +1,42 @@
-from commands2 import Command, CommandScheduler
-from wpilib import (
-    DriverStation,
-    TimedRobot,
-    run,
-    DataLogManager,
-)
 import wpilib
+from phoenix6.hardware import TalonFX
+from wpilib import DigitalInput
+from subsystems.intake import IntakeSubsystem
 
-from robotcontainer import RobotContainer
 
+class MyRobot(wpilib.TimedRobot):
 
-class Robot(TimedRobot):
-    m_autonomousCommand: Command
-    m_robotContainer: RobotContainer
-
-    # Initialize Robot
     def robotInit(self):
-        self.m_robotContainer = RobotContainer()
-        DataLogManager.start()
-        DriverStation.startDataLog(DataLogManager.getLog())
 
-    def robotPeriodic(self) -> None:
-        try:
-            CommandScheduler.getInstance().run()
-        except Exception as e:
-            wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
+        # Create intake motor (CAN ID 1)
+        intake_motor = TalonFX(1)
 
-    def autonomousInit(self):
-        self.m_autonomousCommand = self.m_robotContainer.get_auto_command()
+        # Create beam break on DIO port 0
+        beam_break = DigitalInput(0)
 
-        CommandScheduler.getInstance().schedule(self.m_autonomousCommand)
+        # Create intake subsystem and pass both in
+        self.intake = IntakeSubsystem(intake_motor, beam_break) 
 
-    def autonomousPeriodic(self):
-        pass
+ 
 
-    def autonomousExit(self):
-        if self.m_autonomousCommand:
-            self.m_autonomousCommand.cancel()
+class InvertedBeamBreak:
+    def __init__(self, channel):
+        self.sensor = wpilib.DigitalInput(channel)
 
-    # Teleop Robot Functions
-    def teleopInit(self):
-        if self.m_robotContainer is not None:
-            self.m_robotContainer.set_teleop_bindings()
+    def get(self):
+        return not self.sensor.get()
 
-    def teleopPeriodic(self):
-        pass
+beam_break = InvertedBeamBreak(0) 
 
-    def teleopExit(self):
-        pass
-
-    # Test Robot Functions
-    def testInit(self) -> None:
-        pass
-
-    def testPeriodic(self):
-        pass
-
-    def testExit(self):
-        pass
-
-    # Disabled Robot Functions
-    def disabledInit(self):
-        pass
-
-    def disabledPeriodic(self) -> None:
-        pass
-
-    def disabledExit(self):
-        pass
-
-    # Simulation Robot Functions
-    def _simulationInit(self) -> None:
-        pass
-
-    def _simulationPeriodic(self) -> None:
-        pass
+beam_break.get()
+ 
+beam_break = wpilib.DigitalInput(0)
+self.intake = IntakeSubsystem(intake_motor, beam_break) 
+        
+       
 
 
-# Start the Robot when Executing Code
-if __name__ == "__main__":
-    run(Robot)
+
+
+
+

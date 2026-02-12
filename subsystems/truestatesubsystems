@@ -17,7 +17,7 @@ class IntakeSubsystem(commands2.SubsystemBase):
         super().__init__()
         self.motor = motor
         self.beam_break = beam_break
-
+        
         self.state = IntakeState.OFF
         self.state_start_time = wpilib.Timer.getFPGATimestamp()
 
@@ -75,3 +75,4 @@ class IntakeSubsystem(commands2.SubsystemBase):
 
     def reset_count(self):
         self.piece_count = 0
+
