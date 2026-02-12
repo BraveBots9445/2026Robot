@@ -1,0 +1,78 @@
+from enum import Enum, auto
+import wpilib
+import commands2
+from wpilib.interfaces import MotorController
+
+
+class IntakeState(Enum):
+    OFF = auto()
+    INTAKING = auto()
+    HOLDING = auto()
+    EJECTING = auto()
+
+
+class IntakeSubsystem(commands2.SubsystemBase):
+
+    def __init__(self, motor: MotorController, beam_break):
+        super().__init__()
+        self.motor = motor
+        self.beam_break = beam_break
+        
+        self.state = IntakeState.OFF
+        self.state_start_time = wpilib.Timer.getFPGATimestamp()
+
+        # COUNT SYSTEM
+        self.piece_count = 0
+        self.previous_beam_state = False
+
+    def set_state(self, new_state: IntakeState):
+        if new_state != self.state:
+            wpilib.SmartDashboard.putString(
+                "Intake/State", new_state.name
+            )
+
+            self.state = new_state
+            self.state_start_time = wpilib.Timer.getFPGATimestamp()
+            self.on_enter_state(new_state)
+
+    def on_enter_state(self, state: IntakeState):
+        if state == IntakeState.OFF:
+            self.motor.stopMotor()
+
+        elif state == IntakeState.INTAKING:
+            self.motor.set(0.7)
+
+        elif state == IntakeState.HOLDING:
+            self.motor.set(0.1)
+
+        elif state == IntakeState.EJECTING:
+            self.motor.set(-0.8)
+
+    def periodic(self):
+        elapsed = (
+            wpilib.Timer.getFPGATimestamp() - self.state_start_time
+        )
+
+        current_beam = self.beam_break.get()
+
+        # COUNT WHEN BEAM IS TRIGGERED (rising edge detection)
+        if current_beam and not self.previous_beam_state:
+            self.piece_count += 1
+            wpilib.SmartDashboard.putNumber(
+                "Intake/PieceCount", self.piece_count
+            )
+
+        self.previous_beam_state = current_beam
+
+        # State transitions
+        if self.state == IntakeState.INTAKING:
+            if current_beam:
+                self.set_state(IntakeState.HOLDING)
+
+        elif self.state == IntakeState.EJECTING:
+            if elapsed > 0.5:
+                self.set_state(IntakeState.OFF)
+
+    def reset_count(self):
+        self.piece_count = 0
+
