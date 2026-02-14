@@ -11,8 +11,9 @@ from wpimath.units import inchesToMeters
 from subsystems.vision import Vision
 from commands.intakeIntake import IntakeIntake
 from commands.intakeRotationSpin import IntakeRoationSpin
-from commands.intakeSetSetpoint import IntakeSetsetpoint
-from subsystems.intake import Intake
+from commands.intakeSetPivotSetpoint import IntakePivotSetsetpoint
+from commands.intakeSetRollerSetpoint import IntakeRollerSetsetpoint
+from subsystems.intakeV2 import Intake
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -161,14 +162,24 @@ class RobotContainer:
             IntakeRoationSpin(self.intake)
         )
         self.operator_controller.b().whileTrue(
-            IntakeSetsetpoint(self.intake, -5.2)
+            IntakeRollerSetsetpoint(self.intake, -5.2)
          )
         self.operator_controller.a().whileTrue(
-            IntakeSetsetpoint(self.intake, 0)
+            IntakeRollerSetsetpoint(self.intake, 0)
          )
         self.operator_controller.y().whileTrue(
-            IntakeSetsetpoint(self.intake, 3.1415926)
+            IntakeRollerSetsetpoint(self.intake, 3.1415926)
          )
+        self.operator_controller.x().whileTrue(
+            IntakePivotSetsetpoint(self.intake, 0)
+         )
+        self.operator_controller.rightBumper().whileTrue(
+            IntakePivotSetsetpoint(self.intake, 5)
+         )
+        self.operator_controller.leftBumper().whileTrue(
+            IntakePivotSetsetpoint(self.intake, -5)
+         )
+
 
 
     def set_test_bindings(self) -> None:

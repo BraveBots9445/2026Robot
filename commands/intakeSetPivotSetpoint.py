@@ -1,21 +1,21 @@
 from commands2 import Command
-from subsystems.intake import Intake
+from subsystems.intakeV2 import Intake
 
-class IntakeIntake(Command):
-    def __init__(self, intake: Intake):
+class IntakePivotSetsetpoint(Command):
+    def __init__(self, intake: Intake, pivotsetpoint):
         super().__init__()
-        self.addRequirements(intake)
+        self.addRequirements(Intake)
+        self.pivotsetpoint = pivotsetpoint
         self.intake = intake
 
     def initialize(self):
         pass
 
     def execute(self):
-        self.intake.set_speed(.6)
+        self.intake.setpivotsetpoint(self.pivotsetpoint)
         pass
 
     def end(self, interrupted: bool):
-        self.intake.set_speed(0)
         pass
 
     def isFinished(self) -> bool:
