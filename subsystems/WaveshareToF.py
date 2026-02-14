@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from typing import Any
 
-from wpilib import CAN, CANData, Notifier
+from wpilib import CAN, CANData, Notifier, RobotController
 
-from wpimath.units import seconds
+from wpimath.units import seconds, microseconds, meters
 
 
 @dataclass
@@ -32,6 +33,11 @@ class ToFData:
     u16
     """
 
+    time: microseconds
+    """
+    The FPGA time at which the measurement was taken
+    """
+
 
 class WaveshareTof:
     """
@@ -51,7 +57,7 @@ class WaveshareTof:
             raise ValueError("CAN ID must be between 0 and 63")
         self.can = CAN(self.MANUFACTURER_ID + canId)
         self._notifier = Notifier(self._updateMeasurements)
-        self._notifier.startPeriodic(seconds(0.01))  # 100 Hz update rate
+        self._notifier.startPeriodic(0.01)  # 100 Hz update rate
 
     def _updateMeasurements(self) -> None:
         """
@@ -70,16 +76,88 @@ class WaveshareTof:
             distance_m=distance_m,
             dis_status=dis_status,
             signal_strength=signal_strength,
+            time=RobotController.getFPGATime(),
         )
 
-    def getData(self) -> ToFData | None:
+    def getData(self, timeout: microseconds = float("inf")) -> ToFData | None:
         """
         Gets the most recent ToF data. Data will be periodically updated by the class itself
 
+        :param timeout: The maximum time to wait for data in microseconds. If no data is available after this time, None will be returned. Default is infinite.
+        :type timeout: microseconds
         :return: The most recent ToF data or None if no data is available
         :rtype: ToFData | None
         """
+        currTime = RobotController.getFPGATime()
+        if self._data is None or (currTime - self._data.time) > timeout:
+            return None
         return self._data
+
+    def getDistance(self, timeout: microseconds = float("inf")) -> meters | None:
+        """
+        Gets the most recent distance measurement in meters.
+
+        :param timeout: The maximum time to wait for data in microseconds. If no data is available after this time, None will be returned. Default is infinite.
+        :type timeout: microseconds
+        :return: The most recent distance measurement in meters or None if no data is available
+        :rtype: meters | None
+        """
+        data = self.getData(timeout)
+        if data is None:
+            return None
+        return data.distance_m
+
+    def getSignalStrength(self, timeout: microseconds = float("inf")) -> int | None:
+        """
+        Gets the most recent signal strength measurement.
+
+        :param timeout: The maximum time to wait for data in microseconds. If no data is available after this time, None will be returned. Default is infinite.
+        :type timeout: microseconds
+        :return: The most recent signal strength measurement or None if no data is available
+        :rtype: int | None
+        """
+        data = self.getData(timeout)
+        if data is None:
+            return None
+        return data.signal_strength
+
+    def getSignalStatus(self, timeout: microseconds = float("inf")) -> int | None:
+        """
+        Gets the most recent signal status measurement.
+
+        :param timeout: The maximum time to wait for data in microseconds. If no data is available after this time, None will be returned. Default is infinite.
+        :type timeout: microseconds
+        :return: The most recent signal status measurement or None if no data is available
+        :rtype: int | None
+        """
+        data = self.getData(timeout)
+        if data is None:
+            return None
+        return data.dis_status
+
+    def getRecentMeasurementTime(self) -> microseconds | None:
+        """
+        Gets the FPGA time at which the most recent measurement was taken.
+
+        :return: The FPGA time of the most recent measurement or None if no data is available
+        :rtype: microseconds | None
+        """
+        data = self.getData()
+        if data is None:
+            return None
+        return data.time
+
+    def getTimeSinceRecentMeasurement(self) -> microseconds | None:
+        """
+        Gets the time since the most recent measurement was taken.
+
+        :return: The time since the most recent measurement in microseconds or None if no data is available
+        :rtype: microseconds | None
+        """
+        lastTime = self.getRecentMeasurementTime()
+        if lastTime is None:
+            return None
+        return RobotController.getFPGATime() - lastTime
 
     def stopMeasurements(self) -> None:
         """
