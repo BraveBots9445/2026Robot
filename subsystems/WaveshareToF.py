@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from typing import Any
 
-from wpilib import CAN, CANData, Notifier, RobotController
+from wpilib import CAN, CANData, Notifier, RobotController, SmartDashboard
+from wpiutil.wpistruct import make_wpistruct
 
 from wpimath.units import seconds, microseconds, meters
 
 
+@make_wpistruct()
 @dataclass
 class ToFData:
     distance_m: int
@@ -33,9 +34,9 @@ class ToFData:
     u16
     """
 
-    time: microseconds
+    time: float
     """
-    The FPGA time at which the measurement was taken
+    The FPGA time (microseconds) at which the measurement was taken
     """
 
 
@@ -50,14 +51,17 @@ class WaveshareTof:
 
     _data: ToFData | None = None
 
+    _canID: int
+
     _notifier: Notifier
 
     def __init__(self, canId: int):
         if canId < 0 or canId > 63:
             raise ValueError("CAN ID must be between 0 and 63")
-        self.can = CAN(self.MANUFACTURER_ID + canId)
-        self._notifier = Notifier(self._updateMeasurements)
-        self._notifier.startPeriodic(0.01)  # 100 Hz update rate
+        self._canID = canId
+        self.can = CAN(canId)
+        # self._notifier = Notifier(self._updateMeasurements)
+        # self._notifier.startPeriodic(0.01)  # 100 Hz update rate
 
     def _updateMeasurements(self) -> None:
         """
@@ -65,8 +69,19 @@ class WaveshareTof:
         The notifier in the class should be calling this periodically, not an external user
         """
         buf = CANData()
-        self.can.readPacketLatest(1, buf)
+        # for id in range(0, 0b1111111111):
+        if not self.can.readPacketLatest(0x400, buf):
+            SmartDashboard.putBoolean("Failed", True)
+            return
+        else:
+            SmartDashboard.putBoolean("Failed", False)
         data = buf.data
+        # vals = [int(x) for x in data]
+        #     if not all(x == 0 for x in vals):
+        #         print(id)
+        #         print(vals)
+        #         break
+        # return
 
         distance_m = int.from_bytes(data[0:3], byteorder="big", signed=False)
         dis_status = data[3]
