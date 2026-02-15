@@ -4,6 +4,7 @@ from .intake import Intake
 from .shooter import Shooter
 from .turret import Turret
 from .vision import Vision
+from .climber import Climber
 
 from .fuelShootingVisualizer import FuelShootingVisualizer
 from .shootOnMoveCalculator import ShootOnMoveCalculator
@@ -15,6 +16,7 @@ __all__ = [
     "Shooter",
     "Turret",
     "Vision",
+    "Climber",
     "FuelShootingVisualizer",
     "ShootOnMoveCalculator",
 ]

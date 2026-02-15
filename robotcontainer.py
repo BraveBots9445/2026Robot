@@ -91,6 +91,7 @@ class RobotContainer:
         self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(45))
         self.turret = Turret()
         self.intake = Intake()
+        self.climber = Climber()
 
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
             lambda: Pose3d(self.drivetrain.get_state().pose),
@@ -195,19 +196,25 @@ class RobotContainer:
         """
         Insert code here for the secondary driver
         """
-        return
 
-        self.operator_controller.y().onTrue(
-            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
-        )
+        self.operator_controller.y().onTrue(self.climber._tmpSetHeightCommand(27.5))
+        self.operator_controller.b().onTrue(self.climber._tmpSetHeightCommand(20))
+        self.operator_controller.a().onTrue(self.climber._tmpSetHeightCommand(0))
 
-        self.operator_controller.b().onTrue(
-            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(0))
-        )
+        self.operator_controller.povRight().onTrue(self.climber._tmpDeployHookCommand())
+        self.operator_controller.povUp().onTrue(self.climber._tmpRetractHookCommand())
 
-        self.operator_controller.a().onTrue(
-            self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(90))
-        )
+        # self.operator_controller.y().onTrue(
+        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
+        # )
+
+        # self.operator_controller.b().onTrue(
+        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(0))
+        # )
+
+        # self.operator_controller.a().onTrue(
+        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(90))
+        # )
         # self.operator_controller.a().onTrue(
         #     self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(30))
         # )
