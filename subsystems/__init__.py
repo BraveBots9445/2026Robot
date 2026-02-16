@@ -7,6 +7,7 @@ from .shooter import Shooter
 from .turret import Turret
 from .vision import Vision
 from .woahval import Woahval
+from .passiveHooks import PassiveHooks
 
 # not stateManager here because it causes a circular import
 
@@ -25,4 +26,5 @@ __all__ = [
     "FuelShootingVisualizer",
     "ShootOnMoveCalculator",
     "Woahval",
+    "PassiveHooks",
 ]

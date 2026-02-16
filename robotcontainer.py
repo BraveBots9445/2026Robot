@@ -85,6 +85,7 @@ class RobotContainer:
         self.kicker = Kicker()
         self.indexer = Indexer()
         self.woahval = Woahval()
+        self.passiveHooks = PassiveHooks()
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
             lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
@@ -114,6 +115,7 @@ class RobotContainer:
             self.woahval,
             self.climber,
             self.intake,
+            self.passiveHooks,
             self.shootOnMoveCalculator,
         )
 

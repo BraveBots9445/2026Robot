@@ -33,6 +33,7 @@ from subsystems import (
     Woahval,
     Climber,
     Intake,
+    PassiveHooks,
     ShootOnMoveCalculator,
 )
 
@@ -68,6 +69,7 @@ class StateManager(Subsystem):
     _woahval: Woahval
     _climber: Climber
     _intake: Intake
+    _passiveHooks: PassiveHooks
     _shootOnMoveCalculator: ShootOnMoveCalculator
 
     _nettable: NetworkTable
@@ -137,6 +139,7 @@ class StateManager(Subsystem):
         woahval: Woahval,
         climber: Climber,
         intake: Intake,
+        passiveHooks: PassiveHooks,
         shootOnMoveCalculator: ShootOnMoveCalculator,
     ):
         self._drivetrain = drivetrain
@@ -147,6 +150,7 @@ class StateManager(Subsystem):
         self._woahval = woahval
         self._climber = climber
         self._intake = intake
+        self._passiveHooks = passiveHooks
         self._shootOnMoveCalculator = shootOnMoveCalculator
 
         self._nettable = NetworkTableInstance.getDefault().getTable("000State")
@@ -168,7 +172,8 @@ class StateManager(Subsystem):
         def update():
             # Only commenting this here - this is a hack to update the state whenever the command is accessed
             startState = self._extendingState
-            self._extendingState = ExtendingState.INTAKING
+            if self._extendingState != ExtendingState.CLIMBING_HIGH:
+                self._extendingState = ExtendingState.INTAKING
             return startState
 
         return SelectCommand(
@@ -213,7 +218,9 @@ class StateManager(Subsystem):
                 ExtendingState.NONE: NoneToClimbLow(self._climber),
                 ExtendingState.INTAKING: IntakeToClimbLow(self._climber, self._intake),
                 ExtendingState.CLIMBING_LOW: cmd.none(),  # already climbing low, do nothing
-                ExtendingState.CLIMBING_HIGH: ClimbLowToClimbHigh(self._climber),
+                ExtendingState.CLIMBING_HIGH: ClimbLowToClimbHigh(
+                    self._climber, self._passiveHooks
+                ),
             },
             lambda: update(),
         )
@@ -226,9 +233,13 @@ class StateManager(Subsystem):
 
         return SelectCommand(
             {
-                ExtendingState.NONE: NoneToClimbHigh(self._climber),
-                ExtendingState.INTAKING: IntakeToClimbHigh(self._climber, self._intake),
-                ExtendingState.CLIMBING_LOW: ClimbLowToClimbHigh(self._climber),
+                ExtendingState.NONE: NoneToClimbHigh(self._climber, self._passiveHooks),
+                ExtendingState.INTAKING: IntakeToClimbHigh(
+                    self._climber, self._intake, self._passiveHooks
+                ),
+                ExtendingState.CLIMBING_LOW: ClimbLowToClimbHigh(
+                    self._climber, self._passiveHooks
+                ),
                 ExtendingState.CLIMBING_HIGH: cmd.none(),  # already climbing high, do nothing
             },
             lambda: update(),
