@@ -320,6 +320,9 @@ class Climber(Subsystem):
     def retractHook(self) -> None:
         self.setHookSetpointDegrees(90)
 
+    def getHookDeployed(self) -> bool:
+        return self._hookAngleSetpoint.degrees() < 85
+
     def _getRotationsToInches(self, rotations: rotation) -> inches:
         return rotations * self._pulleyDiameter * pi / self._gearRatio
 
@@ -329,11 +332,10 @@ class Climber(Subsystem):
     def _getFeetToRotations(self, feet: feet) -> rotation:
         return self._getInchesToRotations(feet * kINCHES_PER_FOOT)
 
-    def _tmpSetHeightCommand(self, height: inches) -> Command:
-        return self.run(lambda: self.setHeightSetpoint(height))
+    @property
+    def minHeight(self) -> inches:
+        return self._minHeight
 
-    def _tmpDeployHookCommand(self) -> Command:
-        return self.run(self.deployHook)
-
-    def _tmpRetractHookCommand(self) -> Command:
-        return self.run(self.retractHook)
+    @property
+    def maxHeight(self) -> inches:
+        return self._maxHeight

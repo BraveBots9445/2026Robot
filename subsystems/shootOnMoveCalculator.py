@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 import bisect
 
+from ntcore import NetworkTableInstance
+
 from wpimath.geometry import Transform3d, Rotation2d, Pose3d, Rotation3d, Translation3d
 from wpimath.kinematics import ChassisSpeeds
 from wpimath.units import (
@@ -15,7 +17,10 @@ from wpimath.units import (
     inches,
     inchesToMeters,
     metersToInches,
+    meters,
 )
+
+from subsystems import Shooter, Turret
 
 
 @dataclass

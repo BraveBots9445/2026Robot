@@ -399,9 +399,15 @@ class Intake(Subsystem):
 
     def getAngle(self) -> Rotation2d:
         """
-        Gets the current angle of the intake.
+        Gets the current angle of the pivot of the intake.
         """
         return Rotation2d.fromRotations(self._pivotPositionSignal.value_as_double)
+
+    def getDeployed(self) -> bool:
+        """
+        Gets whether the intake is currently deployed or not.
+        """
+        return self.getAngle().degrees() < 75
 
     def setPivotSetpoint(self, angle: Rotation2d) -> None:
         """
@@ -410,6 +416,14 @@ class Intake(Subsystem):
         :param angle: The angle to set the pivot to. 0 degrees is fully extended
         """
         self._pivotSetpoint = angle
+
+    def setPivotSetpointDegrees(self, angleDegrees: float) -> None:
+        """
+        Sets the pivot setpoint for the intake in degrees.
+
+        :param angleDegrees: The angle in degrees to set the pivot to. 0 degrees is fully extended
+        """
+        self.setPivotSetpoint(Rotation2d.fromDegrees(angleDegrees))
 
     def setRollerSetpoint(self, dutyCycle: float) -> None:
         """

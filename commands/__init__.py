@@ -1,9 +1,13 @@
-from .drivetrainDriveFieldOriented import DrivetrainDriveFieldOriented
-from .drivetrainDriveRobotOriented import DrivetrainDriveRobotOriented
-from .drivetrainSpeedDouble import DrivetrainDoubleSpeed
-from .drivetrainSpeedMultiply import DrivetrainSpeedMultiply
-from .drivetrainSpeedHalf import DrivetrainHalfSpeed
-from .drivetrainMoveOffset import DrivetrainMoveOffset
+from commands.baseCommands.drivetrainDriveFieldOriented import (
+    DrivetrainDriveFieldOriented,
+)
+from commands.baseCommands.drivetrainDriveRobotOriented import (
+    DrivetrainDriveRobotOriented,
+)
+from commands.baseCommands.drivetrainSpeedDouble import DrivetrainDoubleSpeed
+from commands.baseCommands.drivetrainSpeedMultiply import DrivetrainSpeedMultiply
+from commands.baseCommands.drivetrainSpeedHalf import DrivetrainHalfSpeed
+from commands.baseCommands.drivetrainMoveOffset import DrivetrainMoveOffset
 
 from .shooterTuneDistance import ShooterTuneDistance
 

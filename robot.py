@@ -2,17 +2,12 @@ from commands2 import Command, CommandScheduler
 from wpilib import (
     DriverStation,
     TimedRobot,
-    run,
     DataLogManager,
     Mechanism2d,
     SmartDashboard,
 )
-import wpilib
 
 from robotcontainer import RobotContainer
-
-from subsystems.shootOnMoveCalculator import StateSetpoint, ShootOnMoveCalculator
-from wpimath.geometry import Pose3d, Rotation3d
 
 
 class Robot(TimedRobot):

@@ -7,23 +7,20 @@ from commands2 import (
     RepeatCommand,
     WaitCommand,
     SequentialCommandGroup,
-    InstantCommand,
 )
+from ntcore import NetworkTableInstance
+from ntcore.util import ntproperty
+
 from wpilib import PowerDistribution, SmartDashboard
 
 from wpimath.geometry import (
     Rotation2d,
     Pose2d,
-    Rotation3d,
     Pose3d,
     Transform3d,
     Transform2d,
 )
 from wpimath.units import inchesToMeters
-
-from ntcore import NetworkTableInstance
-from ntcore.util import ntproperty
-
 
 ########## VENDOR (etc) IMPORTS ##########
 from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
@@ -35,32 +32,28 @@ from subsystems import *
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
-from commands2.button import CommandXboxController
-
-from ntcore import NetworkTableInstance
-from ntcore.util import ntproperty
-
-
-########## VENDOR (etc) IMPORTS ##########
-from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
-
-
-########## SUBSYSTEM IMPORTS ##########
-from subsystems.vision import Vision
-from subsystems.shooter import Shooter
-from subsystems.turret import Turret
-from subsystems.shootOnMoveCalculator import ShootOnMoveCalculator
-from subsystems.fuelShootingVisualizer import FuelShootingVisualizer
 
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
 ########## COMMAND IMPORTS ##########
-from commands import *
+from commands.baseCommands.drivetrainDriveFieldOriented import (
+    DrivetrainDriveFieldOriented,
+)
+from commands.baseCommands.drivetrainDriveRobotOriented import (
+    DrivetrainDriveRobotOriented,
+)
+from commands.baseCommands.drivetrainSpeedHalf import DrivetrainHalfSpeed
+from commands.baseCommands.drivetrainSpeedDouble import DrivetrainDoubleSpeed
+from commands.baseCommands.drivetrainMoveOffset import DrivetrainMoveOffset
+
+from commands import ShooterTuneDistance
 
 ########## TEAM IMPORTS ##########
 from tools.CommandXboxController9445 import CommandController9445
 from tools.rebuilt import Rebuilt, RebuiltPositions
+
+from subsystems.stateManger import StateManager
 
 
 class RobotContainer:
@@ -74,8 +67,6 @@ class RobotContainer:
         self.pdh.setSwitchableChannel(True)
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
 
-        self.level = 1
-
         self.drivetrain = TunerConstants.create_drivetrain()
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
 
@@ -88,11 +79,12 @@ class RobotContainer:
         )
 
         self.shooter = Shooter()
-        self.shooter.setHoodAngleSetpoint(Rotation2d.fromDegrees(45))
         self.turret = Turret()
         self.intake = Intake()
         self.climber = Climber()
-
+        self.kicker = Kicker()
+        self.indexer = Indexer()
+        self.woahval = Woahval()
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
             lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
@@ -113,6 +105,18 @@ class RobotContainer:
             Transform3d(),
         )
 
+        self.stateManger = StateManager(
+            self.drivetrain,
+            self.shooter,
+            self.turret,
+            self.kicker,
+            self.indexer,
+            self.woahval,
+            self.climber,
+            self.intake,
+            self.shootOnMoveCalculator,
+        )
+
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
         )
@@ -130,17 +134,6 @@ class RobotContainer:
                 self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
             ).ignoringDisable(True)
         ).ignoringDisable(True).schedule()
-
-        def setStuff():
-            setpoints = self.shootOnMoveCalculator.getSetpoints(
-                Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
-            )
-            if setpoints is not None:
-                self.turret.setSetpoint(setpoints.turretAngle)
-                self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
-                self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
-
-        RepeatCommand(InstantCommand(setStuff).ignoringDisable(True)).schedule()
 
         self.driver_controller.a().onTrue(
             self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(0))
@@ -196,34 +189,15 @@ class RobotContainer:
         """
         Insert code here for the secondary driver
         """
+        self.operator_controller.leftTrigger().onTrue(self.stateManger.startIntaking())
+        self.operator_controller.leftBumper().onTrue(self.stateManger.stopIntaking())
 
-        self.operator_controller.y().onTrue(self.climber._tmpSetHeightCommand(27.5))
-        self.operator_controller.b().onTrue(self.climber._tmpSetHeightCommand(20))
-        self.operator_controller.a().onTrue(self.climber._tmpSetHeightCommand(0))
+        self.operator_controller.rightTrigger().onTrue(
+            self.stateManger.startClimbingLow()
+        )
 
-        self.operator_controller.povRight().onTrue(self.climber._tmpDeployHookCommand())
-        self.operator_controller.povUp().onTrue(self.climber._tmpRetractHookCommand())
-
-        # self.operator_controller.y().onTrue(
-        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
-        # )
-
-        # self.operator_controller.b().onTrue(
-        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(0))
-        # )
-
-        # self.operator_controller.a().onTrue(
-        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(90))
-        # )
-        # self.operator_controller.a().onTrue(
-        #     self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(30))
-        # )
-        # self.operator_controller.b().onTrue(
-        #     self.shooter._tmpSetHoodAngleCommand(Rotation2d.fromDegrees(0))
-        # )
-
-        # self.operator_controller.x().onTrue(self.shooter._tmpSetVelocityCommand(3000))
-        # self.operator_controller.y().onTrue(self.shooter._tmpSetVelocityCommand(0))
+        self.operator_controller.a().onTrue(self.stateManger.startShooting())
+        self.operator_controller.b().onTrue(self.stateManger.startAiming())
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime

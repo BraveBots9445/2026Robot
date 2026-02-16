@@ -1,22 +1,28 @@
+from .climber import Climber
 from .ctredrivetrain import CommandSwerveDrivetrain
 from .indexer import Indexer
 from .intake import Intake
+from .kicker import Kicker
 from .shooter import Shooter
 from .turret import Turret
 from .vision import Vision
-from .climber import Climber
+from .woahval import Woahval
+
+# not stateManager here because it causes a circular import
 
 from .fuelShootingVisualizer import FuelShootingVisualizer
 from .shootOnMoveCalculator import ShootOnMoveCalculator
 
 __all__ = [
+    "Climber",
     "CommandSwerveDrivetrain",
     "Indexer",
     "Intake",
+    "Kicker",
     "Shooter",
     "Turret",
     "Vision",
-    "Climber",
     "FuelShootingVisualizer",
     "ShootOnMoveCalculator",
+    "Woahval",
 ]

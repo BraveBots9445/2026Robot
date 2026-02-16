@@ -11,12 +11,7 @@ from ntcore import (
 )
 
 from wpimath.geometry import Rotation2d
-from wpimath.units import (
-    amperes,
-    kilogram_square_meters,
-    degreesToRadians,
-    radiansToRotations,
-)
+from wpimath.units import kilogram_square_meters, radiansToRotations, degrees
 from wpimath import angleModulus
 from wpimath.system.plant import DCMotor, LinearSystemId
 
@@ -307,6 +302,15 @@ class Turret(Subsystem):
         :type angle: Rotation2d
         """
         self._rotationSetpoint = angle  # + Rotation2d.fromDegrees(180)
+
+    def setSetpointDegrees(self, angle: degrees) -> None:
+        """
+        Set the desired rotation setpoint of the turret in degrees.
+
+        :param angle: The desired rotation setpoint of the turret in degrees. 0 is straight forward, positive is counterclockwise, negative is clockwise.
+        :type angle: degrees
+        """
+        self.setSetpoint(Rotation2d.fromDegrees(angle))
 
     def getSetpoint(self) -> Rotation2d:
         """

@@ -3,12 +3,12 @@ Copy this file and write your own commands based on it. This file should not be 
 """
 
 from subsystems.ctredrivetrain import CommandSwerveDrivetrain
-from commands.drivetrainSpeedMultiply import DrivetrainSpeedMultiply
+from commands.baseCommands.drivetrainSpeedMultiply import DrivetrainSpeedMultiply
 
 
-class DrivetrainDoubleSpeed(DrivetrainSpeedMultiply):
+class DrivetrainHalfSpeed(DrivetrainSpeedMultiply):
     def __init__(
         self,
         drivetrain: CommandSwerveDrivetrain,
     ):
-        super().__init__(drivetrain, 2.0, 2.0)
+        super().__init__(drivetrain, 0.5, 0.5)

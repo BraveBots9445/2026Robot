@@ -10,7 +10,6 @@ from wpilib import (
     MechanismLigament2d,
     SmartDashboard,
     Color8Bit,
-    RobotBase,
 )
 from wpilib.simulation import FlywheelSim, SingleJointedArmSim
 
@@ -24,6 +23,7 @@ from wpimath.units import (
     rotationsToDegrees,
     amperes,
     radiansToRotations,
+    degrees,
 )
 from wpimath.geometry import Rotation2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
@@ -501,6 +501,15 @@ class Shooter(Subsystem):
             setpoint = self._hoodMaxAngle
         self._hoodAngleSetpoint = setpoint
 
+    def setHoodAngleSetpointDegrees(self, setpoint: degrees) -> None:
+        """
+        Sets the target hood angle in degrees for launching fuel
+
+        :param setpoint: The target hood angle in degrees
+        :type setpoint: degrees
+        """
+        self.setHoodAngleSetpoint(Rotation2d.fromDegrees(setpoint))
+
     def getFlywheelSetpoint(self) -> revolutions_per_minute:
         """
         Gets the current target speed for the flywheel
@@ -582,7 +591,7 @@ class Shooter(Subsystem):
         hoodAngle = self.getHoodAngle()
         muzzleVelocity = self.getFlywheelVelocity() * 2 * pi * self._flywheelRadius
 
-        v0 = muzzleVelocity * hoodAngle.sin()
+        v0 = muzzleVelocity * hoodAngle.cos()
         det = (v0**2) - 2 * 9.81 * (launchHeight - impactHeight)
         if det < 0:
             return None
@@ -593,6 +602,15 @@ class Shooter(Subsystem):
             Transform2d(
                 muzzleVelocity * timeToImpact * hoodAngle.cos(),
                 muzzleVelocity * timeToImpact * hoodAngle.sin(),
+                Rotation2d(),
             ),
             timeToImpact,
         )
+
+    @property
+    def minHoodAngle(self) -> Rotation2d:
+        return self._hoodMinAngle
+
+    @property
+    def maxHoodAngle(self) -> Rotation2d:
+        return self._hoodMaxAngle

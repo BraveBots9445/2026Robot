@@ -123,6 +123,7 @@ class OpenLoopWheel(Subsystem):
         self._getCurrentSignal = self._motor.get_stator_current(False)
         self._getVelocitySignal = self._motor.get_velocity(False)
         self._getDutyCycleSignal = self._motor.get_duty_cycle(False)
+        self._motorSimState = self._motor.sim_state
 
     def periodic(self) -> None:
         self._getCurrentSignal.refresh()
