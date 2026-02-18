@@ -3,7 +3,6 @@ from commands2 import (
     InstantCommand,
 )
 from phoenix6 import swerve
-from phoenix6.hardware import TalonFX
 
 from wpimath import applyDeadband
 from wpimath.geometry import Transform2d, Rotation2d
@@ -78,7 +77,7 @@ class RobotContainer:
             lambda telem: self._logger.telemeterize(telem)
         )
 
-        self.set_pp_named_commands()
+        #self.set_pp_named_commands()
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
@@ -157,16 +156,10 @@ class RobotContainer:
         """
 
         self.operator_controller.a().whileTrue(IndexerIndex(self.index))
-
-    def set_test_bindings(self) -> None:
-        # will be sysid testing for drivetrain (+others?) sometime
-        self.test_remote = CommandXboxController(2)
-
-    def set_pp_named_commands(self) -> None:
         """
         Insert code here for the pathplanner named commands
         That will be scheduled during path following
         """
 
-    def get_auto_command(self) -> Command:
-        return self.auto_chooser.getSelected()
+   # def get_auto_command(self) -> Command:
+    #    return self.auto_chooser.getSelected()
