@@ -6,8 +6,23 @@ from commands2 import (
     Command,
     RepeatCommand,
     WaitCommand,
+    InstantCommand,
     SequentialCommandGroup,
 )
+from phoenix6 import swerve
+
+from wpimath import applyDeadband
+from wpimath.geometry import Transform2d, Rotation2d, Transform3d, Pose2d, Rotation3d
+from wpimath.units import inchesToMeters
+
+from subsystems.vision import Vision
+from subsystems.visualizer3d import Visualizer3D
+
+from telemetry import Telemetry
+from generated.tuner_constants import TunerConstants
+
+from commands2.button import CommandXboxController
+
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
 
@@ -117,6 +132,14 @@ class RobotContainer:
             self.intake,
             self.passiveHooks,
             self.shootOnMoveCalculator,
+        )
+
+        self.visualizer3d = Visualizer3D(
+            lambda: Transform3d(),
+            lambda: Transform3d(),
+            lambda: Transform3d(),
+            lambda: Transform3d(),
+            lambda: Rotation2d(),
         )
 
         self.drivetrain.register_telemetry(
