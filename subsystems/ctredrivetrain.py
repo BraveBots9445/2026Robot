@@ -160,6 +160,16 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
         self._has_applied_operator_perspective = False
         """Keep track if we've ever applied the operator perspective before or not"""
 
+        # Speed management properties
+        self._maxLinearSpeed: units.meters_per_second = 1
+        """Maximum linear speed (translational movement) in meters per second"""
+        self._maxAngularSpeed: units.radians_per_second = 0.75
+        """Maximum angular speed (rotational movement) in radians per second"""
+        self._limitedSpeed: bool = False
+        """Boolean flag indicating if speed limiting is currently active"""
+        self._limitedSpeedPercent: float = 0.5
+        """Percentage multiplier (0.0-1.0) to apply when speed limiting is active (default: 0.5 = 50% speed)"""
+
         # Swerve request to apply during path following
         self._apply_robot_speeds = swerve.requests.ApplyRobotSpeeds()
 
@@ -370,3 +380,76 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
             utils.fpga_to_current_time(timestamp),
             vision_measurement_std_devs,
         )
+
+    def is_halfspeed(self) -> bool:
+        """Check if speed limiting is currently active.
+        
+        :returns: True if speed limiting is enabled, False otherwise
+        :rtype: bool
+        """
+        return self._limitedSpeed
+    
+    def toggle_halfspeed(self) -> None:
+        """Toggle speed limiting on/off.
+        
+        When enabled, speeds are multiplied by _limitedSpeedPercent (default 50%).
+        Useful for precise control or navigating tight spaces.
+        """
+        self._limitedSpeed = not self._limitedSpeed
+
+    def set_halfspeed(self, percentage: float) -> None:
+        """Set the speed reduction percentage when speed limiting is active.
+        
+        :param percentage: Multiplier to apply when limited (0.0 to 1.0)
+        :type percentage: float
+        :raises ValueError: If percentage is not between 0.0 and 1.0
+        
+        Example: set_halfspeed(0.3) means limited speed will be 30% of max speed
+        """
+        if percentage < 0.0 or percentage > 1.0:
+            raise ValueError("Percentage must be between 0.0 and 1.0")
+        
+        self._limitedSpeedPercent = percentage
+
+    def set_max_speed(self, linear: units.meters_per_second, angular: units.radians_per_second) -> None:
+        """Set the maximum linear and angular speeds for the drivetrain.
+        
+        :param linear: Maximum linear speed in meters/second
+        :type linear: units.meters_per_second
+        :param angular: Maximum angular speed in radians/second
+        :type angular: units.radians_per_second
+        :raises ValueError: If either speed is negative
+        
+        These values represent the drivetrain's maximum capabilities and are
+        used as the baseline for all speed calculations.
+        """
+        if linear < 0.0 or angular < 0.0:
+            raise ValueError("Speeds must be greater than or equal to 0")
+
+        self._maxLinearSpeed = linear
+        self._maxAngularSpeed = angular
+
+    def get_max_speeds(self) -> list[ units.meters_per_second, units.radians_per_second ]:
+        """Get the configured maximum speeds for the drivetrain.
+        
+        :returns: [linear speed (m/s), angular speed (rad/s)]
+        :rtype: list[units.meters_per_second, units.radians_per_second]
+        
+        Returns the raw maximum speeds without any limiting applied.
+        Use get_allowed_speeds() to get the current effective speeds.
+        """
+        return [ self._maxLinearSpeed, self._maxAngularSpeed ]
+
+    def get_allowed_speeds(self) -> list[ units.meters_per_second, units.radians_per_second ]:
+        """Get the current allowed speeds based on speed limiting state.
+        
+        :returns: [current linear speed (m/s), current angular speed (rad/s)]
+        :rtype: list[units.meters_per_second, units.radians_per_second]
+        
+        If speed limiting is active, returns max_speeds * limited_percent.
+        If speed limiting is inactive, returns max_speeds.
+        This is the primary method commands should use for speed calculation.
+        """
+        linear = self._maxLinearSpeed * ( self._limitedSpeedPercent if self._limitedSpeed else 1.0 )
+        angular = self._maxAngularSpeed * ( self._limitedSpeedPercent if self._limitedSpeed else 1.0 )
+        return [ linear, angular ]
