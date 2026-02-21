@@ -8,6 +8,10 @@ from wpimath.geometry import Transform2d, Rotation2d
 from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
+from subsystems.intake import Intake
+from subsystems.hopper import Hopper
+from subsystems.turret import Turret
+from subsystems.shooter import Shooter
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -43,6 +47,12 @@ class RobotContainer:
             lambda: self.drivetrain.get_state().pose,
             lambda: self.drivetrain.get_state().speeds,
         )
+
+        # Initialize game piece manipulation subsystems
+        self.intake = Intake()
+        self.hopper = Hopper()
+        self.turret = Turret()
+        self.shooter = Shooter()
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
