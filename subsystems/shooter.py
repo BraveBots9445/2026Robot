@@ -159,12 +159,12 @@ class Shooter(Subsystem):
 
     _hoodArmLength: meters = inchesToMeters(9.5)
 
-    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(0)
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(15)
     """
     The minimum angle of the hood. This is where the hood is fully retracted
     """
 
-    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(90)
+    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(50)
     """
     The max angle of the hood. This is where the hood is fully extended 
     """

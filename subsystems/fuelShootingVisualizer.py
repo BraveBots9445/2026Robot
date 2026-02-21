@@ -159,13 +159,13 @@ class FuelShootingVisualizer(Subsystem):
                 Translation3d(
                     robotVelocity.vx
                     + muzzleVelocity
-                    * self._getHoodAngle().cos()
+                    * self._getHoodAngle().sin()
                     * self._getTurretAngle().cos(),
                     robotVelocity.vy
                     + muzzleVelocity
-                    * self._getHoodAngle().cos()
+                    * self._getHoodAngle().sin()
                     * self._getTurretAngle().sin(),
-                    muzzleVelocity * self._getHoodAngle().sin(),
+                    muzzleVelocity * self._getHoodAngle().cos(),
                 ),
             )
         )

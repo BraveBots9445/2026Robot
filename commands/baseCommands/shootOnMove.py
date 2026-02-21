@@ -25,10 +25,9 @@ class ShootOnMove(Command):
 
     def execute(self):
         setpoints = self.shootOnMoveCalculator.getSetpoints(self.target)
-        if setpoints:
-            self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
-            self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
-            self.turret.setSetpoint(setpoints.turretAngle)
+        self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
+        self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
+        self.turret.setSetpoint(setpoints.turretAngle)
 
     def isFinished(self) -> bool:
         return False

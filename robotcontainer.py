@@ -128,11 +128,12 @@ class RobotContainer:
             lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
             self.visualizer3d.transform3dToTurret,
-            lambda v: v / inchesToMeters(2) * 60 / (2 * pi) / 0.7,
-            0,
-            20,
-            Rotation2d.fromDegrees(45),
-            Rotation2d.fromDegrees(90),
+            lambda omega: omega
+            * inchesToMeters(2)
+            * 2
+            * pi
+            / 60
+            / self.fuelShootingVisualizer._kEnergyTransferEfficiency,
         )
 
         self.stateManger = StateManager(
@@ -156,16 +157,22 @@ class RobotContainer:
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
-        SmartDashboard.putData(self.auto_chooser)
-        SmartDashboard.putData(self.drivetrain)
-
-    def set_teleop_bindings(self) -> None:
+        self.drivetrain.reset_pose(
+            Rebuilt.getPosition(
+                RebuiltPositions.Hub
+                + Transform3d(Translation3d(-1, 0, 0), Rotation3d())
+            ).toPose2d()
+        )
         RepeatCommand(
             SequentialCommandGroup(
                 self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
             ).ignoringDisable(True)
         ).ignoringDisable(True).schedule()
 
+        SmartDashboard.putData(self.auto_chooser)
+        SmartDashboard.putData(self.drivetrain)
+
+    def set_teleop_bindings(self) -> None:
         """driver"""
         self.drivetrain.setDefaultCommand(
             DrivetrainDriveFieldOriented(

@@ -13,11 +13,14 @@ class ShooterSetpointsStruct:
     hoodAngledeg: float
 
 
-kSERVER_ADDRESS = "10.94.45.2"
+# kSERVER_ADDRESS = "10.94.45.2"
+kSERVER_ADDRESS = "127.0.0.1"
 
 ntinst = NetworkTableInstance.getDefault()
 ntinst.startClient4("TuningListener")
 ntinst.setServer(kSERVER_ADDRESS)
+
+print(ntinst.getConnections())
 
 nettable = ntinst.getTable("00ShooterTuneDistance")
 
@@ -25,6 +28,7 @@ listener = nettable.getStructArrayTopic("Setpoints", ShooterSetpointsStruct).sub
     []
 )
 
+print("Listening...")
 prevData = listener.get()
 while True:
     data = listener.get()
@@ -32,6 +36,17 @@ while True:
         print("Received new setpoints:")
         for setpoint in data:
             print(
-                f"Distance: {setpoint.distance} m, Flywheel Velocity: {setpoint.flywheelVelocity} m/s, Hood Angle: {setpoint.hoodAngle} degrees"
+                f"Distance: {setpoint.distanceM} m, Flywheel Velocity: {setpoint.flywheelVelocityRPM} RPM, Hood Angle: {setpoint.hoodAngledeg} degrees"
             )
         prevData = data
+        print("-" * 50)
+        print(
+            f"_distanceInterpArray = array([{', '.join(str(setpoint.distanceM) for setpoint in data)}])\n"
+        )
+        print(
+            f"_hoodAngleInterpArray = array([{', '.join(str(setpoint.hoodAngledeg) for setpoint in data)}])\n"
+        )
+        print(
+            f"_flywheelVelInterpArray = array([{', '.join(str(setpoint.flywheelVelocityRPM) for setpoint in data)}])\n"
+        )
+        print("-" * 50)

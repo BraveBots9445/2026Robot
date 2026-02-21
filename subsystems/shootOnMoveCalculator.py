@@ -1,10 +1,10 @@
-from math import atan2, atan, acos, cos, sqrt
+from math import cos, atan2, sqrt
 
 from typing import Callable
 
-from dataclasses import dataclass
+from numpy import array, interp
 
-import bisect
+from dataclasses import dataclass
 
 from ntcore import NetworkTableInstance
 
@@ -18,9 +18,9 @@ from wpimath.units import (
     inchesToMeters,
     metersToInches,
     meters,
+    degreesToRadians,
 )
-
-from subsystems import Shooter, Turret
+from wpilib import SmartDashboard
 
 
 @dataclass
@@ -45,49 +45,6 @@ class StateSetpoint:
     """
 
 
-class _InterpolatingMap:
-    """
-    An interpolating map for looking up values based on keys with linear interpolation.
-    """
-
-    _keys: list[float]
-    """
-    The keys in the map.
-    """
-
-    _values: list[float]
-    """
-    The values in the map.
-    """
-
-    def __init__(self, keys: list[float] = [], values: list[float] = []) -> None:
-        self._keys = keys
-        self._values = values
-
-    def put(self, key: float, value: float) -> None:
-        i = bisect.bisect_left(self._keys, key)
-        if i < len(self._keys) and self._keys[i] == key:
-            self._values[i] = value
-        else:
-            self._keys.insert(i, key)
-            self._values.insert(i, value)
-
-    def get(self, key: float) -> float | None:
-        if not self._keys:
-            return None
-        i = bisect.bisect_left(self._keys, key)
-        if i == 0:
-            return self._values[0]
-        if i == len(self._keys):
-            return self._values[-1]
-        key0 = self._keys[i - 1]
-        key1 = self._keys[i]
-        value0 = self._values[i - 1]
-        value1 = self._values[i]
-        t = (key - key0) / (key1 - key0)
-        return value0 + t * (value1 - value0)
-
-
 class ShootOnMoveCalculator:
     """
     The class do to the inverse kinematics calculations for shooting while moving.
@@ -110,56 +67,88 @@ class ShootOnMoveCalculator:
     This does not include turret angle
     """
 
-    _muzzleVelocityToFlywheelRpm: Callable[[meters_per_second], revolutions_per_minute]
+    _flywheelRpmToMuzzleVelocity: Callable[[meters_per_second], revolutions_per_minute]
     """
-    A function that converts desired muzzle velocity to flywheel RPM.
-    """
-
-    _minMuzzleVelocity: meters_per_second
-    """
-    The minimum muzzle velocity of the shooter.
+    A function that converts flywheel RPM to muzzle velocity. 
     """
 
-    _maxMuzzleVelocity: meters_per_second
-    """
-    The maximum muzzle velocity of the shooter.
-    """
-
-    _minHoodAngle: Rotation2d
-    """ 
-    The minimum hood angle of the shooter.
-    """
-
-    _maxHoodAngle: Rotation2d
-    """
-    The maximum hood angle of the shooter.
-    """
-
-    # TODO: Tune this lookup table to the robot and shooter
-    _timeLookup: _InterpolatingMap = _InterpolatingMap(
-        keys=[0, inchesToMeters(182.11), inchesToMeters(241.650)], values=[0, 3.25, 5]
+    _distanceInterpArray = array(
+        [
+            2.074866533279419,
+            2.3398525714874268,
+            2.6280407905578613,
+            2.9307923316955566,
+            3.2976644039154053,
+            3.7175345420837402,
+            4.117430210113525,
+            4.922016620635986,
+            5.3604326248168945,
+            5.802000999450684,
+            6.25164794921875,
+            6.707947254180908,
+            7.169476509094238,
+            7.627717971801758,
+            8.08549690246582,
+            8.54677677154541,
+            9.005876541137695,
+            9.467438697814941,
+        ]
     )
-    """
-    A lookup table for time to shoot based on distance to target.
-    """
 
-    _distanceAboveFunnel: inches = 20
-    """
-    The number of inches above the leading edge of the funnel the shooter is aimed at.
-    """
+    _hoodAngleInterpArray = array(
+        [
+            15.0,
+            16.235946655273438,
+            18.77642250061035,
+            21.151641845703125,
+            21.151641845703125,
+            27.272762298583984,
+            28.704532623291016,
+            29.14328384399414,
+            34.07639694213867,
+            35.492027282714844,
+            36.555419921875,
+            37.51203918457031,
+            34.4100341796875,
+            34.4100341796875,
+            38.919307708740234,
+            41.036529541015625,
+            41.036529541015625,
+            39.285911560058594,
+        ]
+    )
+
+    _flywheelVelInterpArray = array(
+        [
+            1548.8006591796875,
+            1618.1334228515625,
+            1721.47509765625,
+            1757.922119140625,
+            1885.3424072265625,
+            1885.3424072265625,
+            1957.6324462890625,
+            2137.9013671875,
+            2137.9013671875,
+            2221.438232421875,
+            2322.739501953125,
+            2385.3427734375,
+            2430.968505859375,
+            2512.1025390625,
+            2558.818115234375,
+            2598.804931640625,
+            2698.445068359375,
+            2767.07080078125,
+        ]
+    )
 
     def __init__(
         self,
         getRobotPose: Callable[[], Pose3d],
         getRobotVelocity: Callable[[], ChassisSpeeds],
         launcherTransform: Transform3d,
-        muzzleVelocityToFlywheelRpm: Callable[
-            [meters_per_second], revolutions_per_minute
+        flywheelRpmToMuzzleVelocity: Callable[
+            [revolutions_per_minute], meters_per_second
         ],
-        minMuzzleVelocity: meters_per_second,
-        maxMuzzleVelocity: meters_per_second,
-        minHoodAngle: Rotation2d,
-        maxHoodAngle: Rotation2d,
     ) -> None:
         """
         Initializes a new ShootOnMoveCalculator.
@@ -170,153 +159,83 @@ class ShootOnMoveCalculator:
         :type getRobotVelocity: Callable[[], ChassisSpeeds]
         :param launcherTransform: A transform representing the position and orientation of the launcher relative to the robot center. This should not include turret angle
         :type launcherTransform: Transform3d
-        :param muzzleVelocityToFlywheelRpm: A function that converts muzzle velocity to flywheel RPM.
-        :type muzzleVelocityToFlywheelRpm: Callable[[meters_per_second], revolutions_per_minute]
-        :param minMuzzleVelocity: The minimum muzzle velocity of the shooter.
-        :type minMuzzleVelocity: meters_per_second
-        :param maxMuzzleVelocity: The maximum muzzle velocity of the shooter.
-        :type maxMuzzleVelocity: meters_per_second
-        :param minHoodAngle: The minimum hood angle of the shooter.
-        :type minHoodAngle: Rotation2d
-        :param maxHoodAngle: The maximum hood angle of the shooter.
-        :type maxHoodAngle: Rotation2d
+        :param flywheelRpmToMuzzleVelocity: A function that converts flywheel RPM to muzzle velocity.
+        :type flywheelRpmToMuzzleVelocity: Callable[[revolutions_per_minute], meters_per_second]
         """
         self._getRobotPose = getRobotPose
         self._getRobotVelocity = getRobotVelocity
         self._launcherTransform = launcherTransform
-        self._muzzleVelocityToFlywheelRpm = muzzleVelocityToFlywheelRpm
-        self._minMuzzleVelocity = minMuzzleVelocity
-        self._maxMuzzleVelocity = maxMuzzleVelocity
-        self._minHoodAngle = minHoodAngle
-        self._maxHoodAngle = maxHoodAngle
+        self._flywheelRpmToMuzzleVelocity = flywheelRpmToMuzzleVelocity
 
-    def predictTargetPose(self, targetPose: Pose3d) -> Pose3d | None:
-        """
-        Predicts the target pose after a given time.
-
-        :param targetPose: The initial target pose.
-        :type targetPose: Pose3d
-        :return: The predicted target pose, or None if no valid prediction could be made because of the time of flight lookup table.
-        :rtype: Pose3d | None
-        """
-        timeOfFlight = self._timeLookup.get(
-            targetPose.translation().toTranslation2d().norm()
+        self._nettable = NetworkTableInstance.getDefault().getTable(
+            "ShootOnMoveCalculator"
         )
-        if timeOfFlight is None:
-            return None
-        velocity = self._getRobotVelocity()
-        return Pose3d(
-            Translation3d(
-                targetPose.X() - velocity.vx * timeOfFlight,
-                targetPose.Y() - velocity.vy * timeOfFlight,
-                targetPose.Z(),
-            ),
-            targetPose.rotation(),
-        )
+        self._targetPub = self._nettable.getStructTopic("Target", Pose3d).publish()
+        self._virtualTargetPub = self._nettable.getStructTopic(
+            "VirtualTarget", Pose3d
+        ).publish()
 
-    def getSetpoints(self, targetPose: Pose3d) -> StateSetpoint | None:
+    def _getSetpointsStep(self, target: Pose3d) -> tuple[StateSetpoint, seconds]:
         """
-        Gets the shooter setpoints for shooting at the given target pose.
+        Calculates the setpoints for the current robot state and a target pose.
 
-        :param targetPose: The target pose to shoot at.
-        :type targetPose: Pose3d
-        :return: The shooter setpoints, or None if no valid setpoints could be calculated.
+        :param target: The target pose to shoot at.
+        :type target: Pose3d
+        :return: A tuple containing the StateSetpoint and the time until the shot should be taken.
+        :rtype: tuple[StateSetpoint, seconds]
         """
-
-        # this implementation is based on FRC 5000 Hammerhead's implementation
-        # it can be found here: https://github.com/hammerheads5000/2026Rebuilt/blob/6ecae474f5ed81970d8727d2fe6b17e945a1f08f/src/main/java/frc/robot/subsystems/turret/TurretCalculator.java
-
+        # Get current robot state
         robotPose = self._getRobotPose()
-
-        predictedTargetPose = self.predictTargetPose(targetPose)
-        if predictedTargetPose is None:
-            return None
-
-        predictedTargetPose2 = self.predictTargetPose(predictedTargetPose)
-        if predictedTargetPose2 is not None:
-            predictedTargetPose = predictedTargetPose2
-
-        targetOffset = predictedTargetPose.relativeTo(robotPose)
-        xDist = metersToInches(targetOffset.translation().toTranslation2d().norm())
-        zDist = metersToInches(
-            predictedTargetPose.translation().Z() - self._launcherTransform.Z()
+        dist = (
+            robotPose.translation()
+            .toTranslation2d()
+            .distance(target.translation().toTranslation2d())
         )
 
-        realDist = metersToInches(
-            targetPose.relativeTo(robotPose).translation().toTranslation2d().norm()
-        )
-        g = 386  # gravity in in/s^2
-        funnelRadiusIn = 24
-        funnelHeightIn = 72 - 56.4
-        r = funnelRadiusIn * xDist / realDist
-        h = funnelHeightIn + self._distanceAboveFunnel
+        displacement = target.relativeTo(robotPose)
+        turretAngleRads = atan2(displacement.Y(), displacement.X())
 
-        a1 = xDist * xDist
-        b1 = xDist
-        d1 = zDist
-        a2 = -xDist * xDist + (xDist - r) * (xDist - r)
-        b2 = -r
-        d2 = h
-        bm = -b2 / b1
-        a3 = bm * a1 + a2
-        d3 = bm * d1 + d2
-        a = d3 / a3
-        b = (d1 - a1 * a) / b1
-        theta = atan(b)
-        # try:
-        v0 = sqrt(-g / (2 * a * cos(theta) * cos(theta)))
-        # except ValueError:
-        #     return None
-
-        return StateSetpoint(
-            self._muzzleVelocityToFlywheelRpm(inchesToMeters(v0)),
-            Rotation2d(theta),
-            Rotation2d(atan2(targetOffset.Y(), targetOffset.X())),
+        angleDeg = interp(dist, self._distanceInterpArray, self._hoodAngleInterpArray)
+        flywheelRpm = interp(
+            dist, self._distanceInterpArray, self._flywheelVelInterpArray
         )
-        # below is my original implementation attempt
+        v0 = self._flywheelRpmToMuzzleVelocity(flywheelRpm)
 
-        launcherPose = self._getRobotPose() + self._launcherTransform
-        robotVelocity = self._getRobotVelocity()
-        targetTransform = targetPose.relativeTo(launcherPose)
-        timeOfFlight = self._timeLookup.get(targetTransform.translation().norm())
-        if timeOfFlight is None:
-            return None
-        # imagine the robot as static - the hub will be at this position relative to the robot when the ball arrives
-        motionTransform = self._ChassisSpeedsToTranslation3d(
-            robotVelocity, timeOfFlight
+        t = dist / (v0 * cos(degreesToRadians(angleDeg)))
+        # print(dist, flywheelRpm, v0, cos(degreesToRadians(angleDeg)), t)
+
+        return (
+            StateSetpoint(
+                flywheelRpm,
+                Rotation2d.fromDegrees(angleDeg),
+                Rotation2d(turretAngleRads),
+            ),
+            t,
         )
-        # apply the transform twice to get into a steady state of where the target will be
-        targetTransform = targetTransform.transformBy(motionTransform.inverse())
-        distanceToTarget = targetTransform.translation().norm()
-        targetTransform = targetTransform.transformBy(motionTransform)
-        timeOfFlight2 = self._timeLookup.get(distanceToTarget)
-        if timeOfFlight2 is not None:
-            motionTransform = self._ChassisSpeedsToTranslation3d(
-                robotVelocity, timeOfFlight2
+
+    def getSetpoints(self, target: Pose3d, iterations: int = 3) -> StateSetpoint:
+        """
+        Get the setpoints for the shooter, hood, and turret
+        Uses a Recursive LuT method with a moving virtual target to account for the moving robot
+
+        :param target: The target pose to shoot at.
+        :type target: Pose3d
+        :param iterations: The number of times to repeat the recursive LuT process. More iterations will result in more accurate setpoints, but will take more time to calculate. Defaults to 3. Minimum is 1
+        :type iterations: int, optional
+        """
+        self._targetPub.set(target)
+        if iterations < 1:
+            iterations = 1
+        virtualTarget = target.transformBy(self._launcherTransform)
+        setpoints = StateSetpoint(0, Rotation2d(), Rotation2d())
+        robotVel = self._getRobotVelocity()
+        for _ in range(iterations):
+            setpoints, timeToShot = self._getSetpointsStep(virtualTarget)
+            virtualTarget = virtualTarget.transformBy(
+                self._ChassisSpeedsToTranslation3d(robotVel, timeToShot).inverse()
             )
-            targetTransform = targetTransform.transformBy(motionTransform.inverse())
-            timeOfFlight = timeOfFlight2
-
-        turretAngle = atan2(targetTransform.Y(), targetTransform.X())
-        # return StateSetpoint(0, Rotation2d(), Rotation2d(turretAngle))
-
-        # Hood Solver v1: we want to maximize velocity for high, arcing shots
-        k = targetTransform.translation().toTranslation2d().norm() / timeOfFlight
-        if k > self._maxMuzzleVelocity:
-            return None  # no feasible solution
-
-        theta_cap = acos(min(1.0, k / self._maxMuzzleVelocity))
-        theta_star = min(self._maxHoodAngle.radians(), theta_cap)
-
-        if theta_star < self._minHoodAngle.radians():
-            return None  # no feasible solution
-
-        v0_star = k / cos(theta_star)
-        return StateSetpoint(
-            self._muzzleVelocityToFlywheelRpm(v0_star),
-            Rotation2d(theta_star),
-            Rotation2d(turretAngle),
-        )
+        self._virtualTargetPub.set(virtualTarget)
+        return setpoints
 
     def _ChassisSpeedsToTranslation3d(
         self, speeds: ChassisSpeeds, time: seconds

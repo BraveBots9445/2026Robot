@@ -57,8 +57,6 @@ class DrivetrainMoveOffset(Command):
             FieldCentric().with_velocity_x(x).with_velocity_y(y).with_rotational_rate(t)
         )
 
-        print(self.setpoint, currPose)
-
     def isFinished(self) -> bool:
         return (
             self.xpid.atSetpoint() and self.ypid.atSetpoint() and self.tpid.atSetpoint()
