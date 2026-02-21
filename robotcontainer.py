@@ -13,6 +13,7 @@ from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 from commands.indexerIndex import IndexerIndex
 from commands.indexerIndex import Indexer
+from subsystems.indexer import Indexer, Woahval
 
 from commands2.button import CommandXboxController
 
@@ -65,6 +66,7 @@ class RobotContainer:
         self.drivetrain = TunerConstants.create_drivetrain()
 
         self.index = Indexer()
+        self.woahval = Woahval()
 
      #  self.vision = Vision(
       #     self.drivetrain.add_vision_measurement,
