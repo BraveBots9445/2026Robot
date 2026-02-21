@@ -15,7 +15,7 @@ class Indexer (Subsystem):
         super().__init__()
         self.nettable = NetworkTableInstance.getDefault().getTable("00LogInputs/Indexer")
         self.subtable = NetworkTableInstance.getDefault().getTable("000Indexer")
-        self.indexer_motor = TalonFX(25) 
+        self.indexer_motor = TalonFX(23) 
         self.setpoint = 0
         self.simTalon = DCMotor.krakenX60(1) 
         self.PID = PIDController(Kp=0.003, Ki=0, Kd=0)
@@ -49,7 +49,7 @@ class Woahval (Subsystem):
         super().__init__()
         self.nettable = NetworkTableInstance.getDefault().getTable("00LogInputs/Woahval")
         self.subtable = NetworkTableInstance.getDefault().getTable("000Woahval")
-        self.woahval_motor = TalonFX(8) 
+        self.woahval_motor = TalonFX(22) 
         self.setpoint = 0
         self.simTalon = DCMotor.krakenX60(2) 
         self.PID = PIDController(Kp=0.003, Ki=0, Kd=0)
