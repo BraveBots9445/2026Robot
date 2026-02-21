@@ -101,7 +101,7 @@ class Vision(Subsystem):
             self.to_br,
         )
 
-        if False and RobotBase.isSimulation():
+        if RobotBase.isSimulation():
             from photonlibpy.simulation import (
                 visionSystemSim,
                 simCameraProperties,

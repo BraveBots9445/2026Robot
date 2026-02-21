@@ -6,6 +6,7 @@ from wpilib import RobotBase
 from wpilib.simulation import SingleJointedArmSim
 from wpimath.system.plant import DCMotor
 from ntcore import NetworkTableInstance
+from tools.TelemetryService import get_telemetry_service
 import math
 import numpy as np
 
@@ -76,12 +77,18 @@ class Intake(Subsystem):
         self.target_angle = self.MIN_ANGLE
         self.roller_speed = 0.0
 
+        # Cached telemetry data (updated every 20ms, published every 100ms)
+        self._telemetry_cache = {}
+
         # NetworkTables setup
         nt = NetworkTableInstance.getDefault()
         input_prefix = "SimInputs" if RobotBase.isSimulation() else "RealInputs"
         output_prefix = "SimOutputs" if RobotBase.isSimulation() else "RealOutputs"
         self.nt_inputs = nt.getTable(f"{input_prefix}/Intake")
         self.nt_outputs = nt.getTable(f"{output_prefix}/Intake")
+        
+        # Register with telemetry service
+        get_telemetry_service().register_subsystem("Intake", self._publish_telemetry)
 
     def _configure_pivot_motor(self):
         """Configure the pivot motor with appropriate settings."""
@@ -209,36 +216,77 @@ class Intake(Subsystem):
 
     def periodic(self):
         """
-        Called periodically by the scheduler.
-        Updates motor outputs based on PID calculations and publishes telemetry.
+        Called periodically by the scheduler (every 20ms).
+        Updates motor outputs based on PID calculations.
+        Telemetry is cached here and published every 100ms by TelemetryService.
         """
-        # 1. Log all raw motor and encoder data
-        self.nt_inputs.putNumber("PivotMotor/Position_rot", self.pivot_motor.get_position().value)
-        self.nt_inputs.putNumber("PivotMotor/Velocity_rps", self.pivot_motor.get_velocity().value)
-        self.nt_inputs.putNumber("PivotMotor/Temperature_C", self.pivot_motor.get_device_temp().value)
-        self.nt_inputs.putNumber("PivotMotor/Current_A", self.pivot_motor.get_stator_current().value)
-        self.nt_inputs.putNumber("PivotMotor/Voltage_V", self.pivot_motor.get_motor_voltage().value)
+        # 1. Read all sensor data ONCE per cycle
+        pivot_position = self.pivot_motor.get_position().value
+        pivot_velocity = self.pivot_motor.get_velocity().value
+        pivot_temp = self.pivot_motor.get_device_temp().value
+        pivot_current = self.pivot_motor.get_stator_current().value
+        pivot_voltage = self.pivot_motor.get_motor_voltage().value
         
-        self.nt_inputs.putNumber("RollerMotor/Velocity_rps", self.roller_motor.get_velocity().value)
-        self.nt_inputs.putNumber("RollerMotor/Temperature_C", self.roller_motor.get_device_temp().value)
-        self.nt_inputs.putNumber("RollerMotor/Current_A", self.roller_motor.get_stator_current().value)
+        roller_velocity = self.roller_motor.get_velocity().value
+        roller_temp = self.roller_motor.get_device_temp().value
+        roller_current = self.roller_motor.get_stator_current().value
         
-        self.nt_inputs.putNumber("CANcoder/Position_rot", self.encoder.get_absolute_position().value)
-
-        # 2. Perform calculations (PID)
-        current_angle = self.get_pivot_angle()
+        cancoder_position = self.encoder.get_absolute_position().value
+        
+        # 2. Perform calculations (PID) using cached sensor readings
+        current_angle = cancoder_position * 360.0
         pid_output = self.pivot_pid.calculate(current_angle, self.target_angle)
 
-        # 3. Apply motor outputs
+        # 3. Apply motor outputs (control loop runs at full 20ms rate)
         self.pivot_motor.set(pid_output)
         self.roller_motor.set(self.roller_speed)
 
-        # 4. Log calculated/converted values
-        self.nt_outputs.putNumber("CurrentAngle_deg", current_angle)
-        self.nt_outputs.putNumber("TargetAngle_deg", self.target_angle)
-        self.nt_outputs.putNumber("PIDOutput", pid_output)
-        self.nt_outputs.putNumber("RollerSpeedCommand", self.roller_speed)
-        self.nt_outputs.putBoolean("AtTarget", self.at_target_angle())
+        # 4. Cache telemetry data (published every 100ms on separate thread)
+        # Use the SAME sensor readings we already collected
+        self._telemetry_cache = {
+            "pivot_position": pivot_position,
+            "pivot_velocity": pivot_velocity,
+            "pivot_temp": pivot_temp,
+            "pivot_current": pivot_current,
+            "pivot_voltage": pivot_voltage,
+            "roller_velocity": roller_velocity,
+            "roller_temp": roller_temp,
+            "roller_current": roller_current,
+            "cancoder_position": cancoder_position,
+            "current_angle": current_angle,
+            "target_angle": self.target_angle,
+            "pid_output": pid_output,
+            "roller_speed_cmd": self.roller_speed,
+            "at_target": self.pivot_pid.atSetpoint(),
+        }
+    
+    def _publish_telemetry(self):
+        """
+        Called by TelemetryService every 100ms on separate thread.
+        Publishes cached telemetry data to NetworkTables.
+        """
+        if not self._telemetry_cache:
+            return
+        
+        cache = self._telemetry_cache
+        
+        # Publish inputs
+        self.nt_inputs.putNumber("PivotMotor/Position_rot", cache["pivot_position"])
+        self.nt_inputs.putNumber("PivotMotor/Velocity_rps", cache["pivot_velocity"])
+        self.nt_inputs.putNumber("PivotMotor/Temperature_C", cache["pivot_temp"])
+        self.nt_inputs.putNumber("PivotMotor/Current_A", cache["pivot_current"])
+        self.nt_inputs.putNumber("PivotMotor/Voltage_V", cache["pivot_voltage"])
+        self.nt_inputs.putNumber("RollerMotor/Velocity_rps", cache["roller_velocity"])
+        self.nt_inputs.putNumber("RollerMotor/Temperature_C", cache["roller_temp"])
+        self.nt_inputs.putNumber("RollerMotor/Current_A", cache["roller_current"])
+        self.nt_inputs.putNumber("CANcoder/Position_rot", cache["cancoder_position"])
+        
+        # Publish outputs
+        self.nt_outputs.putNumber("CurrentAngle_deg", cache["current_angle"])
+        self.nt_outputs.putNumber("TargetAngle_deg", cache["target_angle"])
+        self.nt_outputs.putNumber("PIDOutput", cache["pid_output"])
+        self.nt_outputs.putNumber("RollerSpeedCommand", cache["roller_speed_cmd"])
+        self.nt_outputs.putBoolean("AtTarget", cache["at_target"])
 
     def simulationPeriodic(self):
         """Update simulation state."""

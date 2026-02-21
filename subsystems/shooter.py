@@ -7,6 +7,7 @@ from wpilib import RobotBase
 from wpilib.simulation import FlywheelSim, SingleJointedArmSim
 from wpimath.system.plant import DCMotor, LinearSystemId
 from ntcore import NetworkTableInstance
+from tools.TelemetryService import get_telemetry_service
 import math
 import numpy as np
 
@@ -91,12 +92,18 @@ class Shooter(Subsystem):
         self.target_flywheel_speed = 0.0  # RPS
         self.target_hood_angle = 30.0  # degrees (mid-range default)
 
+        # Cached telemetry data (updated every 20ms, published every 100ms)
+        self._telemetry_cache = {}
+
         # NetworkTables setup
         nt = NetworkTableInstance.getDefault()
         input_prefix = "SimInputs" if RobotBase.isSimulation() else "RealInputs"
         output_prefix = "SimOutputs" if RobotBase.isSimulation() else "RealOutputs"
         self.nt_inputs = nt.getTable(f"{input_prefix}/Shooter")
         self.nt_outputs = nt.getTable(f"{output_prefix}/Shooter")
+        
+        # Register with telemetry service to publish cached data every 100ms
+        get_telemetry_service().register_subsystem("Shooter", self._publish_telemetry)
 
     def _configure_flywheel_motor(self):
         """Configure the flywheel motor with appropriate settings."""
@@ -258,52 +265,102 @@ class Shooter(Subsystem):
 
     def periodic(self):
         """
-        Called periodically by the scheduler.
-        Updates motor outputs based on PID calculations and publishes telemetry.
+        Called periodically by the scheduler (every 20ms).
+        Updates motor outputs based on PID calculations.
+        Telemetry is cached here and published every 100ms by TelemetryService.
         """
-        # 1. Log all raw motor and encoder data
-        self.nt_inputs.putNumber("FlywheelMotor/Position_rot", self.flywheel_motor.get_position().value)
-        self.nt_inputs.putNumber("FlywheelMotor/Velocity_rps", self.flywheel_motor.get_velocity().value)
-        self.nt_inputs.putNumber("FlywheelMotor/Temperature_C", self.flywheel_motor.get_device_temp().value)
-        self.nt_inputs.putNumber("FlywheelMotor/Current_A", self.flywheel_motor.get_stator_current().value)
-        self.nt_inputs.putNumber("FlywheelMotor/Voltage_V", self.flywheel_motor.get_motor_voltage().value)
+        # 1. Read all sensor data ONCE per cycle
+        flywheel_position = self.flywheel_motor.get_position().value
+        flywheel_velocity = self.flywheel_motor.get_velocity().value
+        flywheel_temp = self.flywheel_motor.get_device_temp().value
+        flywheel_current = self.flywheel_motor.get_stator_current().value
+        flywheel_voltage = self.flywheel_motor.get_motor_voltage().value
         
-        self.nt_inputs.putNumber("HoodMotor/Position_deg", self.hood_encoder.getPosition())
-        self.nt_inputs.putNumber("HoodMotor/Velocity_dps", self.hood_encoder.getVelocity())
-        self.nt_inputs.putNumber("HoodMotor/Temperature_C", self.hood_motor.getMotorTemperature())
-        self.nt_inputs.putNumber("HoodMotor/Current_A", self.hood_motor.getOutputCurrent())
-        self.nt_inputs.putNumber("HoodMotor/AppliedOutput", self.hood_motor.getAppliedOutput())
-        self.nt_inputs.putNumber("HoodMotor/BusVoltage_V", self.hood_motor.getBusVoltage())
-
-        # 2. Perform calculations (PID)
-        current_flywheel_speed = self.get_flywheel_speed()
-        current_hood_angle = self.get_hood_angle()
+        hood_position = self.hood_encoder.getPosition()
+        hood_velocity = self.hood_encoder.getVelocity()
+        hood_temp = self.hood_motor.getMotorTemperature()
+        hood_current = self.hood_motor.getOutputCurrent()
+        hood_applied_output = self.hood_motor.getAppliedOutput()
+        hood_bus_voltage = self.hood_motor.getBusVoltage()
         
+        # 2. Perform calculations (PID) using cached sensor readings
         flywheel_output = self.flywheel_pid.calculate(
-            current_flywheel_speed, self.target_flywheel_speed
+            flywheel_velocity, self.target_flywheel_speed
         )
         hood_output = self.hood_pid.calculate(
-            current_hood_angle, self.target_hood_angle
+            hood_position, self.target_hood_angle
         )
         clamped_hood_output = max(-0.3, min(0.3, hood_output))
 
-        # 3. Apply motor outputs
+        # 3. Apply motor outputs (control loop runs at full 20ms rate)
         self.flywheel_motor.set(flywheel_output)
         self.hood_motor.set(clamped_hood_output)
 
-        # 4. Log calculated/converted values
-        self.nt_outputs.putNumber("FlywheelSpeed_rps", current_flywheel_speed)
-        self.nt_outputs.putNumber("TargetFlywheelSpeed_rps", self.target_flywheel_speed)
-        self.nt_outputs.putNumber("FlywheelPIDOutput", flywheel_output)
-        self.nt_outputs.putBoolean("AtSpeed", self.at_target_speed())
+        # 4. Cache telemetry data (published every 100ms on separate thread)
+        # Use the SAME sensor readings we already collected
+        self._telemetry_cache = {
+            # Inputs
+            "flywheel_position": flywheel_position,
+            "flywheel_velocity": flywheel_velocity,
+            "flywheel_temp": flywheel_temp,
+            "flywheel_current": flywheel_current,
+            "flywheel_voltage": flywheel_voltage,
+            "hood_position": hood_position,
+            "hood_velocity": hood_velocity,
+            "hood_temp": hood_temp,
+            "hood_current": hood_current,
+            "hood_applied_output": hood_applied_output,
+            "hood_bus_voltage": hood_bus_voltage,
+            # Outputs
+            "current_flywheel_speed": flywheel_velocity,
+            "target_flywheel_speed": self.target_flywheel_speed,
+            "flywheel_pid_output": flywheel_output,
+            "at_speed": abs(flywheel_velocity - self.target_flywheel_speed) < 50.0,
+            "current_hood_angle": hood_position,
+            "target_hood_angle": self.target_hood_angle,
+            "hood_pid_output": hood_output,
+            "hood_clamped_output": clamped_hood_output,
+            "hood_at_target": self.hood_pid.atSetpoint(),
+            "ready_to_shoot": (
+                abs(flywheel_velocity - self.target_flywheel_speed) < 50.0
+                and self.hood_pid.atSetpoint()
+            ),
+        }
+    
+    def _publish_telemetry(self):
+        """
+        Called by TelemetryService every 100ms on separate thread.
+        Publishes cached telemetry data to NetworkTables.
+        """
+        if not self._telemetry_cache:
+            return
         
-        self.nt_outputs.putNumber("HoodAngle_deg", current_hood_angle)
-        self.nt_outputs.putNumber("TargetHoodAngle_deg", self.target_hood_angle)
-        self.nt_outputs.putNumber("HoodPIDOutput", hood_output)
-        self.nt_outputs.putNumber("HoodClampedOutput", clamped_hood_output)
-        self.nt_outputs.putBoolean("HoodAtTarget", self.at_target_hood_angle())
+        cache = self._telemetry_cache
         
-        self.nt_outputs.putBoolean("ReadyToShoot", self.ready_to_shoot())
+        # Publish inputs
+        self.nt_inputs.putNumber("FlywheelMotor/Position_rot", cache["flywheel_position"])
+        self.nt_inputs.putNumber("FlywheelMotor/Velocity_rps", cache["flywheel_velocity"])
+        self.nt_inputs.putNumber("FlywheelMotor/Temperature_C", cache["flywheel_temp"])
+        self.nt_inputs.putNumber("FlywheelMotor/Current_A", cache["flywheel_current"])
+        self.nt_inputs.putNumber("FlywheelMotor/Voltage_V", cache["flywheel_voltage"])
+        self.nt_inputs.putNumber("HoodMotor/Position_deg", cache["hood_position"])
+        self.nt_inputs.putNumber("HoodMotor/Velocity_dps", cache["hood_velocity"])
+        self.nt_inputs.putNumber("HoodMotor/Temperature_C", cache["hood_temp"])
+        self.nt_inputs.putNumber("HoodMotor/Current_A", cache["hood_current"])
+        self.nt_inputs.putNumber("HoodMotor/AppliedOutput", cache["hood_applied_output"])
+        self.nt_inputs.putNumber("HoodMotor/BusVoltage_V", cache["hood_bus_voltage"])
+        
+        # Publish outputs
+        self.nt_outputs.putNumber("FlywheelSpeed_rps", cache["current_flywheel_speed"])
+        self.nt_outputs.putNumber("TargetFlywheelSpeed_rps", cache["target_flywheel_speed"])
+        self.nt_outputs.putNumber("FlywheelPIDOutput", cache["flywheel_pid_output"])
+        self.nt_outputs.putBoolean("AtSpeed", cache["at_speed"])
+        self.nt_outputs.putNumber("HoodAngle_deg", cache["current_hood_angle"])
+        self.nt_outputs.putNumber("TargetHoodAngle_deg", cache["target_hood_angle"])
+        self.nt_outputs.putNumber("HoodPIDOutput", cache["hood_pid_output"])
+        self.nt_outputs.putNumber("HoodClampedOutput", cache["hood_clamped_output"])
+        self.nt_outputs.putBoolean("HoodAtTarget", cache["hood_at_target"])
+        self.nt_outputs.putBoolean("ReadyToShoot", cache["ready_to_shoot"])
 
     def simulationPeriodic(self):
         """Update simulation state."""

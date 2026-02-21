@@ -14,6 +14,7 @@ from subsystems.turret import Turret
 from subsystems.shooter import Shooter
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
+from tools.TelemetryService import get_telemetry_service
 
 from tools.BraveController import BraveController
 from commands.DriveByStick import DriveByStick
@@ -57,6 +58,10 @@ class RobotContainer:
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
         )
+
+        # Start telemetry service (publishes to NT every 100ms on separate thread)
+        self.telemetry_service = get_telemetry_service()
+        self.telemetry_service.start()
 
         self.set_pp_named_commands()
 

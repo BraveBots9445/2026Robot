@@ -6,6 +6,7 @@ from wpilib.simulation import FlywheelSim
 from wpimath.system.plant import DCMotor, LinearSystemId
 from ntcore import NetworkTableInstance
 import numpy as np
+from tools.TelemetryService import get_telemetry_service
 
 
 class Hopper(Subsystem):
@@ -78,6 +79,10 @@ class Hopper(Subsystem):
         output_prefix = "SimOutputs" if RobotBase.isSimulation() else "RealOutputs"
         self.nt_inputs = nt.getTable(f"{input_prefix}/Hopper")
         self.nt_outputs = nt.getTable(f"{output_prefix}/Hopper")
+
+        # Telemetry cache and service registration
+        self._telemetry_cache = {}
+        get_telemetry_service().register_subsystem("Hopper", self._publish_telemetry)
 
     def _configure_turnstile_motor(self):
         """Configure the turnstile motor with appropriate settings."""
@@ -175,34 +180,71 @@ class Hopper(Subsystem):
 
     def periodic(self):
         """
-        Called periodically by the scheduler.
-        Updates motor outputs and publishes telemetry.
+        Called periodically by the scheduler (every 20ms).
+        Updates motor outputs.
+        Telemetry is cached here and published every 100ms by TelemetryService.
         """
-        # 1. Log all raw motor and encoder data
-        self.nt_inputs.putNumber("TurnstileMotor/Position_rot", self.turnstile_motor.get_position().value)
-        self.nt_inputs.putNumber("TurnstileMotor/Velocity_rps", self.turnstile_motor.get_velocity().value)
-        self.nt_inputs.putNumber("TurnstileMotor/Temperature_C", self.turnstile_motor.get_device_temp().value)
-        self.nt_inputs.putNumber("TurnstileMotor/Current_A", self.turnstile_motor.get_stator_current().value)
-        self.nt_inputs.putNumber("TurnstileMotor/Voltage_V", self.turnstile_motor.get_motor_voltage().value)
+        # 1. Read all sensor data ONCE per cycle
+        turnstile_position = self.turnstile_motor.get_position().value
+        turnstile_velocity = self.turnstile_motor.get_velocity().value
+        turnstile_temp = self.turnstile_motor.get_device_temp().value
+        turnstile_current = self.turnstile_motor.get_stator_current().value
+        turnstile_voltage = self.turnstile_motor.get_motor_voltage().value
         
-        self.nt_inputs.putNumber("FeedMotor/Position_rot", self.feed_roller_motor.get_position().value)
-        self.nt_inputs.putNumber("FeedMotor/Velocity_rps", self.feed_roller_motor.get_velocity().value)
-        self.nt_inputs.putNumber("FeedMotor/Temperature_C", self.feed_roller_motor.get_device_temp().value)
-        self.nt_inputs.putNumber("FeedMotor/Current_A", self.feed_roller_motor.get_stator_current().value)
-        self.nt_inputs.putNumber("FeedMotor/Voltage_V", self.feed_roller_motor.get_motor_voltage().value)
-
-        # 2. Perform calculations (none for hopper - open loop control)
-        # No PID calculations needed
-
-        # 3. Apply motor outputs
+        feed_position = self.feed_roller_motor.get_position().value
+        feed_velocity = self.feed_roller_motor.get_velocity().value
+        feed_temp = self.feed_roller_motor.get_device_temp().value
+        feed_current = self.feed_roller_motor.get_stator_current().value
+        feed_voltage = self.feed_roller_motor.get_motor_voltage().value
+        
+        # 2. Apply motor outputs (control loop runs at full 20ms rate)
         self.turnstile_motor.set(self.turnstile_speed)
         self.feed_roller_motor.set(self.feed_roller_speed)
 
-        # 4. Log calculated/converted values
-        self.nt_outputs.putNumber("TurnstileSpeedCommand", self.turnstile_speed)
-        self.nt_outputs.putNumber("FeedRollerSpeedCommand", self.feed_roller_speed)
-        self.nt_outputs.putNumber("TurnstileVelocity_rps", self.get_turnstile_velocity())
-        self.nt_outputs.putNumber("FeedRollerVelocity_rps", self.get_feed_roller_velocity())
+        # 3. Cache telemetry data (published every 100ms on separate thread)
+        # Use the SAME sensor readings we already collected
+        self._telemetry_cache = {
+            "turnstile_position": turnstile_position,
+            "turnstile_velocity": turnstile_velocity,
+            "turnstile_temp": turnstile_temp,
+            "turnstile_current": turnstile_current,
+            "turnstile_voltage": turnstile_voltage,
+            "feed_position": feed_position,
+            "feed_velocity": feed_velocity,
+            "feed_temp": feed_temp,
+            "feed_current": feed_current,
+            "feed_voltage": feed_voltage,
+            "turnstile_speed_cmd": self.turnstile_speed,
+            "feed_speed_cmd": self.feed_roller_speed,
+        }
+    
+    def _publish_telemetry(self):
+        """
+        Called by TelemetryService every 100ms on separate thread.
+        Publishes cached telemetry data to NetworkTables.
+        """
+        if not self._telemetry_cache:
+            return
+        
+        cache = self._telemetry_cache
+        
+        # Publish inputs
+        self.nt_inputs.putNumber("TurnstileMotor/Position_rot", cache["turnstile_position"])
+        self.nt_inputs.putNumber("TurnstileMotor/Velocity_rps", cache["turnstile_velocity"])
+        self.nt_inputs.putNumber("TurnstileMotor/Temperature_C", cache["turnstile_temp"])
+        self.nt_inputs.putNumber("TurnstileMotor/Current_A", cache["turnstile_current"])
+        self.nt_inputs.putNumber("TurnstileMotor/Voltage_V", cache["turnstile_voltage"])
+        self.nt_inputs.putNumber("FeedMotor/Position_rot", cache["feed_position"])
+        self.nt_inputs.putNumber("FeedMotor/Velocity_rps", cache["feed_velocity"])
+        self.nt_inputs.putNumber("FeedMotor/Temperature_C", cache["feed_temp"])
+        self.nt_inputs.putNumber("FeedMotor/Current_A", cache["feed_current"])
+        self.nt_inputs.putNumber("FeedMotor/Voltage_V", cache["feed_voltage"])
+        
+        # Publish outputs
+        self.nt_outputs.putNumber("TurnstileSpeedCommand", cache["turnstile_speed_cmd"])
+        self.nt_outputs.putNumber("FeedRollerSpeedCommand", cache["feed_speed_cmd"])
+        self.nt_outputs.putNumber("TurnstileVelocity_rps", cache["turnstile_velocity"])
+        self.nt_outputs.putNumber("FeedRollerVelocity_rps", cache["feed_velocity"])
 
     def simulationPeriodic(self):
         """Update simulation state."""

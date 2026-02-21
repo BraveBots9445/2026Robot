@@ -7,6 +7,7 @@ from wpimath.system.plant import DCMotor
 from ntcore import NetworkTableInstance
 import math
 import numpy as np
+from tools.TelemetryService import get_telemetry_service
 
 
 class Turret(Subsystem):
@@ -71,6 +72,10 @@ class Turret(Subsystem):
         output_prefix = "SimOutputs" if RobotBase.isSimulation() else "RealOutputs"
         self.nt_inputs = nt.getTable(f"{input_prefix}/Turret")
         self.nt_outputs = nt.getTable(f"{output_prefix}/Turret")
+
+        # Telemetry cache and service registration
+        self._telemetry_cache = {}
+        get_telemetry_service().register_subsystem("Turret", self._publish_telemetry)
 
     def _configure_motor(self):
         """Configure the turret motor and encoder with appropriate settings."""
@@ -173,32 +178,69 @@ class Turret(Subsystem):
 
     def periodic(self):
         """
-        Called periodically by the scheduler.
-        Updates motor outputs based on PID calculations and publishes telemetry.
+        Called periodically by the scheduler (every 20ms).
+        Updates motor outputs based on PID calculations.
+        Telemetry is cached here and published every 100ms by TelemetryService.
         """
-        # 1. Log all raw motor and encoder data
-        self.nt_inputs.putNumber("Motor/Position_deg", self.encoder.getPosition())
-        self.nt_inputs.putNumber("Motor/Velocity_dps", self.encoder.getVelocity())
-        self.nt_inputs.putNumber("Motor/Temperature_C", self.motor.getMotorTemperature())
-        self.nt_inputs.putNumber("Motor/Current_A", self.motor.getOutputCurrent())
-        self.nt_inputs.putNumber("Motor/AppliedOutput", self.motor.getAppliedOutput())
-        self.nt_inputs.putNumber("Motor/BusVoltage_V", self.motor.getBusVoltage())
-
-        # 2. Perform calculations (PID)
-        current_angle = self.get_angle()
+        # 1. Read all sensor data ONCE per cycle
+        motor_position = self.encoder.getPosition()
+        motor_velocity = self.encoder.getVelocity()
+        motor_temp = self.motor.getMotorTemperature()
+        motor_current = self.motor.getOutputCurrent()
+        motor_applied_output = self.motor.getAppliedOutput()
+        motor_bus_voltage = self.motor.getBusVoltage()
+        
+        # 2. Perform calculations (PID) using cached sensor readings
+        # Normalize angle to -180 to +180
+        current_angle = ((motor_position + 180.0) % 360.0) - 180.0
         pid_output = self.pid.calculate(current_angle, self.target_angle)
         clamped_output = max(-0.5, min(0.5, pid_output))
 
-        # 3. Apply motor output
+        # 3. Apply motor output (control loop runs at full 20ms rate)
         self.motor.set(clamped_output)
 
-        # 4. Log calculated/converted values
-        self.nt_outputs.putNumber("CurrentAngle_deg", current_angle)
-        self.nt_outputs.putNumber("TargetAngle_deg", self.target_angle)
-        self.nt_outputs.putNumber("Velocity_dps", self.get_velocity())
-        self.nt_outputs.putNumber("PIDOutput", pid_output)
-        self.nt_outputs.putNumber("ClampedOutput", clamped_output)
-        self.nt_outputs.putBoolean("AtTarget", self.at_target_angle())
+        # 4. Cache telemetry data (published every 100ms on separate thread)
+        # Use the SAME sensor readings we already collected
+        self._telemetry_cache = {
+            "motor_position": motor_position,
+            "motor_velocity": motor_velocity,
+            "motor_temp": motor_temp,
+            "motor_current": motor_current,
+            "motor_applied_output": motor_applied_output,
+            "motor_bus_voltage": motor_bus_voltage,
+            "current_angle": current_angle,
+            "target_angle": self.target_angle,
+            "velocity_dps": motor_velocity,
+            "pid_output": pid_output,
+            "clamped_output": clamped_output,
+            "at_target": self.pid.atSetpoint(),
+        }
+    
+    def _publish_telemetry(self):
+        """
+        Called by TelemetryService every 100ms on separate thread.
+        Publishes cached telemetry data to NetworkTables.
+        """
+        if not self._telemetry_cache:
+            return
+        
+        cache = self._telemetry_cache
+        
+        # Publish inputs
+        self.nt_inputs.putNumber("Motor/Position_deg", cache["motor_position"])
+        self.nt_inputs.putNumber("Motor/Velocity_dps", cache["motor_velocity"])
+        self.nt_inputs.putNumber("Motor/Temperature_C", cache["motor_temp"])
+        self.nt_inputs.putNumber("Motor/Current_A", cache["motor_current"])
+        self.nt_inputs.putNumber("Motor/AppliedOutput", cache["motor_applied_output"])
+        self.nt_inputs.putNumber("Motor/BusVoltage_V", cache["motor_bus_voltage"])
+        
+        # Publish outputs
+        self.nt_outputs.putNumber("CurrentAngle_deg", cache["current_angle"])
+        self.nt_outputs.putNumber("TargetAngle_deg", cache["target_angle"])
+        self.nt_outputs.putNumber("Velocity_dps", cache["velocity_dps"])
+        self.nt_outputs.putNumber("PIDOutput", cache["pid_output"])
+        self.nt_outputs.putNumber("ClampedOutput", cache["clamped_output"])
+        self.nt_outputs.putBoolean("AtTarget", cache["at_target"])
 
     def simulationPeriodic(self):
         """Update simulation state."""
