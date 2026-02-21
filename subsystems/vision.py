@@ -4,7 +4,8 @@ from commands2 import Command, InstantCommand, Subsystem
 from wpilib import RobotBase, SmartDashboard
 from math import e, pi
 from ntcore import NetworkTableInstance
-from photonlibpy import photonCamera, photonPoseEstimator
+from photonlibpy.photonCamera import PhotonCamera
+from photonlibpy.photonPoseEstimator import PhotonPoseEstimator
 
 
 from robotpy_apriltag import AprilTagFieldLayout, AprilTagField
@@ -31,10 +32,6 @@ from wpilib import RobotBase
 
 class Vision(Subsystem):
     enabled: bool = True
-
-    strategy: photonPoseEstimator.PoseStrategy = (
-        photonPoseEstimator.PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR
-    )
 
     max_omega: degrees_per_second = 90
     max_velocity: meters_per_second = 4
@@ -67,48 +64,40 @@ class Vision(Subsystem):
             Translation3d(inchesToMeters(14), inchesToMeters(14), inchesToMeters(7)),
             Rotation3d.fromDegrees(0, 15, -25),
         )
-        self.fl = photonCamera.PhotonCamera("Arducam_FL (1)")
+        self.fl = PhotonCamera("Arducam_FL (1)")
 
         self.to_fr = Transform3d(
             Translation3d(inchesToMeters(14), -inchesToMeters(14), inchesToMeters(7)),
             Rotation3d.fromDegrees(0, 15, 25),
         )
-        self.fr = photonCamera.PhotonCamera("Arducam_FR")
+        self.fr = PhotonCamera("Arducam_FR")
 
         self.to_bl = Transform3d(
             Translation3d(-inchesToMeters(14), inchesToMeters(14), inchesToMeters(7)),
             Rotation3d.fromDegrees(0, 15, -155),
         )
-        self.bl = photonCamera.PhotonCamera("Arducam_BL")
+        self.bl = PhotonCamera("Arducam_BL")
 
         self.to_br = Transform3d(
             Translation3d(-inchesToMeters(14), -inchesToMeters(14), inchesToMeters(7)),
             Rotation3d.fromDegrees(0, 15, 155),
         )
-        self.br = photonCamera.PhotonCamera("Arducam_BR")
+        self.br = PhotonCamera("Arducam_BR")
 
-        self.fl_est = photonPoseEstimator.PhotonPoseEstimator(
+        self.fl_est = PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.fl,
             self.to_fl,
         )
-        self.fr_est = photonPoseEstimator.PhotonPoseEstimator(
+        self.fr_est = PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.fr,
             self.to_fr,
         )
-        self.bl_est = photonPoseEstimator.PhotonPoseEstimator(
+        self.bl_est = PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.bl,
             self.to_bl,
         )
-        self.br_est = photonPoseEstimator.PhotonPoseEstimator(
+        self.br_est = PhotonPoseEstimator(
             self.field_layout,
-            self.strategy,
-            self.br,
             self.to_br,
         )
 
@@ -183,7 +172,9 @@ class Vision(Subsystem):
         seen_ids: list[int] = []
         estimated_poses: list[Pose3d] = []
 
-        fr_est = self.fr_est.update()
+        # Get camera result and estimate pose using multi-tag coprocessor strategy
+        fr_result = self.fr.getLatestResult()
+        fr_est = self.fr_est.estimateCoprocMultiTagPose(fr_result)
         if fr_est:
             if len(fr_est.targetsUsed) > 0:
                 fr_pose = fr_est.estimatedPose.toPose2d()
@@ -200,7 +191,8 @@ class Vision(Subsystem):
 
                 estimated_poses.append(fr_est.estimatedPose)
 
-        fl_est = self.fl_est.update()
+        fl_result = self.fl.getLatestResult()
+        fl_est = self.fl_est.estimateCoprocMultiTagPose(fl_result)
         if fl_est:
             if len(fl_est.targetsUsed) > 0:
                 fl_pose = fl_est.estimatedPose.toPose2d()
@@ -216,7 +208,8 @@ class Vision(Subsystem):
                 seen_ids.extend([target.fiducialId for target in fl_est.targetsUsed])
                 estimated_poses.append(fl_est.estimatedPose)
 
-        bl_est = self.bl_est.update()
+        bl_result = self.bl.getLatestResult()
+        bl_est = self.bl_est.estimateCoprocMultiTagPose(bl_result)
         if bl_est:
             if len(bl_est.targetsUsed) > 0:
                 bl_pose = bl_est.estimatedPose.toPose2d()
@@ -232,7 +225,8 @@ class Vision(Subsystem):
                 seen_ids.extend([target.fiducialId for target in bl_est.targetsUsed])
                 estimated_poses.append(bl_est.estimatedPose)
 
-        br_est = self.br_est.update()
+        br_result = self.br.getLatestResult()
+        br_est = self.br_est.estimateCoprocMultiTagPose(br_result)
         if br_est:
             if len(br_est.targetsUsed) > 0:
                 br_pose = br_est.estimatedPose.toPose2d()
@@ -252,7 +246,9 @@ class Vision(Subsystem):
         self.pose_est_pub.set(estimated_poses)
 
     def simulationPeriodic(self) -> None:
-        self.vision_sim.update(self.get_robot_pose())
+        # Vision simulation is currently disabled (see __init__ with "if False")
+        if hasattr(self, 'vision_sim'):
+            self.vision_sim.update(self.get_robot_pose())
 
     # calculate standard deviation based on the target distance
     def _calc_std_dev(
