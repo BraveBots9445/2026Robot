@@ -86,16 +86,16 @@ class Turret(Subsystem):
     "canivore" for canivore, "" or "rio" for rio
     """
 
-    _gearRatio: float = 30 / 1
+    _gearRatio: float = 10 / 1
     """
     The gear ratio of the turret mechanism.
     This is measured as motor rotations / turret rotations.
     """
 
     # motor PID gains
-    _motorP: float = 0.35
+    _motorP: float = 0.5
     _motorI: float = 0.0
-    _motorD: float = 0.02
+    _motorD: float = 0.05
 
     _canCoderConfig: CANcoderConfiguration
     """
@@ -175,7 +175,7 @@ class Turret(Subsystem):
     The simulation model for the turret motor.
     """
 
-    _turretMOI: kilogram_square_meters = 0.08
+    _turretMOI: kilogram_square_meters = 0.01
     """
     The moment of inertia of the turret.
     This should come from CAD

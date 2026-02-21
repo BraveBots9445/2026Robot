@@ -6,13 +6,17 @@ from commands2 import (
     Command,
     RepeatCommand,
     WaitCommand,
-    InstantCommand,
     SequentialCommandGroup,
 )
-from phoenix6 import swerve
 
-from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d, Transform3d, Pose2d, Rotation3d
+from wpimath.geometry import (
+    Transform2d,
+    Rotation2d,
+    Transform3d,
+    Pose2d,
+    Translation3d,
+    Rotation3d,
+)
 from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
@@ -20,8 +24,6 @@ from subsystems.visualizer3d import Visualizer3D
 
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
-
-from commands2.button import CommandXboxController
 
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
@@ -38,7 +40,7 @@ from wpimath.geometry import (
 from wpimath.units import inchesToMeters
 
 ########## VENDOR (etc) IMPORTS ##########
-from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
+from pathplannerlib.auto import AutoBuilder
 
 
 ########## SUBSYSTEM IMPORTS ##########
@@ -47,9 +49,6 @@ from subsystems import *
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
-
-from telemetry import Telemetry
-from generated.tuner_constants import TunerConstants
 
 ########## COMMAND IMPORTS ##########
 from commands.baseCommands.drivetrainDriveFieldOriented import (
@@ -101,16 +100,20 @@ class RobotContainer:
         self.indexer = Indexer()
         self.woahval = Woahval()
         self.passiveHooks = PassiveHooks()
-        self.shootOnMoveCalculator = ShootOnMoveCalculator(
-            lambda: Pose3d(self.drivetrain.get_state().pose),
-            lambda: self.drivetrain.get_state().speeds,
-            Transform3d(),
-            lambda v: v / inchesToMeters(2) * 60 / (2 * pi) / 0.7,
-            0,
-            20,
-            Rotation2d.fromDegrees(45),
-            Rotation2d.fromDegrees(90),
+
+        self.visualizer3d = Visualizer3D(
+            lambda: Transform3d(
+                Translation3d(0, 0, inchesToMeters(self.climber.getPositionInches())),
+                Rotation3d(0, 0, 0),
+            ),
+            lambda: Transform3d(
+                Translation3d(), Rotation3d(0, -self.intake.getAngle().radians(), 0)
+            ),
+            lambda: Transform3d(),
+            lambda: Transform3d(Translation3d(), Rotation3d(self.turret.getRotation())),
+            self.shooter.getHoodAngle,
         )
+
         self.fuelShootingVisualizer = FuelShootingVisualizer(
             lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
@@ -118,7 +121,18 @@ class RobotContainer:
             self.shooter.getHoodAngle,
             lambda: self.shooter.getFlywheelVelocity(),
             inchesToMeters(2),
-            Transform3d(),
+            self.visualizer3d.transform3dToTurret,
+        )
+
+        self.shootOnMoveCalculator = ShootOnMoveCalculator(
+            lambda: Pose3d(self.drivetrain.get_state().pose),
+            lambda: self.drivetrain.get_state().speeds,
+            self.visualizer3d.transform3dToTurret,
+            lambda v: v / inchesToMeters(2) * 60 / (2 * pi) / 0.7,
+            0,
+            20,
+            Rotation2d.fromDegrees(45),
+            Rotation2d.fromDegrees(90),
         )
 
         self.stateManger = StateManager(
@@ -132,14 +146,6 @@ class RobotContainer:
             self.intake,
             self.passiveHooks,
             self.shootOnMoveCalculator,
-        )
-
-        self.visualizer3d = Visualizer3D(
-            lambda: Transform3d(),
-            lambda: Transform3d(),
-            lambda: Transform3d(),
-            lambda: Transform3d(),
-            lambda: Rotation2d(),
         )
 
         self.drivetrain.register_telemetry(
@@ -159,16 +165,6 @@ class RobotContainer:
                 self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
             ).ignoringDisable(True)
         ).ignoringDisable(True).schedule()
-
-        self.driver_controller.a().onTrue(
-            self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(0))
-        )
-        self.driver_controller.b().onTrue(
-            self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(30))
-        )
-        self.driver_controller.y().onTrue(
-            self.intake._tmpSetPivotSetpoinntCommand(Rotation2d.fromDegrees(90))
-        )
 
         """driver"""
         self.drivetrain.setDefaultCommand(
@@ -214,15 +210,15 @@ class RobotContainer:
         """
         Insert code here for the secondary driver
         """
-        self.operator_controller.leftTrigger().onTrue(self.stateManger.startIntaking())
-        self.operator_controller.leftBumper().onTrue(self.stateManger.stopIntaking())
+        self.driver_controller.leftTrigger().onTrue(self.stateManger.startIntaking())
+        self.driver_controller.leftBumper().onTrue(self.stateManger.stopIntaking())
 
-        self.operator_controller.rightTrigger().onTrue(
+        self.driver_controller.rightTrigger().onTrue(
             self.stateManger.startClimbingLow()
         )
 
-        self.operator_controller.a().onTrue(self.stateManger.startShooting())
-        self.operator_controller.b().onTrue(self.stateManger.startAiming())
+        self.driver_controller.a().onTrue(self.stateManger.startShooting())
+        self.driver_controller.b().onTrue(self.stateManger.startAiming())
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime

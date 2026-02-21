@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Callable
 
 from ntcore import (
@@ -10,7 +9,7 @@ from ntcore import (
 from wpilib import Notifier
 
 from wpimath.geometry import Pose3d, Transform3d, Rotation2d, Translation3d, Rotation3d
-from wpimath.units import seconds
+from wpimath.units import seconds, degreesToRadians, inchesToMeters
 
 
 class Visualizer3D:
@@ -35,51 +34,78 @@ class Visualizer3D:
     ########## POSES ##########
     # all poses are relative to the robot center (origin)
 
-    _climberLeftInitialPose = Pose3d()
+    _climberInitialPose = Pose3d(
+        Translation3d(inchesToMeters(-10), inchesToMeters(0.125), inchesToMeters(6.25)),
+        Rotation3d(),
+    )
     """
-    The initial pose of the left climber elevator (when viewed from behind the elevators).
-    """
-
-    _climberRightInitialPose = Pose3d()
-    """
-    The initial pose of the right climber elevator (when viewed from behind the elevators).
+    The initial pose of the climber elevator (when viewed from the front of the robot).
     """
 
-    _intakeInitialPose = Pose3d()
+    _climberCarriageInitialPose = Pose3d(
+        Translation3d(inchesToMeters(-10), inchesToMeters(0.5), inchesToMeters(7.375)),
+        Rotation3d(0, 0, degreesToRadians(90)),
+    )
+
+    _intakeInitialPose = Pose3d(
+        Translation3d(inchesToMeters(11.5), 0, inchesToMeters(7.65)), Rotation3d()
+    )
     """
     The initial position of the intake mechanism along its pivot axis (TODO: is it pivoting or linear?).
     """
 
-    _turretInitialPose = Pose3d()
+    _hopperInitialPose = Pose3d()
+    """
+    The initial position of the extending hopper mechanism relative to the robot 
+    """
+
+    _turretInitialPose = Pose3d(
+        Translation3d(
+            inchesToMeters(-3),
+            inchesToMeters(4.5),
+            inchesToMeters(12.914),
+        ),
+        Rotation3d(),
+    )
     """
     The initial pose of the turret mechanism.
     """
 
-    _hoodInitialPose = Pose3d()
+    _hoodInitialPose = Pose3d(
+        Translation3d(
+            inchesToMeters(-0.75),
+            inchesToMeters(4.5),
+            inchesToMeters(13.75),
+        ),
+        Rotation3d(),
+    )
+
     """
     The initial pose of the hood mechanism.
     This should be at the minimum angle position.
     """
 
-    _hoodRotationTranslation = Translation3d()
+    _hoodRotationTranslation: Translation3d = Translation3d(
+        inchesToMeters(4.3), 0, inchesToMeters(1.436)
+    )
     """
     The translation from the hood's initial pose to its axis of rotation 
     """
 
     ########## GETTERS ##########
-    _getClimberLeftTransform: Callable[[], Transform3d]
+    _getClimberTransform: Callable[[], Transform3d]
     """
-    Returns the current transform of the left climber elevator from its initial pose.
-    """
-
-    _getClimberRightTransform: Callable[[], Transform3d]
-    """
-    Returns the current transform of the right climber elevator from its initial pose.
+    Returns the current transform of the climber elevator from its initial pose.
     """
 
     _getIntakeTransform: Callable[[], Transform3d]
     """
     Returns the current transform of the intake mechanism from its initial pose.
+    """
+
+    _getExtendingHopperTransform: Callable[[], Transform3d]
+    """
+    Returns the current transform of the extending hopper mechanism from its initial pose.
     """
 
     _getTurretTransform: Callable[[], Transform3d]
@@ -94,9 +120,9 @@ class Visualizer3D:
 
     def __init__(
         self,
-        getClimberLeftTransform: Callable[[], Transform3d],
-        getClimberRightTransform: Callable[[], Transform3d],
+        getClimberTransform: Callable[[], Transform3d],
         getIntakeTransform: Callable[[], Transform3d],
+        getExtendingHopperTransform: Callable[[], Transform3d],
         getTurretTransform: Callable[[], Transform3d],
         getHoodAngle: Callable[[], Rotation2d],
         period: seconds = 0.02,
@@ -104,8 +130,8 @@ class Visualizer3D:
         """
         Initializes the Visualizer3D with functions to get the current transforms
 
-        :param getClimberLeftTransform: Function to get the left climber transform
-        :type getClimberLeftTransform: Callable[[], Transform3d]
+        :param getClimberTransform: Function to get the climber transform
+        :type getClimberTransform: Callable[[], Transform3d]
         :param getClimberRightTransform: Function to get the right climber transform
         :type getClimberRightTransform: Callable[[], Transform3d]
         :param getIntakeTransform: Function to get the intake transform
@@ -117,8 +143,8 @@ class Visualizer3D:
         :param period: The period at which to update the visualization, defaults to 0.02s
         :type period: seconds, optional
         """
-        self._getClimberLeftTransform = getClimberLeftTransform
-        self._getClimberRightTransform = getClimberRightTransform
+        self._getClimberTransform = getClimberTransform
+        self._getExtendingHopperTransform = getExtendingHopperTransform
         self._getIntakeTransform = getIntakeTransform
         self._getTurretTransform = getTurretTransform
         self._getHoodAngle = getHoodAngle
@@ -140,14 +166,35 @@ class Visualizer3D:
 
         :return: None
         """
+        turretTransform = self._getTurretTransform()
+        hoodTransformation = self._hoodInitialPose.relativeTo(
+            self._turretInitialPose
+        ).rotateBy(
+            # self._hoodRotationTranslation,
+            Rotation3d(
+                0, self._getHoodAngle().radians(), turretTransform.rotation().Z()
+            ),
+        )
         mechPoses = [
-            self._climberLeftInitialPose.transformBy(self._getClimberLeftTransform()),
-            self._climberRightInitialPose.transformBy(self._getClimberRightTransform()),
+            Pose3d(),
             self._intakeInitialPose.transformBy(self._getIntakeTransform()),
-            self._turretInitialPose.transformBy(self._getTurretTransform()),
-            self._hoodInitialPose.rotateAround(
-                self._hoodRotationTranslation, Rotation3d(self._getHoodAngle())
+            self._climberInitialPose.transformBy(self._getClimberTransform() / 2),
+            self._climberCarriageInitialPose.transformBy(self._getClimberTransform()),
+            self._turretInitialPose.transformBy(turretTransform),
+            Pose3d(
+                self._hoodInitialPose.translation() + hoodTransformation.translation(),
+                hoodTransformation.rotation(),
             ),
         ]
 
         self._mechPosePub.set(mechPoses)
+
+    @property
+    def transform3dToTurret(self) -> Transform3d:
+        """
+        A property to get the current transform from the robot center to the turret.
+
+        :return: The current transform from the robot center to the turret.
+        :rtype: Transform3d
+        """
+        return Transform3d(self._turretInitialPose.translation(), Rotation3d())

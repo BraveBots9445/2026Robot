@@ -1,0 +1,116 @@
+{
+    "name": "Cool",
+    "disableSimplification": true,
+    "rotations": [
+        {
+            "axis": "x",
+            "degrees": 180
+        },
+        {
+            "axis": "z",
+            "degrees": 90
+        }
+    ],
+    "position": [-0.0254, 0.063, 0],
+    "cameras": [],
+    "components": [
+        {
+            "zeroedRotations": [
+                {
+                    "axis": "z",
+                    "degrees": 90
+                },
+                {
+                    "axis": "y",
+                    "degrees": 180
+                }
+            ],
+            "zeroedPosition": [0, 0, 0]
+        },
+        {
+            "zeroedRotations": [
+                {
+                    "axis": "z",
+                    "degrees": 90
+                },
+                {
+                    "axis": "y",
+                    "degrees": 240
+                },
+                {
+                    "axis": "x",
+                    "degrees": 0
+                }
+            ],
+            "zeroedPosition": [-0.34, 0.07, 0.165]
+        },
+        {
+            "zeroedRotations": [
+                {
+                    "axis": "z",
+                    "degrees": 0
+                },
+                {
+                    "axis": "y",
+                    "degrees": 180
+                },
+                {
+                    "axis": "x",
+                    "degrees": 0
+                }
+            ],
+            "zeroedPosition": [0.1, -0.823, 1.2]
+        },
+        {
+            "zeroedRotations": [
+                {
+                    "axis": "z",
+                    "degrees": 0
+                },
+                {
+                    "axis": "y",
+                    "degrees": 0
+                },
+                {
+                    "axis": "x",
+                    "degrees": 0
+                }
+            ],
+            "zeroedPosition": [0.045, 0.245, 0.67]
+        },
+        {
+            "zeroedRotations": [
+                {
+                    "axis": "y",
+                    "degrees": 180
+                },
+                {
+                    "axis": "z",
+                    "degrees": -90
+                },
+                {
+                    "axis": "x",
+                    "degrees": 0
+                }
+            ],
+            "zeroedPosition": [0.35, -0.55, -0.61]
+        },
+        {
+            "zeroedRotations": [
+                {
+                    "axis": "z",
+                    "degrees": 90
+                },
+                {
+                    "axis": "y",
+                    "degrees": 90
+                },
+                {
+                    "axis": "x",
+                    "degrees": 0
+                }
+            ],
+            "zeroedPosition": [0.643, -0.545, 0.255]
+        }
+    ]
+}
