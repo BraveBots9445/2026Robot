@@ -11,6 +11,9 @@ from wpimath.units import inchesToMeters
 from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
+from commands.indexerIndex import IndexerIndex
+from commands.indexerIndex import Indexer
+from subsystems.indexer import Indexer, Woahval
 
 from commands2.button import CommandXboxController
 
@@ -62,17 +65,21 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
 
-        self.vision = Vision(
-            self.drivetrain.add_vision_measurement,
-            lambda: self.drivetrain.get_state().pose,
-            lambda: self.drivetrain.get_state().speeds,
-        )
+        self.index = Indexer()
+        self.woahval = Woahval()
+
+     #  self.vision = Vision(
+      #     self.drivetrain.add_vision_measurement,
+       #    lambda: self.drivetrain.get_state().pose,
+        #   lambda: self.drivetrain.get_state().speeds,
+       #)
+
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
         )
 
-        self.set_pp_named_commands()
+        #self.set_pp_named_commands()
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
@@ -141,24 +148,20 @@ class RobotContainer:
             InstantCommand(double_speed)
         ).onFalse(InstantCommand(half_speed))
 
-        self.driver_controller.x().onTrue(
-            self.vision.toggle_vision_measurements_command()
-        )
+       #self.driver_controller.x().onTrue(
+        #   self.vision.toggle_vision_measurements_command()
+       #)
 
         """Operator"""
         """
         Insert code here for the secondary driver
         """
 
-    def set_test_bindings(self) -> None:
-        # will be sysid testing for drivetrain (+others?) sometime
-        self.test_remote = CommandXboxController(2)
-
-    def set_pp_named_commands(self) -> None:
+        self.operator_controller.a().whileTrue(IndexerIndex(self.index))
         """
         Insert code here for the pathplanner named commands
         That will be scheduled during path following
         """
 
-    def get_auto_command(self) -> Command:
-        return self.auto_chooser.getSelected()
+   # def get_auto_command(self) -> Command:
+    #    return self.auto_chooser.getSelected()
