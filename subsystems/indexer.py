@@ -1,4 +1,9 @@
-from .openLoopWheel import OpenLoopWheel
+from .openLoopWheel import OpenLoopWheel, OpenWheelData
+
+
+class IndexerData(OpenWheelData):
+    # this is just a wrapper with a different name for readability
+    pass
 
 
 class Indexer(OpenLoopWheel):
@@ -15,3 +20,4 @@ class Indexer(OpenLoopWheel):
             shootingDutyCycle=0.75,
             idleDutyCycle=0.0,
         )
+        self._data = IndexerData(0.0, 0.0, 0.0)

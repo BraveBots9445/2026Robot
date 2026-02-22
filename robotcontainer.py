@@ -21,6 +21,7 @@ from wpimath.units import inchesToMeters
 
 from subsystems.vision import Vision
 from subsystems.visualizer3d import Visualizer3D
+from subsystems.BraveLogger import BraveLogger
 
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -147,6 +148,14 @@ class RobotContainer:
             self.intake,
             self.passiveHooks,
             self.shootOnMoveCalculator,
+        )
+
+        self.braveLogger = BraveLogger(
+            self.turret.getData,
+            self.climber.getData,
+            self.indexer.getData,
+            self.woahval.getData,
+            self.passiveHooks.getData,
         )
 
         self.drivetrain.register_telemetry(

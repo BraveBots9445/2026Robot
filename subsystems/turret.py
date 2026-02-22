@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from math import pi
 
 from commands2 import Subsystem, Command
@@ -11,7 +13,7 @@ from ntcore import (
 )
 
 from wpimath.geometry import Rotation2d
-from wpimath.units import kilogram_square_meters, radiansToRotations, degrees
+from wpimath.units import kilogram_square_meters, radiansToRotations, degrees, amperes
 from wpimath import angleModulus
 from wpimath.system.plant import DCMotor, LinearSystemId
 
@@ -23,6 +25,8 @@ from wpilib import (
     Color8Bit,
 )
 from wpilib.simulation import DCMotorSim, SingleJointedArmSim
+
+from wpiutil.wpistruct import make_wpistruct
 
 from phoenix6.hardware import CANcoder
 from phoenix6.configs import CANcoderConfiguration
@@ -38,6 +42,17 @@ from rev import (
     PersistMode,
     SparkClosedLoopController,
 )
+
+
+@make_wpistruct
+@dataclass
+class TurretData:
+    _rotation: Rotation2d
+    _rotationDegrees: degrees
+    _rotationSetpoint: Rotation2d
+    _rotationSetpointDegrees: degrees
+    _motorCurrent: amperes
+    _motorDutyCycle: float
 
 
 class Turret(Subsystem):
@@ -108,35 +123,7 @@ class Turret(Subsystem):
     The NetworkTable for logging turret data.
     """
 
-    _rotationPub: StructPublisher
-    """
-    Publisher for the turret rotation.
-    Publishes in Rotation2d
-    """
-
-    _rotationSetpointPub: StructPublisher
-    """
-    Publisher for the turret rotation setpoint.
-    Publishes in Rotation2d
-    """
-
-    _motorCurrentPub: DoublePublisher
-    """
-    Publisher for the turret motor current.
-    Publishes in Amperes
-    """
-
-    _motorDutyCyclePub: DoublePublisher
-    """
-    Publisher for the turret motor duty cycle.
-    Publishes in percentage (0.0 - 1.0)
-    """
-
-    _canCoderMagnetStatusPub: BooleanPublisher
-    """
-    Publisher for the CANCoder magnet status.
-    Publishes True if the magnet is detected, False otherwise.
-    """
+    _data: TurretData
 
     _turretMech: MechanismLigament2d
     """
@@ -209,26 +196,12 @@ class Turret(Subsystem):
             motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters
         )
 
+        self._data = TurretData(Rotation2d(), 0, Rotation2d(), 0, 0, 0)
+
         self._motorSim = SparkMaxSim(self._motor, DCMotor.NEO550())
         self._encoderSim = SparkRelativeEncoderSim(self._motor)
 
         self._canCoderMagnetStatusSignal = self._cancoder.get_fault_bad_magnet(False)
-
-        self._rotationPub = self._nettable.getStructTopic(
-            "Rotation", Rotation2d
-        ).publish()
-        self._rotationSetpointPub = self._nettable.getStructTopic(
-            "RotationSetpoint", Rotation2d
-        ).publish()
-
-        self._motorCurrentPub = self._nettable.getDoubleTopic("MotorCurrent").publish()
-        self._motorDutyCyclePub = self._nettable.getDoubleTopic(
-            "MotorDutyCycle"
-        ).publish()
-
-        self._canCoderMagnetStatusPub = self._nettable.getBooleanTopic(
-            "CanCoderMagnetStatus"
-        ).publish()
 
         turretMech = Mechanism2d(100, 100)
         self._turretMech = turretMech.getRoot("Turret Angle", 50, 50).appendLigament(
@@ -261,11 +234,12 @@ class Turret(Subsystem):
 
         angle = self.getRotation()
         isMagnetDetected = self._canCoderMagnetStatusSignal.value
-        self._rotationPub.set(angle)
-        self._rotationSetpointPub.set(self._rotationSetpoint)
-        self._motorCurrentPub.set(self._motor.getOutputCurrent())
-        self._motorDutyCyclePub.set(self._motor.getAppliedOutput())
-        self._canCoderMagnetStatusPub.set(isMagnetDetected)
+        self._data._rotation = angle
+        self._data._rotationDegrees = angle.degrees()
+        self._data._rotationSetpoint = self._rotationSetpoint
+        self._data._rotationSetpointDegrees = self._rotationSetpoint.degrees()
+        self._data._motorCurrent = self._motor.getOutputCurrent()
+        self._data._motorDutyCycle = self._motor.getAppliedOutput()
 
         self._turretMech.setAngle(angle.degrees())
         self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
@@ -333,15 +307,11 @@ class Turret(Subsystem):
     def _rotation2dToRotations(self, angle: Rotation2d) -> float:
         return angleModulus(angle.radians()) / (2 * pi)
 
-    def _tmpSetSetpointCommand(self, angle: Rotation2d) -> Command:
+    def getData(self) -> TurretData:
         """
-        Temporary command to set the turret setpoint.
-        Used for testing purposes.
+        Get the current data of the turret.
 
-        :param angle: The desired rotation setpoint of the turret.
-        :type angle: Rotation2d
-        :return: A command that sets the turret setpoint.
-        :rtype: Command
+        :return The current data of the turret.
+        :rtype: TurretData
         """
-
-        return self.run(lambda: self.setSetpoint(angle))
+        return self._data

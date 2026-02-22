@@ -2,12 +2,16 @@
 This is the parent class for both the woahval and the indexer, since they are both just open loop motors that feed into each other.
 """
 
+from dataclasses import dataclass
+
 from commands2 import Subsystem
 
 from ntcore import NetworkTable, NetworkTableInstance, DoublePublisher
 
 from wpimath.system.plant import DCMotor
 from wpimath.units import amperes, radiansToRotations
+
+from wpiutil.wpistruct import make_wpistruct
 
 from phoenix6.configs import (
     TalonFXConfiguration,
@@ -20,6 +24,14 @@ from phoenix6.signals import InvertedValue, NeutralModeValue
 from phoenix6.sim import TalonFXSimState
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotations_per_second
+
+
+@make_wpistruct
+@dataclass
+class OpenWheelData:
+    dutyCycle: float
+    velocity: rotations_per_second
+    current: amperes
 
 
 class OpenLoopWheel(Subsystem):
@@ -59,11 +71,7 @@ class OpenLoopWheel(Subsystem):
     ########## LOGGING ##########
     _nettable: NetworkTable
 
-    _dutyCyclePublisher: DoublePublisher
-
-    _velocityPublisher: DoublePublisher
-
-    _currentPublisher: DoublePublisher
+    _data: OpenWheelData
 
     _getDutyCycleSignal: StatusSignal[float]
 
@@ -112,13 +120,7 @@ class OpenLoopWheel(Subsystem):
             )
         )
 
-        self._currentPublisher = self._nettable.getDoubleTopic("Current amps").publish()
-        self._velocityPublisher = self._nettable.getDoubleTopic(
-            "Velocity rpm"
-        ).publish()
-        self._dutyCyclePublisher = self._nettable.getDoubleTopic(
-            "DutyCycle %"
-        ).publish()
+        self._data = OpenWheelData(0.0, 0.0, 0.0)
 
         self._getCurrentSignal = self._motor.get_stator_current(False)
         self._getVelocitySignal = self._motor.get_velocity(False)
@@ -130,9 +132,9 @@ class OpenLoopWheel(Subsystem):
         self._getVelocitySignal.refresh()
         self._getDutyCycleSignal.refresh()
 
-        self._currentPublisher.set(self._getCurrentSignal.value_as_double)
-        self._velocityPublisher.set(self._getVelocitySignal.value_as_double)
-        self._dutyCyclePublisher.set(self._getDutyCycleSignal.value_as_double)
+        self._data.current = self._getCurrentSignal.value_as_double
+        self._data.velocity = self._getVelocitySignal.value_as_double
+        self._data.dutyCycle = self._getDutyCycleSignal.value_as_double
 
         self._motor.set(self._dutyCycleSetpoint)
 
@@ -179,3 +181,12 @@ class OpenLoopWheel(Subsystem):
         Sets the wheel to the duty cycle for idling while ready to shoot fuel
         """
         self.setSetpoint(self._idleDutyCycle)
+
+    def getData(self) -> OpenWheelData:
+        """
+        Gets the current data for the wheel
+
+        :return: The current data for the wheel.
+        :rtype: OpenWheelData
+        """
+        return self._data

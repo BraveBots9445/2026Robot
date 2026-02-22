@@ -85,3 +85,6 @@ class PassiveHooks(Subsystem):
 
     def getSetpoint(self) -> Rotation2d:
         return self._setpoint
+
+    def getData(self) -> PassiveHooksData:
+        return self._data

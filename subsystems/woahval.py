@@ -1,4 +1,9 @@
-from subsystems.openLoopWheel import OpenLoopWheel
+from subsystems.openLoopWheel import OpenLoopWheel, OpenWheelData
+
+
+class WoahvalData(OpenWheelData):
+    # this is just a wrapper with a different name for readability
+    pass
 
 
 class Woahval(OpenLoopWheel):
@@ -14,3 +19,4 @@ class Woahval(OpenLoopWheel):
             shootingDutyCycle=0.5,
             idleDutyCycle=0.1,
         )
+        self._data = WoahvalData(0.0, 0.0, 0.0)

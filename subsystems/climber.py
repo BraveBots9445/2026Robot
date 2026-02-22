@@ -339,3 +339,6 @@ class Climber(Subsystem):
     @property
     def maxHeight(self) -> inches:
         return self._maxHeight
+
+    def getData(self) -> ClimberData:
+        return self._mechState

@@ -140,12 +140,12 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (hood rotations)
     """
 
-    _hoodZeroOffset: float = 0.0
+    _hoodZeroOffset: float = 0.460
     """
     The offset in rotations for the hood's absolute encoder to be considered the zero position of the hood (zero launch angle)
     """
 
-    _hoodAbsoluteEncoderInverted: bool = False
+    _hoodAbsoluteEncoderInverted: bool = True
     """
     Whether the absolute encoder is inverted relative to the motor
     """
