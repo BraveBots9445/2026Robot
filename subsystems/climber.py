@@ -180,10 +180,6 @@ class Climber(Subsystem):
 
         self._motor.configurator.apply(self._motorConfig)
 
-        self._dataPublisher = self._nettable.getStructTopic(
-            "ClimberData", ClimberData
-        ).publish()
-
         mech = Mechanism2d(100, 100)
         root = mech.getRoot("Climber", 50, 50)
         betweenLen = 20
@@ -209,6 +205,12 @@ class Climber(Subsystem):
         self._dutyCycleSignal = self._motor.get_duty_cycle(False)
         self._rawPositionSignal = self._motor.get_position(False)
         self._rawVelocitySignal = self._motor.get_velocity(False)
+
+        # Reduce CAN bus traffic — only send signals we explicitly refresh
+        # self._motor.optimize_bus_utilization()
+
+        # Pre-allocate control request object to reuse every cycle
+        self._positionVoltageRequest = PositionVoltage(0)
 
         self._elevatorSim = ElevatorSim(
             DCMotor.krakenX60(1),
@@ -241,10 +243,12 @@ class Climber(Subsystem):
         SmartDashboard.putData("Climber Mech", mech)
 
     def periodic(self) -> None:
-        self._currentSignal.refresh()
-        self._dutyCycleSignal.refresh()
-        self._rawPositionSignal.refresh()
-        self._rawVelocitySignal.refresh()
+        StatusSignal.refresh_all(
+            self._currentSignal,
+            self._dutyCycleSignal,
+            self._rawPositionSignal,
+            self._rawVelocitySignal,
+        )
 
         self._mechState.positionIn = self.getPositionInches()
         self._mechState.velocityInPerSec = self.getVelocityInchesPerSec()
@@ -257,15 +261,15 @@ class Climber(Subsystem):
             slot = 1  # lower slot
 
         setpointRaw = self._getInchesToRotations(self._positionSetpoint)
-        self._motor.set_control(PositionVoltage(setpointRaw, slot=slot))
+        self._positionVoltageRequest.position = setpointRaw
+        self._positionVoltageRequest.slot = slot
+        self._motor.set_control(self._positionVoltageRequest)
         self._servo.setAngle(self._hookAngleSetpoint.degrees())
 
         self._mechState.motorOutputPercent = self._dutyCycleSignal.value_as_double
         self._mechState.motorCurrent = self._currentSignal.value_as_double
         self._mechState.motorPositionRaw = self._rawPositionSignal.value_as_double
         self._mechState.motorVelocityRaw = self._rawVelocitySignal.value_as_double
-
-        self._dataPublisher.set(self._mechState)
 
         self._elevatorMech.setLength(self._mechState.positionIn)
         self._elevatorSetpointMech.setLength(self._mechState.positionSetpointIn)

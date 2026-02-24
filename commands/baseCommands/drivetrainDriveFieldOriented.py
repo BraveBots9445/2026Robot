@@ -58,13 +58,8 @@ class DrivetrainDriveFieldOriented(Command):
         self.omegaPub = self.nettable.getDoubleTopic("Omega").publish()
 
     def initialize(self):
-        self.nettable = NetworkTableInstance.getDefault().getTable(
-            "00CommandDrivetrainDriveFieldOriented"
-        )
-        self.xPub = self.nettable.getDoubleTopic("X").publish()
-        self.yPub = self.nettable.getDoubleTopic("Y").publish()
-        self.omegaPub = self.nettable.getDoubleTopic("Omega").publish()
-        return super().initialize()
+        # Publishers are already created in __init__ — no need to recreate
+        pass
 
     def execute(self):
         x = self.getX() * self.getMaxSpeed()
@@ -82,4 +77,4 @@ class DrivetrainDriveFieldOriented(Command):
         )
 
     def end(self, interrupted: bool) -> None:
-        del self.nettable
+        pass

@@ -235,8 +235,6 @@ class Turret(Subsystem):
         SmartDashboard.putData("Turret", self)
 
     def periodic(self) -> None:
-        # self._canCoderMagnetStatusSignal.refresh()
-
         angle = self.getRotation()
         # isMagnetDetected = self._canCoderMagnetStatusSignal.value
         self._data._rotation = angle

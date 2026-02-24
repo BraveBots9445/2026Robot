@@ -1,4 +1,6 @@
-from commands2 import InstantCommand, Subsystem
+from dataclasses import dataclass
+
+from commands2 import Subsystem
 
 from ntcore import (
     NetworkTable,
@@ -28,6 +30,8 @@ from wpimath.units import (
 )
 from wpimath.system.plant import DCMotor
 
+from wpiutil.wpistruct import make_wpistruct
+
 from phoenix6.configs import (
     TalonFXConfiguration,
     CANcoderConfiguration,
@@ -50,6 +54,21 @@ from phoenix6.signals import (
 )
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotation, rotations_per_second, ampere
+
+
+@make_wpistruct
+@dataclass
+class IntakeData:
+    pivotPosition: Rotation2d
+    pivotSetpoint: Rotation2d
+    pivotCurrent: float
+    pivotDutyCycle: float
+    pivotClosedLoopSlot: int
+    pivotVelocity: float
+    rollerSetpoint: float
+    rollerDutyCycle: float
+    rollerCurrent: float
+    rollerVelocity: float
 
 
 class Intake(Subsystem):
@@ -165,35 +184,7 @@ class Intake(Subsystem):
 
     _pivotAngleSetpointMech: MechanismLigament2d
 
-    _pivotPositionPub: StructPublisher
-    """
-    Publishes in Rotation2d
-    """
-
-    _pivotPositionDegreesPub: DoublePublisher
-
-    _pivotSetpointPub: StructPublisher
-    """
-    Publishes in Rotation2d
-    """
-
-    _pivotSetpointDegreesPub: DoublePublisher
-
-    _pivotCurrentPub: DoublePublisher
-
-    _pivotDutyCyclePub: DoublePublisher
-
-    _pivotClosedLoopSlotPub: IntegerPublisher
-
-    _pivotVelocityPub: DoublePublisher
-
-    _rollerSetpointPub: DoublePublisher
-
-    _rollerDutyCyclePub: DoublePublisher
-
-    _rollerCurrentPub: DoublePublisher
-
-    _rollerVelocityPub: DoublePublisher
+    _data: IntakeData
 
     _pivotPositionSignal: StatusSignal[rotation]
 
@@ -270,41 +261,9 @@ class Intake(Subsystem):
         self._pivotEncoder.configurator.apply(self._pivotEncoderConfig)
         self._rollerMotor.configurator.apply(self._rollerMotorConfig)
 
-        self._pivotCurrentPub = self._nettable.getDoubleTopic("Pivot/Current").publish()
-        self._pivotPositionPub = self._nettable.getStructTopic(
-            "Pivot/Position", Rotation2d
-        ).publish()
-        self._pivotSetpointPub = self._nettable.getStructTopic(
-            "Pivot/Setpoint", Rotation2d
-        ).publish()
-        self._pivotPositionDegreesPub = self._nettable.getDoubleTopic(
-            "Pivot/PositionDegrees"
-        ).publish()
-        self._pivotVelocityPub = self._nettable.getDoubleTopic(
-            "Pivot/Velocity RPM"
-        ).publish()
-        self._pivotSetpointDegreesPub = self._nettable.getDoubleTopic(
-            "Pivot/SetpointDegrees"
-        ).publish()
-        self._pivotDutyCyclePub = self._nettable.getDoubleTopic(
-            "Pivot/DutyCycle"
-        ).publish()
-        self._pivotClosedLoopSlotPub = self._nettable.getIntegerTopic(
-            "Pivot/ClosedLoopSlot"
-        ).publish()
-
-        self._rollerSetpointPub = self._nettable.getDoubleTopic(
-            "Roller/Setpoint"
-        ).publish()
-        self._rollerDutyCyclePub = self._nettable.getDoubleTopic(
-            "Roller/DutyCycle"
-        ).publish()
-        self._rollerCurrentPub = self._nettable.getDoubleTopic(
-            "Roller/Current"
-        ).publish()
-        self._rollerVelocityPub = self._nettable.getDoubleTopic(
-            "Roller/Velocity RPM"
-        ).publish()
+        self._data = IntakeData(
+            Rotation2d(), Rotation2d(), 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0.0
+        )
 
         self._pivotCurrentSignal = self._pivotMotor.get_stator_current(False)
         self._pivotDutyCycleSignal = self._pivotMotor.get_duty_cycle(False)
@@ -313,6 +272,12 @@ class Intake(Subsystem):
         self._rollerCurrentSignal = self._rollerMotor.get_stator_current(False)
         self._rollerVelocitySignal = self._rollerMotor.get_velocity(False)
         self._rollerDutyCycleSignal = self._rollerMotor.get_duty_cycle(False)
+
+        # self._pivotMotor.optimize_bus_utilization()
+        # self._rollerMotor.optimize_bus_utilization()
+
+        # Pre-allocate control request to reuse every cycle
+        self._positionDutyCycleRequest = PositionDutyCycle(0)
 
         self._pivotSetpoint = self.getAngle()
 
@@ -345,38 +310,39 @@ class Intake(Subsystem):
         SmartDashboard.putData("Intake/PivotMech", pivotMech)
 
     def periodic(self) -> None:
-        self._pivotCurrentSignal.refresh()
-        self._pivotDutyCycleSignal.refresh()
-        self._pivotPositionSignal.refresh()
-        self._rollerCurrentSignal.refresh()
-        self._rollerVelocitySignal.refresh()
-        self._rollerDutyCycleSignal.refresh()
-        self._pivotVelocitySignal.refresh()
+        StatusSignal.refresh_all(
+            self._pivotCurrentSignal,
+            self._pivotDutyCycleSignal,
+            self._pivotPositionSignal,
+            self._pivotVelocitySignal,
+            self._rollerCurrentSignal,
+            self._rollerVelocitySignal,
+            self._rollerDutyCycleSignal,
+        )
+
+        self._data.pivotPosition = self.getAngle()
+        self._data.pivotSetpoint = self._pivotSetpoint
+        self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
+        self._data.pivotDutyCycle = self._pivotDutyCycleSignal.value_as_double
+        self._data.pivotClosedLoopSlot = self._pivotClosedLoopSlot
+        self._data.pivotVelocity = self._pivotVelocitySignal.value_as_double
+        self._data.rollerSetpoint = self._rollerSetpoint
+        self._data.rollerDutyCycle = self._rollerDutyCycleSignal.value_as_double
+        self._data.rollerCurrent = self._rollerCurrentSignal.value_as_double
+        self._data.rollerVelocity = self._rollerVelocitySignal.value_as_double
 
         pivotPosition = Rotation2d.fromRotations(
             self._pivotPositionSignal.value_as_double
         )
-        self._pivotCurrentPub.set(self._pivotCurrentSignal.value_as_double)
-        self._pivotDutyCyclePub.set(self._pivotDutyCycleSignal.value_as_double)
-        self._pivotPositionPub.set(pivotPosition)
-        self._pivotPositionDegreesPub.set(pivotPosition.degrees())
-        self._pivotSetpointPub.set(self._pivotSetpoint)
-        self._pivotSetpointDegreesPub.set(self._pivotSetpoint.degrees())
-        self._pivotClosedLoopSlotPub.set(self._pivotClosedLoopSlot)
-        self._pivotVelocityPub.set(self._pivotVelocitySignal.value_as_double)
-        self._rollerCurrentPub.set(self._rollerCurrentSignal.value_as_double)
-        self._rollerVelocityPub.set(self._rollerVelocitySignal.value_as_double)
-        self._rollerDutyCyclePub.set(self._rollerDutyCycleSignal.value_as_double)
 
         self._pivotAngleMech.setAngle(pivotPosition.degrees())
         self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
-        self._pivotMotor.set_control(
-            PositionDutyCycle(
-                radiansToRotations(self._pivotSetpoint.radians()),
-                slot=self._pivotClosedLoopSlot,
-            )
+        self._positionDutyCycleRequest.position = radiansToRotations(
+            self._pivotSetpoint.radians()
         )
+        self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
+        self._pivotMotor.set_control(self._positionDutyCycleRequest)
         self._rollerMotor.set(self._rollerSetpoint)
 
     def simulationPeriodic(self) -> None:
@@ -444,6 +410,11 @@ class Intake(Subsystem):
             return
         self._pivotClosedLoopSlot = slot
 
-    def _tmpSetPivotSetpoinntCommand(self, angle: Rotation2d):
+    def getData(self) -> IntakeData:
+        """
+        Gets the current data for the intake subsystem.
 
-        return self.run(lambda: self.setPivotSetpoint(angle))
+        :return: The current data for the intake subsystem.
+        :rtype: IntakeData
+        """
+        return self._data

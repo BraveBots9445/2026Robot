@@ -156,6 +156,8 @@ class RobotContainer:
             self.indexer.getData,
             self.woahval.getData,
             self.passiveHooks.getData,
+            self.intake.getData,
+            self.shooter.getData,
         )
 
         self.drivetrain.register_telemetry(

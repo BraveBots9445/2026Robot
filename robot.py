@@ -1,9 +1,10 @@
-from commands2 import Command, CommandScheduler
+from commands2 import Command, CommandScheduler, TimedCommandRobot
 
 from ntcore import NetworkTableInstance
 
 from wpilib import (
     DriverStation,
+    RobotBase,
     TimedRobot,
     DataLogManager,
     Mechanism2d,
@@ -11,25 +12,29 @@ from wpilib import (
     Timer,
 )
 
+from phoenix6.signal_logger import SignalLogger
+
 from robotcontainer import RobotContainer
 
 
-class Robot(TimedRobot):
+class Robot(TimedCommandRobot):
     m_autonomousCommand: Command
     m_robotContainer: RobotContainer
 
     # Initialize Robot
     def robotInit(self):
         self.m_robotContainer = RobotContainer()
-        DataLogManager.start()
         DriverStation.startDataLog(DataLogManager.getLog())
+        if RobotBase.isSimulation():
+            DataLogManager.stop()
+        SignalLogger.stop()
         self._nettable = NetworkTableInstance.getDefault().getTable("datatable")
         self._timePub = self._nettable.getDoubleTopic("time").publish()
         self._timer = Timer()
         self._timer.start()
+        self.setNetworkTablesFlushEnabled(False)
 
     def robotPeriodic(self) -> None:
-        CommandScheduler.getInstance().run()
         self._timePub.set(self._timer.get())
         self._timer.restart()
         # wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
@@ -76,30 +81,3 @@ class Robot(TimedRobot):
 
     def disabledExit(self):
         pass
-
-    # Simulation Robot Functions
-    def _simulationInit(self) -> None:
-        return
-        turretAngleMech = Mechanism2d(100, 100)
-        self.turretAngleIndicator = turretAngleMech.getRoot(
-            "Turret Angle", 50, 50
-        ).appendLigament("Turret", 40, 0)
-
-        hoodAngleMech = Mechanism2d(100, 100)
-        self.hoodAngleIndicator = hoodAngleMech.getRoot(
-            "Hood Angle", 50, 50
-        ).appendLigament("Hood", 40, 0)
-
-        self.shootOnMoveCalculator = self.m_robotContainer.shootOnMoveCalculator
-
-        SmartDashboard.putData("Turret Angle Mech", turretAngleMech)
-        SmartDashboard.putData("Hood Angle Mech", hoodAngleMech)
-
-    def _simulationPeriodic(self) -> None:
-        return
-        stateSetpoint: StateSetpoint | None = self.shootOnMoveCalculator.getSetpoints(
-            Pose3d.fromFeet(182.11 / 12, 317.69 / 24, 72 / 12, Rotation3d())
-        )
-        if stateSetpoint is not None:
-            self.turretAngleIndicator.setAngle(stateSetpoint.turretAngle.degrees())
-            self.hoodAngleIndicator.setAngle(stateSetpoint.hoodAngle.degrees())

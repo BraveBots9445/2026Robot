@@ -127,10 +127,13 @@ class OpenLoopWheel(Subsystem):
         self._getDutyCycleSignal = self._motor.get_duty_cycle(False)
         self._motorSimState = self._motor.sim_state
 
+        # Reduce CAN bus traffic — only send signals we explicitly refresh
+        # self._motor.optimize_bus_utilization()
+
     def periodic(self) -> None:
-        self._getCurrentSignal.refresh()
-        self._getVelocitySignal.refresh()
-        self._getDutyCycleSignal.refresh()
+        StatusSignal.refresh_all(
+            self._getCurrentSignal, self._getVelocitySignal, self._getDutyCycleSignal
+        )
 
         self._data.current = self._getCurrentSignal.value_as_double
         self._data.velocity = self._getVelocitySignal.value_as_double

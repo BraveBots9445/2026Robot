@@ -1,9 +1,9 @@
 from .climber import Climber, ClimberData
 from .ctredrivetrain import CommandSwerveDrivetrain
 from .indexer import Indexer, IndexerData
-from .intake import Intake
+from .intake import Intake, IntakeData
 from .kicker import Kicker
-from .shooter import Shooter
+from .shooter import Shooter, ShooterData
 from .turret import Turret, TurretData
 from .vision import Vision
 from .woahval import Woahval, WoahvalData

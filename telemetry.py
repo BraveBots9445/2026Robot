@@ -90,10 +90,21 @@ class Telemetry:
         for i, module_mechanism in enumerate(self._module_mechanisms):
             SmartDashboard.putData(f"Module {i}", module_mechanism)
 
+    def __init_telemetry_buffers(self):
+        """Pre-allocate reusable arrays for telemetry to avoid per-cycle allocation."""
+        self._pose_array = [0.0, 0.0, 0.0]
+        self._module_states_array = [0.0] * 8
+        self._module_targets_array = [0.0] * 8
+        self._telem_cycle = 0
+
     def telemeterize(self, state: swerve.SwerveDrivetrain.SwerveDriveState):
         """
         Accept the swerve drive state and telemeterize it to SmartDashboard and SignalLogger.
         """
+        # Lazy-init buffers on first call
+        if not hasattr(self, '_pose_array'):
+            self.__init_telemetry_buffers()
+
         # Telemeterize the swerve drive state
         self._drive_pose.set(state.pose)
         self._drive_speeds.set(state.speeds)
@@ -103,20 +114,22 @@ class Telemetry:
         self._drive_timestamp.set(state.timestamp)
         self._drive_odometry_frequency.set(1.0 / state.odometry_period)
 
-        # Also write to log file
-        pose_array = [state.pose.x, state.pose.y, state.pose.rotation().degrees()]
-        module_states_array = []
-        module_targets_array = []
-        for i in range(4):
-            module_states_array.append(state.module_states[i].angle.radians())
-            module_states_array.append(state.module_states[i].speed)
-            module_targets_array.append(state.module_targets[i].angle.radians())
-            module_targets_array.append(state.module_targets[i].speed)
+        # Reuse pre-allocated arrays instead of creating new ones every cycle
+        self._pose_array[0] = state.pose.x
+        self._pose_array[1] = state.pose.y
+        self._pose_array[2] = state.pose.rotation().degrees()
 
-        SignalLogger.write_double_array("DriveState/Pose", pose_array)
-        SignalLogger.write_double_array("DriveState/ModuleStates", module_states_array)
+        for i in range(4):
+            idx = i * 2
+            self._module_states_array[idx] = state.module_states[i].angle.radians()
+            self._module_states_array[idx + 1] = state.module_states[i].speed
+            self._module_targets_array[idx] = state.module_targets[i].angle.radians()
+            self._module_targets_array[idx + 1] = state.module_targets[i].speed
+
+        SignalLogger.write_double_array("DriveState/Pose", self._pose_array)
+        SignalLogger.write_double_array("DriveState/ModuleStates", self._module_states_array)
         SignalLogger.write_double_array(
-            "DriveState/ModuleTargets", module_targets_array
+            "DriveState/ModuleTargets", self._module_targets_array
         )
         SignalLogger.write_double(
             "DriveState/OdometryPeriod", state.odometry_period, "seconds"
@@ -124,10 +137,13 @@ class Telemetry:
 
         # Telemeterize the pose to a Field2d
         self._field_type_pub.set("Field2d")
-        self._field_pub.set(pose_array)
+        self._field_pub.set(self._pose_array)
 
-        # Telemeterize each module state to a Mechanism2d
-        for i, module_state in enumerate(state.module_states):
-            self._module_speeds[i].setAngle(module_state.angle.degrees())
-            self._module_directions[i].setAngle(module_state.angle.degrees())
-            self._module_speeds[i].setLength(module_state.speed / (2 * self._max_speed))
+        # Telemeterize module states to Mechanism2d — skip every other cycle to save time
+        self._telem_cycle += 1
+        if self._telem_cycle % 2 == 0:
+            for i, module_state in enumerate(state.module_states):
+                angle_deg = module_state.angle.degrees()
+                self._module_speeds[i].setAngle(angle_deg)
+                self._module_directions[i].setAngle(angle_deg)
+                self._module_speeds[i].setLength(module_state.speed / (2 * self._max_speed))

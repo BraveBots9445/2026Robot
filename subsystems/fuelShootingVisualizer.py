@@ -10,7 +10,7 @@ from wpimath.geometry import Pose3d, Translation3d, Rotation3d, Rotation2d, Tran
 from wpimath.kinematics import ChassisSpeeds
 from wpimath.units import revolutions_per_minute, meters
 
-from wpilib import RobotBase
+from wpilib import RobotBase, Notifier
 
 
 class FuelShootingVisualizer(Subsystem):
@@ -98,6 +98,8 @@ class FuelShootingVisualizer(Subsystem):
         :param flywheelRadius: The radius of the shooter flywheel in meters.
         :param robotToTurret: The transform from the center of the robot to the center of the turret. The rotation should probably be empty. It should not consider the angle of the turret about its axis
         """
+        if RobotBase.isReal():
+            return
         self._getRobotPose = getRobotPose
         self._getRobotVelocity = getRobotVelocity
         self._getTurretAngle = getTurretAngle
@@ -111,11 +113,18 @@ class FuelShootingVisualizer(Subsystem):
         self._fuelPosePub = self._nettable.getStructArrayTopic(
             "FuelPoses", Pose3d
         ).publish()
+        self._updateNotifier = Notifier(self.update)
+        self._dt = 0.10
+        self._updateNotifier.startPeriodic(
+            self._dt
+        )  # sim-only visualizer, 250ms is plenty
 
-    def periodic(self) -> None:
+    def update(self) -> None:
         """
         Periodic method to update the fuel positions and publish them to the dashboard.
         """
+        if RobotBase.isReal():
+            return
         toRemove: list[int] = []
         for idx, (pose, velocity) in enumerate(self._fuel):
             if pose.Z() < -5:
@@ -123,15 +132,15 @@ class FuelShootingVisualizer(Subsystem):
                 continue
             self._fuel[idx] = (
                 Pose3d(
-                    pose.X() + velocity.X() * 0.02,
-                    pose.Y() + velocity.Y() * 0.02,
-                    pose.Z() + velocity.Z() * 0.02,
+                    pose.X() + velocity.X() * self._dt,
+                    pose.Y() + velocity.Y() * self._dt,
+                    pose.Z() + velocity.Z() * self._dt,
                     Rotation3d(),
                 ),
                 Translation3d(
                     velocity.X(),
                     velocity.Y(),
-                    velocity.Z() - 9.8 * 0.02,
+                    velocity.Z() - 9.8 * self._dt,
                 ),
             )
 
@@ -145,6 +154,8 @@ class FuelShootingVisualizer(Subsystem):
         """
         Launches a fuel from the robot based on the current states of the subsystems.
         """
+        if RobotBase.isReal():
+            return
         robotPose = self._getRobotPose()
         robotVelocity = self._getRobotVelocity()
         muzzleVelocity = (

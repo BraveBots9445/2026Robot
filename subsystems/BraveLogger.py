@@ -9,15 +9,13 @@ from wpimath.geometry import Rotation2d
 from wpiutil.wpistruct import make_wpistruct
 
 from subsystems import (
-    Intake,
-    Shooter,
-    Climber,
-    Turret,
     TurretData,
     ClimberData,
     IndexerData,
     WoahvalData,
     PassiveHooksData,
+    IntakeData,
+    ShooterData,
 )
 
 
@@ -29,6 +27,8 @@ class BraveData:
     indexerData: IndexerData
     woahvalData: WoahvalData
     passiveHooksData: PassiveHooksData
+    intakeData: IntakeData
+    shooterData: ShooterData
 
 
 class BraveLogger:
@@ -45,6 +45,8 @@ class BraveLogger:
         getIndexerData: Callable[[], IndexerData],
         getWoahvalData: Callable[[], WoahvalData],
         getPassiveHooksData: Callable[[], PassiveHooksData],
+        getIntakeData: Callable[[], IntakeData],
+        getShooterData: Callable[[], ShooterData],
     ) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000BraveLogger")
         self._dataPub = self._nettable.getStructTopic("Data", BraveData).publish()
@@ -54,6 +56,8 @@ class BraveLogger:
             IndexerData(0, 0, False),
             WoahvalData(0, 0, False),
             PassiveHooksData(0, Rotation2d(), False),
+            IntakeData(Rotation2d(), Rotation2d(), 0, 0, 0, 0, 0, 0, 0, 0),
+            ShooterData(0, 0, Rotation2d(), Rotation2d(), 0, 0, 0),
         )
 
         self._getTurretData = getTurretData
@@ -61,16 +65,19 @@ class BraveLogger:
         self._getIndexerData = getIndexerData
         self._getWoahvalData = getWoahvalData
         self._getPassiveHooksData = getPassiveHooksData
+        self._getIntakeData = getIntakeData
+        self._getShooterData = getShooterData
 
         self._notifier = Notifier(self._publishData)
         self._notifier.startPeriodic(0.02)
 
     def _publishData(self) -> None:
-        self._data = BraveData(
-            self._getTurretData(),
-            self._getClimberData(),
-            self._getIndexerData(),
-            self._getWoahvalData(),
-            self._getPassiveHooksData(),
-        )
+        self._data.turretData = self._getTurretData()
+        self._data.climberData = self._getClimberData()
+        self._data.indexerData = self._getIndexerData()
+        self._data.woahvalData = self._getWoahvalData()
+        self._data.passiveHooksData = self._getPassiveHooksData()
+        self._data.intakeData = self._getIntakeData()
+        self._data.shooterData = self._getShooterData()
+
         self._dataPub.set(self._data)

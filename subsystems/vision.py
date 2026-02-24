@@ -157,6 +157,8 @@ class Vision(Subsystem):
             )
             self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
             SmartDashboard.putData(self._visionSim.getDebugField())
+            self._simNotifier = Notifier(self._simulationPeriodic)
+            self._simNotifier.startPeriodic(0.06)
 
     def periodic(self) -> None:
         # turret camera does not do pose estimation
@@ -168,18 +170,23 @@ class Vision(Subsystem):
         estR, tagsR = self._rearCamera.update()
         _estTu, tagsTu = self._turretCamera.update()
 
-        self._poseEstPub.set(
-            []
-            + ([self._pose3dToPose2d(estFL)] if estFL is not None else [])
-            + ([self._pose3dToPose2d(estFR)] if estFR is not None else [])
-            + ([self._pose3dToPose2d(estR)] if estR is not None else [])
-        )
-        self._detectedTagsPub.set(
-            list(
-                self._tagLayout.getTagPose(tag)
-                for tag in tagsFL + tagsFR + tagsR + tagsTu
-            )
-        )
+        # Build pose list without repeated concatenation
+        poses = []
+        if estFL is not None:
+            poses.append(self._pose3dToPose2d(estFL))
+        if estFR is not None:
+            poses.append(self._pose3dToPose2d(estFR))
+        if estR is not None:
+            poses.append(self._pose3dToPose2d(estR))
+        self._poseEstPub.set(poses)
+
+        # Build tag list without chained concatenation
+        allTags = []
+        allTags.extend(tagsFL)
+        allTags.extend(tagsFR)
+        allTags.extend(tagsR)
+        allTags.extend(tagsTu)
+        self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in allTags])
 
     def _simulationPeriodic(self) -> None:
         """
