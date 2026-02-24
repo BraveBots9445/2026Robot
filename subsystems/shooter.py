@@ -90,7 +90,7 @@ class Shooter(Subsystem):
     """
 
     ########################## CONFIGS ##########################
-    _canBus: str = "canivore"
+    _canBus: str = ""
     """
     The CAN bus the turret motor and encoder are connected to.
     "canivore" for the CANivore CAN bus, "rio" or "" for the RoboRIO CAN bus.
@@ -118,7 +118,7 @@ class Shooter(Subsystem):
 
     _flywheelSlot0Configs: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(50000.0)
+        .with_k_p(7.0)
         .with_k_i(0)
         .with_k_d(0.0)
         .with_k_s(0)
@@ -140,12 +140,12 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (hood rotations)
     """
 
-    _hoodZeroOffset: float = 0.460
+    _hoodZeroOffset: float = 0.9122596
     """
     The offset in rotations for the hood's absolute encoder to be considered the zero position of the hood (zero launch angle)
     """
 
-    _hoodAbsoluteEncoderInverted: bool = True
+    _hoodAbsoluteEncoderInverted: bool = False
     """
     Whether the absolute encoder is inverted relative to the motor
     """
@@ -159,7 +159,7 @@ class Shooter(Subsystem):
 
     _hoodArmLength: meters = inchesToMeters(9.5)
 
-    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(15)
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(0)
     """
     The minimum angle of the hood. This is where the hood is fully retracted
     """
@@ -170,7 +170,7 @@ class Shooter(Subsystem):
     """
 
     # hood PIDs
-    _hoodP: float = 25.0
+    _hoodP: float = 10.0
     _hoodI: float = 0.0
     _hoodD: float = 0.0
 
@@ -229,6 +229,8 @@ class Shooter(Subsystem):
     """
     A publisher for the duty cycle of the flywheel motor
     """
+
+    _hoodMotorCurrentPub: DoublePublisher
 
     _flywheelMech: MechanismLigament2d
     """
@@ -290,8 +292,8 @@ class Shooter(Subsystem):
     def __init__(self) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000Shooter")
 
-        self._flywheelMotor = TalonFX(20, self._canBus)
-        self._hoodMotor = SparkMax(21, SparkMax.MotorType.kBrushless)
+        self._flywheelMotor = TalonFX(26, self._canBus)
+        self._hoodMotor = SparkMax(25, SparkMax.MotorType.kBrushless)
         self._hoodMotorClosedLoop = self._hoodMotor.getClosedLoopController()
         self._hoodEncoder = self._hoodMotor.getAbsoluteEncoder()
 
@@ -320,13 +322,20 @@ class Shooter(Subsystem):
             .smartCurrentLimit(20)
             .setIdleMode(SparkBaseConfig.IdleMode.kBrake)
             .secondaryCurrentLimit(27)
+            .inverted(True)
         )
         hoodConfig.absoluteEncoder.zeroOffset(self._hoodZeroOffset).inverted(
             self._hoodAbsoluteEncoderInverted
         )
         hoodConfig.closedLoop.P(self._hoodP).I(self._hoodI).D(
             self._hoodD
-        ).setFeedbackSensor(FeedbackSensor.kAbsoluteEncoder).feedForward.kCos(
+        ).positionWrappingEnabled(True).positionWrappingInputRange(
+            0, 1
+        ).allowedClosedLoopError(
+            0.005
+        ).setFeedbackSensor(
+            FeedbackSensor.kAbsoluteEncoder
+        ).feedForward.kCos(
             self._hoodkG
         )
 
@@ -357,6 +366,10 @@ class Shooter(Subsystem):
 
         self._motorDutyCyclePub = self._nettable.getDoubleTopic(
             "Flywheel/MotorDutyCycle"
+        ).publish()
+
+        self._hoodMotorCurrentPub = self._nettable.getDoubleTopic(
+            "Hood/MotorCurrentAmps"
         ).publish()
 
         self._actualHoodAnglePub = self._nettable.getStructTopic(
@@ -422,6 +435,7 @@ class Shooter(Subsystem):
         self._desiredHoodAnglePub.set(hoodAngleSetpoint)
         self._motorDutyCyclePub.set(self._getDutyCycleSignal.value_as_double)
         self._motorCurrentPub.set(self._getFlywheelCurrentSignal.value_as_double)
+        self._hoodMotorCurrentPub.set(self._hoodMotor.getOutputCurrent())
 
         # update mech2d
         self._flywheelMech.setAngle(
@@ -430,9 +444,10 @@ class Shooter(Subsystem):
         self._hoodMech.setAngle(hoodAngle.degrees())
         self._hoodSetpointMech.setAngle(hoodAngleSetpoint.degrees())
         # set controls
-        if abs(desiredFlywheelVelocity) < 1:
+        if abs(desiredFlywheelVelocity) < 50:
             self._flywheelMotor.set(0)
-        if self._useClosedLoopFlywheel:
+        # if self._useClosedLoopFlywheel:
+        else:
             self._flywheelMotor.set_control(
                 VelocityVoltage(
                     self._flywheelSetpoint
@@ -440,12 +455,12 @@ class Shooter(Subsystem):
                     / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
                 )
             )
-        else:
-            out = self._flywheelBangBangController.calculate(
-                abs(flywheelVelocity / kSECONDS_PER_MINUTE),
-                abs(self._flywheelSetpoint / kSECONDS_PER_MINUTE),
-            ) * (1 if self._flywheelSetpoint >= 0 else -1)
-            self._flywheelMotor.set(out)
+        # else:
+        #     out = self._flywheelBangBangController.calculate(
+        #         abs(flywheelVelocity / kSECONDS_PER_MINUTE),
+        #         abs(self._flywheelSetpoint / kSECONDS_PER_MINUTE),
+        #     ) * (1 if self._flywheelSetpoint >= 0 else -1)
+        #     self._flywheelMotor.set(out)
 
         self._hoodMotorClosedLoop.setSetpoint(
             (self._hoodAngleSetpoint - self._hoodMinAngle).degrees() / 360,

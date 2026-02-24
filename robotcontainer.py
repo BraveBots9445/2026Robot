@@ -222,6 +222,8 @@ class RobotContainer:
 
         self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
+        self.driver_controller.y().onTrue(self.stateManger.stopShooting())
+
         """Operator"""
         """
         Insert code here for the secondary driver

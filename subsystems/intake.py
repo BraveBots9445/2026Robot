@@ -67,7 +67,7 @@ class Intake(Subsystem):
     _rollerMotor: TalonFX
 
     ########## SETPOINTS ##########
-    _pivotSetpoint: Rotation2d = Rotation2d.fromDegrees(90)
+    _pivotSetpoint: Rotation2d = Rotation2d.fromDegrees(0)
 
     _pivotClosedLoopSlot: int = 0
     """
@@ -81,25 +81,25 @@ class Intake(Subsystem):
     """
 
     ########## CONFIGURATION ##########
-    _canbus: str = "canivore"
+    _canbus: str = ""
 
-    _pivotGearRatio: float = 4 / 1
+    _pivotGearRatio: float = 9 / 1
     """
     The gear ratio of the pivot mechanism.
     This is measured as (motor rotations) / (pivot rotations).
     """
 
-    _pivotAbsoluteEncoderOffset: float = 0.0
+    _pivotAbsoluteEncoderOffset: float = -0.36
     """
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """
 
-    _pivotMotorDirection: InvertedValue = InvertedValue.CLOCKWISE_POSITIVE
+    _pivotMotorDirection: InvertedValue = InvertedValue.COUNTER_CLOCKWISE_POSITIVE
     """
     The motor direction for the pivot such that a positive output pulls the intake in 
     """
 
-    _rollerMotorDirection: InvertedValue = InvertedValue.COUNTER_CLOCKWISE_POSITIVE
+    _rollerMotorDirection: InvertedValue = InvertedValue.CLOCKWISE_POSITIVE
     """
     The motor direction for the roller such that a positive output pulls fuel into the robot 
     """
@@ -135,10 +135,10 @@ class Intake(Subsystem):
         if RobotBase.isSimulation()
         else (
             Slot0Configs()
-            .with_k_p(1.0)
+            .with_k_p(1.37)
             .with_k_i(0.0)
-            .with_k_d(0.1)
-            .with_k_g(0.001)
+            .with_k_d(0.2)
+            .with_k_g(0.025)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
     )
@@ -220,15 +220,15 @@ class Intake(Subsystem):
 
     def __init__(self) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000Intake")
-        self._pivotMotor = TalonFX(40, self._canbus)
-        self._pivotEncoder = CANcoder(41, self._canbus)
-        self._rollerMotor = TalonFX(42, self._canbus)
+        self._pivotMotor = TalonFX(20, self._canbus)
+        self._pivotEncoder = CANcoder(20, self._canbus)
+        self._rollerMotor = TalonFX(21, self._canbus)
 
         self._pivotMotorConfig = (
             TalonFXConfiguration()
             .with_current_limits(
                 CurrentLimitsConfigs()
-                .with_stator_current_limit(30)
+                .with_stator_current_limit(60)
                 .with_stator_current_limit_enable(True)
             )
             .with_slot0(self._pivotSlot0Config)
@@ -247,9 +247,9 @@ class Intake(Subsystem):
         )
 
         self._pivotEncoderConfig = CANcoderConfiguration().with_magnet_sensor(
-            MagnetSensorConfigs().with_sensor_direction(
-                self._pivotAbsoluteEncoderDirection
-            )
+            MagnetSensorConfigs()
+            .with_sensor_direction(self._pivotAbsoluteEncoderDirection)
+            .with_magnet_offset(self._pivotAbsoluteEncoderOffset)
         )
 
         self._rollerMotorConfig = (

@@ -14,10 +14,11 @@ class Indexer(OpenLoopWheel):
 
     def __init__(self) -> None:
         super().__init__(
-            id=31,
+            id=23,
             name="Indexer",
+            inverted=False,
             rampTime=0,
-            shootingDutyCycle=0.75,
+            shootingDutyCycle=0.0,
             idleDutyCycle=0.0,
         )
         self._data = IndexerData(0.0, 0.0, 0.0)

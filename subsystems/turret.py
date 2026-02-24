@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from math import pi
 
-from commands2 import Subsystem, Command
+from commands2 import Subsystem, Command, SelectCommand, cmd
 
 from ntcore import (
     NetworkTable,
@@ -23,6 +23,7 @@ from wpilib import (
     SmartDashboard,
     RobotBase,
     Color8Bit,
+    RobotState,
 )
 from wpilib.simulation import DCMotorSim, SingleJointedArmSim
 
@@ -95,13 +96,15 @@ class Turret(Subsystem):
     """
 
     ########## CONFIGS ##########
-    _canbus: str = "canivore"
+    _canbus: str = ""
     """
     The CAN bus the the CANCoder is on. The turret is on the rio bus
     "canivore" for canivore, "" or "rio" for rio
     """
 
-    _gearRatio: float = 10 / 1
+    _motorInverted: bool = True
+
+    _gearRatio: float = 4 * 200 / 18
     """
     The gear ratio of the turret mechanism.
     This is measured as motor rotations / turret rotations.
@@ -178,15 +181,15 @@ class Turret(Subsystem):
     def __init__(self) -> None:
         self._nettable = NetworkTableInstance.getDefault().getTable("000Turret")
 
-        self._motor = SparkMax(23, SparkMax.MotorType.kBrushless)
+        self._motor = SparkMax(24, SparkMax.MotorType.kBrushless)
         self._motorClosedLoop = self._motor.getClosedLoopController()
         self._encoder = self._motor.getEncoder()
-        self._cancoder = CANcoder(24, self._canbus)
+        # self._cancoder = CANcoder(24, self._canbus)
 
         motorConfig = SparkBaseConfig()
-        motorConfig.smartCurrentLimit(20).secondaryCurrentLimit(25).setIdleMode(
+        motorConfig.smartCurrentLimit(30).secondaryCurrentLimit(35).setIdleMode(
             SparkBaseConfig.IdleMode.kCoast
-        )
+        ).inverted(self._motorInverted)
         motorConfig.closedLoop.pid(self._motorP, self._motorI, self._motorD)
         motorConfig.encoder.positionConversionFactor(
             1 / self._gearRatio
@@ -196,12 +199,14 @@ class Turret(Subsystem):
             motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters
         )
 
+        self._encoder.setPosition(0.0)
+
         self._data = TurretData(Rotation2d(), 0, Rotation2d(), 0, 0, 0)
 
         self._motorSim = SparkMaxSim(self._motor, DCMotor.NEO550())
         self._encoderSim = SparkRelativeEncoderSim(self._motor)
 
-        self._canCoderMagnetStatusSignal = self._cancoder.get_fault_bad_magnet(False)
+        # self._canCoderMagnetStatusSignal = self._cancoder.get_fault_bad_magnet(False)
 
         turretMech = Mechanism2d(100, 100)
         self._turretMech = turretMech.getRoot("Turret Angle", 50, 50).appendLigament(
@@ -230,10 +235,10 @@ class Turret(Subsystem):
         SmartDashboard.putData("Turret", self)
 
     def periodic(self) -> None:
-        self._canCoderMagnetStatusSignal.refresh()
+        # self._canCoderMagnetStatusSignal.refresh()
 
         angle = self.getRotation()
-        isMagnetDetected = self._canCoderMagnetStatusSignal.value
+        # isMagnetDetected = self._canCoderMagnetStatusSignal.value
         self._data._rotation = angle
         self._data._rotationDegrees = angle.degrees()
         self._data._rotationSetpoint = self._rotationSetpoint
@@ -247,15 +252,15 @@ class Turret(Subsystem):
         # reset the position of the motor when the cancoder magnet is detected
         # TODO: Do we need to mandate a low speed for this to happen?
         # TODO: Where is the cancoder/magnet physically located?
-        if isMagnetDetected and RobotBase.isReal():
-            self._encoder.setPosition(
-                0.5
-            )  # facing straight forward is 0.5 rotations (exactly in the middle of the -180 to 180)
+        # if isMagnetDetected and RobotBase.isReal():
+        #     self._encoder.setPosition(
+        #         0.5
+        #     )  # facing straight forward is 0.5 rotations (exactly in the middle of the -180 to 180)
 
-        self._motorClosedLoop.setSetpoint(
-            radiansToRotations(self._rotationSetpoint.radians() * self._gearRatio),
-            SparkMax.ControlType.kPosition,
-        )
+        # self._motorClosedLoop.setSetpoint(
+        #     radiansToRotations(self._rotationSetpoint.radians() * self._gearRatio),
+        #     SparkMax.ControlType.kPosition,
+        # )
 
     def simulationPeriodic(self) -> None:
         self._turretSim.setInputVoltage(self._motor.getAppliedOutput() * 12)
@@ -302,10 +307,26 @@ class Turret(Subsystem):
         :return The current rotation of the turret.
         :rtype: Rotation2d
         """
-        return Rotation2d.fromRotations(self._encoder.getPosition() / self._gearRatio)
+        return Rotation2d.fromRotations(self._encoder.getPosition())
 
     def _rotation2dToRotations(self, angle: Rotation2d) -> float:
         return angleModulus(angle.radians()) / (2 * pi)
+
+    def resetEncoder(self) -> None:
+        """
+        Resets the turret encoder to zero. This should only be used for testing, as in normal operation the encoder should be reset by the CANCoder when the magnet is detected.
+        """
+        if not RobotState.isEnabled():
+            self._encoder.setPosition(0.0)
+
+    def _tmpResetCommand(self) -> Command:
+        """
+        A temporary command to reset the turret encoder to zero. This is for testing purposes only, as in normal operation the encoder should be reset by the CANCoder when the magnet is detected.
+
+        :return A command that resets the turret encoder to zero when executed.
+        :rtype: Command
+        """
+        return cmd.runOnce(self.resetEncoder)
 
     def getData(self) -> TurretData:
         """

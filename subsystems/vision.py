@@ -25,7 +25,7 @@ from wpimath.units import (
 )
 from wpimath.kinematics import ChassisSpeeds
 
-from wpilib import RobotBase
+from wpilib import RobotBase, Notifier
 
 
 from .visionCamera import VisionCamera
@@ -181,7 +181,10 @@ class Vision(Subsystem):
             )
         )
 
-    def simulationPeriodic(self) -> None:
+    def _simulationPeriodic(self) -> None:
+        """
+        This is not simulationPeriodic, but _simulationPeriodic so the command scheduler does not get to it and we can run it in a different thread
+        """
         # self._getRobotPose should never be None in simulation, so type: ignore is safe
         self._visionSim.update(self._getRobotPose())  # type: ignore
 

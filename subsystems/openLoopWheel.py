@@ -45,7 +45,7 @@ class OpenLoopWheel(Subsystem):
     _dutyCycleSetpoint: float = 0.0
 
     ########## CONFIGURATION ##########
-    _canbus: str = "canivore"
+    _canbus: str = ""
 
     _motorConfig: TalonFXConfiguration
 
@@ -112,9 +112,9 @@ class OpenLoopWheel(Subsystem):
             .with_motor_output(
                 MotorOutputConfigs()
                 .with_inverted(
-                    InvertedValue.CLOCKWISE_POSITIVE
+                    InvertedValue.COUNTER_CLOCKWISE_POSITIVE
                     if self._motorInverted
-                    else InvertedValue.COUNTER_CLOCKWISE_POSITIVE
+                    else InvertedValue.CLOCKWISE_POSITIVE
                 )
                 .with_neutral_mode(NeutralModeValue.COAST)
             )

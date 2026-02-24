@@ -9,7 +9,7 @@ from subsystems.intake import Intake
 class IntakeRetract(SequentialCommandGroup):
     def __init__(self, intake: Intake):
         super().__init__(
-            IntakeSetRollerSpeed(intake, 0.1),
+            # IntakeSetRollerSpeed(intake, 0.1),
             IntakeSetAngle(intake, 90),
             IntakeSetRollerSpeed(intake, 0.0),
         )

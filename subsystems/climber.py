@@ -72,7 +72,7 @@ class Climber(Subsystem):
     _hookAngleSetpoint: Rotation2d = Rotation2d.fromDegrees(90)
 
     ########## CONFIGURATION ##########
-    _canbus: str = "canivore"
+    _canbus: str = "canivore1"
 
     _servoPort: int = 0
 

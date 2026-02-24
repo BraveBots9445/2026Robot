@@ -3,14 +3,14 @@ from commands2 import Command
 from subsystems.woahval import Woahval
 
 
-class WoahvalIdle(Command):
+class WoahvalStop(Command):
     def __init__(self, woahval: Woahval):
         super().__init__()
         self.woahval = woahval
         self.addRequirements(woahval)
 
     def initialize(self):
-        self.woahval.setSetpointIdle()
+        self.woahval.setSetpoint(0.0)
 
     def isFinished(self) -> bool:
         return True

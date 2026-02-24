@@ -10,7 +10,7 @@ class WoahvalScore(Command):
         self.addRequirements(woahval)
 
     def initialize(self):
-        self.woahval.setSetpoint(0.75)
+        self.woahval.setSetpointShooting()
 
     def isFinished(self) -> bool:
         return True

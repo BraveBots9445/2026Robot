@@ -10,6 +10,8 @@ from wpimath.geometry import Pose3d, Translation3d, Rotation3d, Rotation2d, Tran
 from wpimath.kinematics import ChassisSpeeds
 from wpimath.units import revolutions_per_minute, meters
 
+from wpilib import RobotBase
+
 
 class FuelShootingVisualizer(Subsystem):
     """

@@ -1,10 +1,14 @@
 from commands2 import Command, CommandScheduler
+
+from ntcore import NetworkTableInstance
+
 from wpilib import (
     DriverStation,
     TimedRobot,
     DataLogManager,
     Mechanism2d,
     SmartDashboard,
+    Timer,
 )
 
 from robotcontainer import RobotContainer
@@ -19,9 +23,15 @@ class Robot(TimedRobot):
         self.m_robotContainer = RobotContainer()
         DataLogManager.start()
         DriverStation.startDataLog(DataLogManager.getLog())
+        self._nettable = NetworkTableInstance.getDefault().getTable("datatable")
+        self._timePub = self._nettable.getDoubleTopic("time").publish()
+        self._timer = Timer()
+        self._timer.start()
 
     def robotPeriodic(self) -> None:
         CommandScheduler.getInstance().run()
+        self._timePub.set(self._timer.get())
+        self._timer.restart()
         # wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
 
     def autonomousInit(self):

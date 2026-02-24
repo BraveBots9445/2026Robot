@@ -10,7 +10,7 @@ class IndexerScore(Command):
         self.addRequirements(indexer)
 
     def initialize(self):
-        self.indexer.setSetpoint(0.75)
+        self.indexer.setSetpointShooting()
 
     def isFinished(self) -> bool:
         return True

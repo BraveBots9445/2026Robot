@@ -23,6 +23,7 @@ from commands.stateTransitionCommands.noneToIntake import NoneToIntake
 from commands.stateTransitionCommands.climbLowToClimbHigh import ClimbLowToClimbHigh
 from commands.stateTransitionCommands.noneToShoot import NoneToShoot
 from commands.stateTransitionCommands.noneToAim import NoneToAim
+from commands.stateTransitionCommands.aimToNone import AimToNone
 
 from subsystems import (
     CommandSwerveDrivetrain,
@@ -326,6 +327,23 @@ class StateManager(Subsystem):
                     self._woahval,
                     self._shootOnMoveCalculator,
                 ),
+            },
+            lambda: update(),
+        )
+
+    def stopShooting(self) -> Command:
+        def update():
+            startState = self._shootingState
+            self._shootingState = ShootingState.NONE
+            return startState
+
+        return SelectCommand(
+            {
+                ShootingState.NONE: cmd.none(),  # not shooting, do nothing
+                ShootingState.AIMING: AimToNone(self._woahval, self._indexer),
+                ShootingState.SHOOTING: AimToNone(
+                    self._woahval, self._indexer
+                ),  # we can reuse AimToNone because it just stops the indexer and woahval, which is what we want when stopping shooting from either state
             },
             lambda: update(),
         )
