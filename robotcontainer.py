@@ -7,7 +7,10 @@ from commands2 import (
     RepeatCommand,
     WaitCommand,
     SequentialCommandGroup,
+    InstantCommand,
+    DeferredCommand,
 )
+from commands2.button import CommandXboxController
 
 from wpimath.geometry import (
     Transform2d,
@@ -61,6 +64,15 @@ from commands.baseCommands.drivetrainDriveRobotOriented import (
 from commands.baseCommands.drivetrainSpeedHalf import DrivetrainHalfSpeed
 from commands.baseCommands.drivetrainSpeedDouble import DrivetrainDoubleSpeed
 from commands.baseCommands.drivetrainMoveOffset import DrivetrainMoveOffset
+
+from commands.baseCommands.intakeSetAngle import IntakeSetAngle
+from commands.baseCommands.intakeDeploy import IntakeDeploy
+from commands.baseCommands.intakeRetract import IntakeRetract
+from commands.baseCommands.woahvalScore import WoahvalScore
+from commands.baseCommands.woahvalStop import WoahvalStop
+from commands.baseCommands.indexerScore import IndexerScore
+from commands.baseCommands.indexerStop import IndexerStop
+from commands.baseCommands.turretSetAngle import TurretSetAngle
 
 from commands import ShooterTuneDistance
 
@@ -150,15 +162,7 @@ class RobotContainer:
             self.shootOnMoveCalculator,
         )
 
-        self.braveLogger = BraveLogger(
-            self.turret.getData,
-            self.climber.getData,
-            self.indexer.getData,
-            self.woahval.getData,
-            self.passiveHooks.getData,
-            self.intake.getData,
-            self.shooter.getData,
-        )
+        self.braveLogger = BraveLogger()
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -181,7 +185,7 @@ class RobotContainer:
         ).ignoringDisable(True).schedule()
 
         SmartDashboard.putData(self.auto_chooser)
-        SmartDashboard.putData(self.drivetrain)
+        # SmartDashboard.putData(self.drivetrain)
 
     def set_teleop_bindings(self) -> None:
         """driver"""
@@ -193,6 +197,18 @@ class RobotContainer:
                 self.driver_controller.getFRCRY,
                 self.drivetrain.getMaxSpeed,
                 self.drivetrain.getMaxAngularRateDeg,
+            )
+        )
+
+        self.turret.setDefaultCommand(
+            RepeatCommand(
+                DeferredCommand(
+                    lambda: TurretSetAngle(
+                        self.turret,
+                        -self.drivetrain.get_state().pose.rotation().degrees(),
+                    ),
+                    self.turret,
+                )
             )
         )
 
@@ -242,7 +258,7 @@ class RobotContainer:
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
-        self.test_remote = CommandController9445(2, deadband=0.1)
+        self.test_remote = CommandController9445(2)
 
         self.shooter.setDefaultCommand(
             ShooterTuneDistance(
@@ -258,10 +274,33 @@ class RobotContainer:
 
         self.test_remote.rightTrigger().onTrue(
             WaitCommand(2.0).andThen(
-                DrivetrainMoveOffset(
-                    self.drivetrain, Transform2d(-0.5, 0, Rotation2d())
-                )
+                DrivetrainMoveOffset(self.drivetrain, Transform2d(0.5, 0, Rotation2d()))
             )
+        )
+
+        # self.test_remote.povUp().onTrue(
+        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-135))
+        # )
+        # self.test_remote.povLeft().onTrue(
+        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(135))
+        # )
+        # self.test_remote.povRight().onTrue(
+        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
+        # )
+        # self.test_remote.povDown().onTrue(
+        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(160))
+        # )
+
+        # self.test_remote.rightBumper().onTrue(self.turret._tmpResetCommand())
+        self.test_remote.leftTrigger().onTrue(IntakeDeploy(self.intake))
+        self.test_remote.leftBumper().onTrue(IntakeRetract(self.intake))
+
+        self.test_remote.a().onTrue(WoahvalScore(self.woahval)).onFalse(
+            WoahvalStop(self.woahval)
+        )
+
+        self.test_remote.rightBumper().onTrue(IndexerScore(self.indexer)).onFalse(
+            IndexerStop(self.indexer)
         )
 
     def set_pp_named_commands(self) -> None:
@@ -272,3 +311,6 @@ class RobotContainer:
 
     def get_auto_command(self) -> Command:
         return self.auto_chooser.getSelected()
+
+    def log(self) -> None:
+        self.braveLogger.log()

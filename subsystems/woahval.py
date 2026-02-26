@@ -1,9 +1,8 @@
-from subsystems.openLoopWheel import OpenLoopWheel, OpenWheelData
+from wpilib import SmartDashboard
 
+from subsystems.openLoopWheel import OpenLoopWheel
 
-class WoahvalData(OpenWheelData):
-    # this is just a wrapper with a different name for readability
-    pass
+from .BraveLogger import WoahvalData
 
 
 class Woahval(OpenLoopWheel):
@@ -14,10 +13,10 @@ class Woahval(OpenLoopWheel):
 
     def __init__(self) -> None:
         super().__init__(
-            id=22,
-            inverted=False,
+            motorId=22,
+            inverted=True,
             name="Woahval",
-            shootingDutyCycle=-0.0,
-            idleDutyCycle=-0.1,
+            shootingDutyCycle=1.0,
+            idleDutyCycle=0.1,
         )
         self._data = WoahvalData(0.0, 0.0, 0.0)

@@ -1,4 +1,8 @@
+from copy import deepcopy
+
 from dataclasses import dataclass
+
+from threading import Lock
 
 from commands2 import Subsystem
 
@@ -22,11 +26,13 @@ from wpilib.simulation import SingleJointedArmSim
 
 from wpimath.geometry import Rotation2d
 from wpimath.units import (
+    degrees,
     kilogram_square_meters,
     meters,
     inchesToMeters,
     radiansToRotations,
     degreesToRadians,
+    degreesToRotations,
 )
 from wpimath.system.plant import DCMotor
 
@@ -41,6 +47,7 @@ from phoenix6.configs import (
     FeedbackConfigs,
     MagnetSensorConfigs,
     MotorOutputConfigs,
+    SoftwareLimitSwitchConfigs,
 )
 from phoenix6.controls import PositionDutyCycle
 from phoenix6.hardware import TalonFX, CANcoder
@@ -55,20 +62,7 @@ from phoenix6.signals import (
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotation, rotations_per_second, ampere
 
-
-@make_wpistruct
-@dataclass
-class IntakeData:
-    pivotPosition: Rotation2d
-    pivotSetpoint: Rotation2d
-    pivotCurrent: float
-    pivotDutyCycle: float
-    pivotClosedLoopSlot: int
-    pivotVelocity: float
-    rollerSetpoint: float
-    rollerDutyCycle: float
-    rollerCurrent: float
-    rollerVelocity: float
+from .BraveLogger import BraveLogger, IntakeData
 
 
 class Intake(Subsystem):
@@ -102,18 +96,18 @@ class Intake(Subsystem):
     ########## CONFIGURATION ##########
     _canbus: str = ""
 
-    _pivotGearRatio: float = 9 / 1
+    _pivotGearRatio: float = 27 / 1
     """
     The gear ratio of the pivot mechanism.
     This is measured as (motor rotations) / (pivot rotations).
     """
 
-    _pivotAbsoluteEncoderOffset: float = -0.36
+    _pivotAbsoluteEncoderOffset: float = -0.372
     """
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """
 
-    _pivotMotorDirection: InvertedValue = InvertedValue.COUNTER_CLOCKWISE_POSITIVE
+    _pivotMotorDirection: InvertedValue = InvertedValue.CLOCKWISE_POSITIVE
     """
     The motor direction for the pivot such that a positive output pulls the intake in 
     """
@@ -154,10 +148,10 @@ class Intake(Subsystem):
         if RobotBase.isSimulation()
         else (
             Slot0Configs()
-            .with_k_p(1.37)
+            .with_k_p(1.47)
             .with_k_i(0.0)
-            .with_k_d(0.2)
-            .with_k_g(0.025)
+            .with_k_d(0.01)
+            .with_k_g(0.015)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
     )
@@ -167,14 +161,13 @@ class Intake(Subsystem):
 
     _pivotSlot1Config: Slot1Configs = (
         Slot1Configs()
-        .with_k_p(0.2)
+        .with_k_p(0.8)
         .with_k_i(0.0)
-        .with_k_d(0.1)
-        .with_k_g(0.1)
+        .with_k_d(0.005)
+        .with_k_g(0.015)
         .with_gravity_type(GravityTypeValue.ARM_COSINE)
     )
     """
-    This is the PID configuration the pivot motor uses when outside of the robot
     """
 
     ########## LOGGING ##########
@@ -185,6 +178,8 @@ class Intake(Subsystem):
     _pivotAngleSetpointMech: MechanismLigament2d
 
     _data: IntakeData
+
+    _lock: Lock
 
     _pivotPositionSignal: StatusSignal[rotation]
 
@@ -210,6 +205,7 @@ class Intake(Subsystem):
     _pivotSim: SingleJointedArmSim
 
     def __init__(self) -> None:
+        self._lock = Lock()
         self._nettable = NetworkTableInstance.getDefault().getTable("000Intake")
         self._pivotMotor = TalonFX(20, self._canbus)
         self._pivotEncoder = CANcoder(20, self._canbus)
@@ -221,6 +217,13 @@ class Intake(Subsystem):
                 CurrentLimitsConfigs()
                 .with_stator_current_limit(60)
                 .with_stator_current_limit_enable(True)
+            )
+            .with_software_limit_switch(
+                SoftwareLimitSwitchConfigs()
+                .with_forward_soft_limit_enable(True)
+                .with_reverse_soft_limit_enable(True)
+                .with_forward_soft_limit_threshold(degreesToRotations(90))
+                .with_reverse_soft_limit_threshold(degreesToRotations(-5))
             )
             .with_slot0(self._pivotSlot0Config)
             .with_slot1(self._pivotSlot1Config)
@@ -261,9 +264,7 @@ class Intake(Subsystem):
         self._pivotEncoder.configurator.apply(self._pivotEncoderConfig)
         self._rollerMotor.configurator.apply(self._rollerMotorConfig)
 
-        self._data = IntakeData(
-            Rotation2d(), Rotation2d(), 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0.0
-        )
+        self._data = IntakeData(0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
         self._pivotCurrentSignal = self._pivotMotor.get_stator_current(False)
         self._pivotDutyCycleSignal = self._pivotMotor.get_duty_cycle(False)
@@ -306,8 +307,8 @@ class Intake(Subsystem):
         self._encoderSimState = self._pivotEncoder.sim_state
         self._rollerSimState = self._rollerMotor.sim_state
 
-        SmartDashboard.putData("Intake/Subsystem", self)
-        SmartDashboard.putData("Intake/PivotMech", pivotMech)
+        # SmartDashboard.putData("Intake/Subsystem", self)
+        # SmartDashboard.putData("Intake/PivotMech", pivotMech)
 
     def periodic(self) -> None:
         StatusSignal.refresh_all(
@@ -320,30 +321,38 @@ class Intake(Subsystem):
             self._rollerDutyCycleSignal,
         )
 
-        self._data.pivotPosition = self.getAngle()
-        self._data.pivotSetpoint = self._pivotSetpoint
-        self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
-        self._data.pivotDutyCycle = self._pivotDutyCycleSignal.value_as_double
-        self._data.pivotClosedLoopSlot = self._pivotClosedLoopSlot
-        self._data.pivotVelocity = self._pivotVelocitySignal.value_as_double
-        self._data.rollerSetpoint = self._rollerSetpoint
-        self._data.rollerDutyCycle = self._rollerDutyCycleSignal.value_as_double
-        self._data.rollerCurrent = self._rollerCurrentSignal.value_as_double
-        self._data.rollerVelocity = self._rollerVelocitySignal.value_as_double
-
         pivotPosition = Rotation2d.fromRotations(
             self._pivotPositionSignal.value_as_double
         )
+        slot = 0
+        if self._pivotSetpoint.degrees() < 45:
+            slot = 1
+        self._pivotClosedLoopSlot = slot
+        with self._lock:
+            # self._data.pivotPosition = pivotPosition
+            # self._data.pivotSetpoint = self._pivotSetpoint
+            self._data.pivotPositionDegrees = pivotPosition.degrees()
+            self._data.pivotSetpointDegrees = self._pivotSetpoint.degrees()
+            self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
+            self._data.pivotDutyCycle = self._pivotDutyCycleSignal.value_as_double
+            self._data.pivotClosedLoopSlot = self._pivotClosedLoopSlot
+            self._data.pivotVelocity = self._pivotVelocitySignal.value_as_double
+            self._data.rollerSetpoint = self._rollerSetpoint
+            self._data.rollerDutyCycle = self._rollerDutyCycleSignal.value_as_double
+            self._data.rollerCurrent = self._rollerCurrentSignal.value_as_double
+            self._data.rollerVelocity = self._rollerVelocitySignal.value_as_double
 
-        self._pivotAngleMech.setAngle(pivotPosition.degrees())
-        self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
+            BraveLogger.pushSubsystemData(deepcopy(self._data))
+
+        # self._pivotAngleMech.setAngle(pivotPosition.degrees())
+        # self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
         self._positionDutyCycleRequest.position = radiansToRotations(
             self._pivotSetpoint.radians()
         )
-        self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
-        self._pivotMotor.set_control(self._positionDutyCycleRequest)
-        self._rollerMotor.set(self._rollerSetpoint)
+        # self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
+        # self._pivotMotor.set_control(self._positionDutyCycleRequest)
+        # self._rollerMotor.set(self._rollerSetpoint)
 
     def simulationPeriodic(self) -> None:
         self._pivotSim.setInputVoltage(self._pivotMotor.get() * 12)
@@ -367,7 +376,7 @@ class Intake(Subsystem):
         """
         Gets the current angle of the pivot of the intake.
         """
-        return Rotation2d.fromRotations(self._pivotPositionSignal.value_as_double)
+        return Rotation2d.fromDegrees(self.getData().pivotPositionDegrees)
 
     def getDeployed(self) -> bool:
         """
@@ -410,6 +419,18 @@ class Intake(Subsystem):
             return
         self._pivotClosedLoopSlot = slot
 
+    def atSetpoint(self, tolerance: degrees = 5) -> bool:
+        """
+        Checks if the pivot is at its setpoint within a certain tolerance.
+
+        :param tolerance: The tolerance to check in degrees
+        :return: Whether the pivot is at its setpoint within the given tolerance
+        :rtype: bool
+        """
+        return (
+            abs(self.getAngle().degrees() - self._pivotSetpoint.degrees()) < tolerance
+        )
+
     def getData(self) -> IntakeData:
         """
         Gets the current data for the intake subsystem.
@@ -417,4 +438,5 @@ class Intake(Subsystem):
         :return: The current data for the intake subsystem.
         :rtype: IntakeData
         """
-        return self._data
+        with self._lock:
+            return self._data

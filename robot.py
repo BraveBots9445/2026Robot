@@ -37,6 +37,8 @@ class Robot(TimedCommandRobot):
     def robotPeriodic(self) -> None:
         self._timePub.set(self._timer.get())
         self._timer.restart()
+        # Update 3D visualizer on main thread (avoids Notifier threading issues)
+        self.m_robotContainer.visualizer3d.update()
         # wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
 
     def autonomousInit(self):

@@ -1,4 +1,8 @@
+from copy import deepcopy
+
 from dataclasses import dataclass
+
+from threading import Lock
 
 from commands2 import Subsystem
 
@@ -12,13 +16,7 @@ from wpimath.geometry import Rotation2d
 
 from wpiutil.wpistruct import make_wpistruct
 
-
-@make_wpistruct
-@dataclass
-class PassiveHooksData:
-    setpointDegrees: degrees
-    setpoint: Rotation2d
-    deployed: bool
+from .BraveLogger import BraveLogger, PassiveHooksData
 
 
 class PassiveHooks(Subsystem):
@@ -32,10 +30,7 @@ class PassiveHooks(Subsystem):
 
     _data: PassiveHooksData
 
-    _dataPub: StructPublisher
-    """
-    Publishes in PassiveHooksData
-    """
+    _lock: Lock
 
     _setpoint: Rotation2d = Rotation2d.fromDegrees(90)
 
@@ -48,28 +43,30 @@ class PassiveHooks(Subsystem):
         mech = Mechanism2d(100, 100)
         self._mech = mech.getRoot("PassiveHooks", 50, 50).appendLigament("Hook", 40, 90)
 
-        self._data = PassiveHooksData(90, Rotation2d.fromDegrees(90), False)
+        self._data = PassiveHooksData(90, False)
 
         self._dataPub = self._nettable.getStructTopic(
             "Data", PassiveHooksData
         ).publish()
 
-        SmartDashboard.putData("PassiveHooks/Mech", mech)
-        SmartDashboard.putData("PassiveHooks/ServoLeft", self._servoLeft)
-        SmartDashboard.putData("PassiveHooks/ServoRight", self._servoRight)
-        SmartDashboard.putData("PassiveHooks/Subsystem", self)
+        self._lock = Lock()
+
+        # SmartDashboard.putData("PassiveHooks/Mech", mech)
+        # SmartDashboard.putData("PassiveHooks/ServoLeft", self._servoLeft)
+        # SmartDashboard.putData("PassiveHooks/ServoRight", self._servoRight)
+        # SmartDashboard.putData("PassiveHooks/Subsystem", self)
 
     def periodic(self) -> None:
-        self._data.setpointDegrees = self._setpoint.degrees()
-        self._data.setpoint = self._setpoint
-        self._data.deployed = self._setpoint.degrees() < 85
-
-        self._dataPub.set(self._data)
+        with self._lock:
+            self._data.setpointDegrees = self._setpoint.degrees()
+            # self._data.setpoint = self._setpoint
+            self._data.deployed = self._setpoint.degrees() < 85
+            BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         self._servoLeft.setAngle(self._setpoint.degrees())
         self._servoRight.setAngle(self._setpoint.degrees())
 
-        self._mech.setAngle(self._setpoint.degrees())
+        # self._mech.setAngle(self._setpoint.degrees())
 
     def setSetpoint(self, setpoint: Rotation2d) -> None:
         self._setpoint = setpoint
@@ -87,4 +84,5 @@ class PassiveHooks(Subsystem):
         return self._setpoint
 
     def getData(self) -> PassiveHooksData:
-        return self._data
+        with self._lock:
+            return self._data

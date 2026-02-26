@@ -156,13 +156,15 @@ class Visualizer3D:
             "MechPoses", Pose3d
         ).publish()
 
-        self._notifier = Notifier(self._update)
-        self._notifier.startPeriodic(period)
+        # NOTE: Do NOT use Notifier for visualization - it causes threading issues
+        # with Python/C++ boundary. Call update() from the main robot thread instead.
+        # self._notifier = Notifier(self._update)
+        # self._notifier.startPeriodic(period)
 
-    def _update(self) -> None:
+    def update(self) -> None:
         """
         Update the mechanism poses and publish them to the network table.
-        This is a private method that should be called by self._notifier periodically.
+        Call this from the main robot thread (e.g., robotPeriodic or a Subsystem's periodic).
 
         :return: None
         """

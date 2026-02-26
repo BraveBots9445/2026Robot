@@ -50,25 +50,13 @@ class DrivetrainDriveFieldOriented(Command):
             swerve.SwerveModule.DriveRequestType.VELOCITY
         )
 
-        self.nettable = NetworkTableInstance.getDefault().getTable(
-            "00CommandDrivetrainDriveFieldOriented"
-        )
-        self.xPub = self.nettable.getDoubleTopic("X").publish()
-        self.yPub = self.nettable.getDoubleTopic("Y").publish()
-        self.omegaPub = self.nettable.getDoubleTopic("Omega").publish()
-
     def initialize(self):
-        # Publishers are already created in __init__ — no need to recreate
         pass
 
     def execute(self):
         x = self.getX() * self.getMaxSpeed()
         y = self.getY() * self.getMaxSpeed()
         omega = self.getRotation() * degreesToRadians(self.getMaxAngularRate())
-
-        self.xPub.set(x)
-        self.yPub.set(y)
-        self.omegaPub.set(omega)
 
         self.drivetrain.set_control(
             self._drive.with_velocity_x(x)
@@ -78,3 +66,6 @@ class DrivetrainDriveFieldOriented(Command):
 
     def end(self, interrupted: bool) -> None:
         pass
+
+    def isFinished(self) -> bool:
+        return False

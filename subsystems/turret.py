@@ -1,6 +1,10 @@
+from copy import deepcopy
+
 from dataclasses import dataclass
 
 from math import pi
+
+from threading import Lock
 
 from commands2 import Subsystem, Command, SelectCommand, cmd
 
@@ -13,7 +17,13 @@ from ntcore import (
 )
 
 from wpimath.geometry import Rotation2d
-from wpimath.units import kilogram_square_meters, radiansToRotations, degrees, amperes
+from wpimath.units import (
+    kilogram_square_meters,
+    radiansToRotations,
+    degrees,
+    amperes,
+    degreesToRotations,
+)
 from wpimath import angleModulus
 from wpimath.system.plant import DCMotor, LinearSystemId
 
@@ -44,16 +54,7 @@ from rev import (
     SparkClosedLoopController,
 )
 
-
-@make_wpistruct
-@dataclass
-class TurretData:
-    _rotation: Rotation2d
-    _rotationDegrees: degrees
-    _rotationSetpoint: Rotation2d
-    _rotationSetpointDegrees: degrees
-    _motorCurrent: amperes
-    _motorDutyCycle: float
+from .BraveLogger import BraveLogger, TurretData
 
 
 class Turret(Subsystem):
@@ -111,9 +112,9 @@ class Turret(Subsystem):
     """
 
     # motor PID gains
-    _motorP: float = 0.5
+    _motorP: float = 4.0
     _motorI: float = 0.0
-    _motorD: float = 0.05
+    _motorD: float = 0.25
 
     _canCoderConfig: CANcoderConfiguration
     """
@@ -171,6 +172,8 @@ class Turret(Subsystem):
     This should come from CAD
     """
 
+    _lock: Lock
+
     # _turretRadius: meters = 0.3
     # """
     # The radius of the turret.
@@ -179,6 +182,7 @@ class Turret(Subsystem):
     # """
 
     def __init__(self) -> None:
+        self._lock = Lock()
         self._nettable = NetworkTableInstance.getDefault().getTable("000Turret")
 
         self._motor = SparkMax(24, SparkMax.MotorType.kBrushless)
@@ -190,7 +194,16 @@ class Turret(Subsystem):
         motorConfig.smartCurrentLimit(30).secondaryCurrentLimit(35).setIdleMode(
             SparkBaseConfig.IdleMode.kCoast
         ).inverted(self._motorInverted)
-        motorConfig.closedLoop.pid(self._motorP, self._motorI, self._motorD)
+        motorConfig.softLimit.forwardSoftLimit(
+            degreesToRotations(170)
+        ).forwardSoftLimitEnabled(True).reverseSoftLimit(
+            degreesToRotations(-170)
+        ).reverseSoftLimitEnabled(
+            True
+        )
+        motorConfig.closedLoop.pid(self._motorP, self._motorI, self._motorD).maxOutput(
+            1.0
+        ).minOutput(-1.0)
         motorConfig.encoder.positionConversionFactor(
             1 / self._gearRatio
         ).velocityConversionFactor(1 / self._gearRatio)
@@ -201,7 +214,8 @@ class Turret(Subsystem):
 
         self._encoder.setPosition(0.0)
 
-        self._data = TurretData(Rotation2d(), 0, Rotation2d(), 0, 0, 0)
+        # self._data = TurretData(Rotation2d(), 0, Rotation2d(), 0, 0, 0)
+        self._data = TurretData(0, 0, 0, 0)
 
         self._motorSim = SparkMaxSim(self._motor, DCMotor.NEO550())
         self._encoderSim = SparkRelativeEncoderSim(self._motor)
@@ -231,21 +245,28 @@ class Turret(Subsystem):
 
         self._simMotor = SparkMaxSim(self._motor, DCMotor.NEO550())
 
-        SmartDashboard.putData("Turret Mech", turretMech)
-        SmartDashboard.putData("Turret", self)
+        self.setSetpoint(self.getRotation())
+
+        self._lock = Lock()
+
+        # SmartDashboard.putData("Turret Mech", turretMech)
+        # SmartDashboard.putData("Turret", self)
 
     def periodic(self) -> None:
-        angle = self.getRotation()
+        angle = Rotation2d.fromRotations(self._encoder.getPosition())
         # isMagnetDetected = self._canCoderMagnetStatusSignal.value
-        self._data._rotation = angle
-        self._data._rotationDegrees = angle.degrees()
-        self._data._rotationSetpoint = self._rotationSetpoint
-        self._data._rotationSetpointDegrees = self._rotationSetpoint.degrees()
-        self._data._motorCurrent = self._motor.getOutputCurrent()
-        self._data._motorDutyCycle = self._motor.getAppliedOutput()
+        with self._lock:
+            # self._data._rotation = angle
+            self._data._rotationDegrees = angle.degrees()
+            # self._data._rotationSetpoint = self._rotationSetpoint
+            self._data._rotationSetpointDegrees = self._rotationSetpoint.degrees()
+            self._data._motorCurrent = self._motor.getOutputCurrent()
+            self._data._motorDutyCycle = self._motor.getAppliedOutput()
 
-        self._turretMech.setAngle(angle.degrees())
-        self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
+            BraveLogger.pushSubsystemData(deepcopy(self._data))
+
+        # self._turretMech.setAngle(angle.degrees())
+        # self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
 
         # reset the position of the motor when the cancoder magnet is detected
         # TODO: Do we need to mandate a low speed for this to happen?
@@ -255,17 +276,17 @@ class Turret(Subsystem):
         #         0.5
         #     )  # facing straight forward is 0.5 rotations (exactly in the middle of the -180 to 180)
 
-        # self._motorClosedLoop.setSetpoint(
-        #     radiansToRotations(self._rotationSetpoint.radians() * self._gearRatio),
-        #     SparkMax.ControlType.kPosition,
-        # )
+        self._motorClosedLoop.setSetpoint(
+            radiansToRotations(self._rotationSetpoint.radians()),
+            SparkMax.ControlType.kPosition,
+        )
 
     def simulationPeriodic(self) -> None:
         self._turretSim.setInputVoltage(self._motor.getAppliedOutput() * 12)
 
         self._turretSim.update(0.02)
 
-        mechVel = self._turretSim.getVelocity() * self._gearRatio
+        mechVel = self._turretSim.getVelocity() / self._gearRatio
 
         self._motorSim.iterate(mechVel, 12, 0.02)
         self._motorSim.setMotorCurrent(self._turretSim.getCurrentDraw())
@@ -305,7 +326,8 @@ class Turret(Subsystem):
         :return The current rotation of the turret.
         :rtype: Rotation2d
         """
-        return Rotation2d.fromRotations(self._encoder.getPosition())
+        with self._lock:
+            return Rotation2d.fromDegrees(self._data._rotationDegrees)
 
     def _rotation2dToRotations(self, angle: Rotation2d) -> float:
         return angleModulus(angle.radians()) / (2 * pi)
@@ -324,7 +346,7 @@ class Turret(Subsystem):
         :return A command that resets the turret encoder to zero when executed.
         :rtype: Command
         """
-        return cmd.runOnce(self.resetEncoder)
+        return cmd.runOnce(self.resetEncoder).ignoringDisable(True)
 
     def getData(self) -> TurretData:
         """
@@ -333,4 +355,8 @@ class Turret(Subsystem):
         :return The current data of the turret.
         :rtype: TurretData
         """
-        return self._data
+        with self._lock:
+            return self._data
+
+    def _tmpSetSetpointCommand(self, setpoint: Rotation2d) -> Command:
+        return cmd.runOnce(lambda: self.setSetpoint(setpoint))

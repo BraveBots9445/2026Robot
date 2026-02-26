@@ -98,6 +98,7 @@ class Vision(Subsystem):
         :param getRobotPose: A callable to get the current robot pose for simulation purposes only
         :type getRobotPose: Callable[[], Pose2d]
         """
+        return
         self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
 
         self._turretCamera = VisionCamera(
@@ -156,12 +157,13 @@ class Vision(Subsystem):
                 self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
             )
             self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
-            SmartDashboard.putData(self._visionSim.getDebugField())
+            # SmartDashboard.putData(self._visionSim.getDebugField())
             self._simNotifier = Notifier(self._simulationPeriodic)
             self._simNotifier.startPeriodic(0.06)
 
     def periodic(self) -> None:
         # turret camera does not do pose estimation
+        return
 
         if not self._enabled:
             return

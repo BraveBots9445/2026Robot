@@ -1,13 +1,13 @@
-from .climber import Climber, ClimberData
+from .climber import Climber
 from .ctredrivetrain import CommandSwerveDrivetrain
-from .indexer import Indexer, IndexerData
-from .intake import Intake, IntakeData
+from .indexer import Indexer
+from .intake import Intake
 from .kicker import Kicker
-from .shooter import Shooter, ShooterData
-from .turret import Turret, TurretData
+from .shooter import Shooter
+from .turret import Turret
 from .vision import Vision
-from .woahval import Woahval, WoahvalData
-from .passiveHooks import PassiveHooks, PassiveHooksData
+from .woahval import Woahval
+from .passiveHooks import PassiveHooks
 
 # not stateManager here because it causes a circular import
 

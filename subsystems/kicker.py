@@ -1,4 +1,8 @@
+from copy import deepcopy
+
 from dataclasses import dataclass
+
+from threading import Lock
 
 from commands2 import Subsystem, Command
 
@@ -12,13 +16,7 @@ from wpiutil.wpistruct import make_wpistruct
 
 from wpilib import Servo
 
-
-@make_wpistruct
-@dataclass
-class KickerData:
-    angleDeg: degrees
-    positionIn: inches
-    deployed: bool
+from .BraveLogger import BraveLogger, KickerData
 
 
 class Kicker(Subsystem):
@@ -37,14 +35,9 @@ class Kicker(Subsystem):
     Measured as the rotations of the servo required to move the kicker 1 inch
     """
 
-    _nettable: NetworkTable
-
-    _dataPub: StructPublisher
-    """
-    Publishes in KickerData
-    """
-
     _data: KickerData
+
+    _lock: Lock
 
     _mech: MechanismLigament2d
 
@@ -59,17 +52,21 @@ class Kicker(Subsystem):
         mech = Mechanism2d(100, 100)
 
         self._mech = mech.getRoot("Kicker", 50, 50).appendLigament("KickerArm", 0, 0)
-        SmartDashboard.putData("Kicker", self)
-        SmartDashboard.putData("Kicker Mech", mech)
+
+        self._lock = Lock()
+        # SmartDashboard.putData("Kicker", self)
+        # SmartDashboard.putData("Kicker Mech", mech)
 
     def periodic(self) -> None:
-        self._data.angleDeg = self._servo.getAngle()
-        self._data.positionIn = self._setpoint
-        self._data.deployed = self._setpoint > 0.5
+        with self._lock:
+            self._data.angleDeg = self._servo.getAngle()
+            self._data.positionIn = self._setpoint
+            self._data.deployed = self._setpoint > 0.5
+            BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         self._servo.set(self._getInchesToRotations(self._setpoint))
 
-        self._mech.setLength(self._data.positionIn * 10 + 5)
+        # self._mech.setLength(self._data.positionIn * 10 + 5)
 
         self._dataPub.set(self._data)
 
@@ -102,3 +99,10 @@ class Kicker(Subsystem):
 
     def _getInchesToRotations(self, inches: float) -> float:
         return inches / self._gearRatio
+
+    def getData(self) -> KickerData:
+        """
+        Get the current data of the kicker.
+        """
+        with self._lock:
+            return self._data

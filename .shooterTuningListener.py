@@ -14,7 +14,7 @@ class ShooterSetpointsStruct:
 
 
 # kSERVER_ADDRESS = "10.94.45.2"
-kSERVER_ADDRESS = "127.0.0.1"
+kSERVER_ADDRESS = "10.94.45.2"
 
 ntinst = NetworkTableInstance.getDefault()
 ntinst.startClient4("TuningListener")
@@ -27,6 +27,10 @@ nettable = ntinst.getTable("00ShooterTuneDistance")
 listener = nettable.getStructArrayTopic("Setpoints", ShooterSetpointsStruct).subscribe(
     []
 )
+
+distanceSet = {}
+hoodAngleSet = {}
+flywheelVelSet = {}
 
 print("Listening...")
 prevData = listener.get()

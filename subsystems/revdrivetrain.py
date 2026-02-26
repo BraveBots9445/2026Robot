@@ -236,7 +236,7 @@ class _SwerveModule(Subsystem):
             "state", SwerveModuleState
         ).publish()
 
-        SmartDashboard.putData(f"SwerveModule/{name}", mech)
+        # SmartDashboard.putData(f"SwerveModule/{name}", mech)
 
     def periodic(self) -> None:
         # do swervemodule specific periodic tasks to optimize driving
@@ -249,8 +249,8 @@ class _SwerveModule(Subsystem):
         self.setpoint_publisher.set(self.setpoint)
         self.state_publisher.set(self.get_state())
 
-        self.setpoint_mech.setAngle(self.setpoint.angle.degrees() + 90)
-        self.setpoint_mech.setLength(5 + 50 * self.setpoint.speed / self.max_velocity)
+        # self.setpoint_mech.setAngle(self.setpoint.angle.degrees() + 90)
+        # self.setpoint_mech.setLength(5 + 50 * self.setpoint.speed / self.max_velocity)
 
         # interact with hardware
         self.drive_closedloop.setReference(
@@ -273,8 +273,8 @@ class _SwerveModule(Subsystem):
             self.turn_motor.getEncoder().setPosition(self.get_cancoder_position())
 
         # log outputs
-        self.actual_mech.setAngle(self.get_angle().degrees() + 90)
-        self.actual_mech.setLength(5 + 50 * self.get_velocity() / self.max_velocity)
+        # self.actual_mech.setAngle(self.get_angle().degrees() + 90)
+        # self.actual_mech.setLength(5 + 50 * self.get_velocity() / self.max_velocity)
         # self.actual_mech.setLength(50)
 
     def simulationPeriodic(self) -> None:

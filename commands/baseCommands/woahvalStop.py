@@ -9,8 +9,8 @@ class WoahvalStop(Command):
         self.woahval = woahval
         self.addRequirements(woahval)
 
-    def initialize(self):
+    def execute(self):
         self.woahval.setSetpoint(0.0)
 
     def isFinished(self) -> bool:
-        return True
+        return abs(self.woahval.getSetpoint()) <= 0.02

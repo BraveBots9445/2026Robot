@@ -87,8 +87,8 @@ class Telemetry:
         ]
 
         # Set up the module state Mechanism2d telemetry
-        for i, module_mechanism in enumerate(self._module_mechanisms):
-            SmartDashboard.putData(f"Module {i}", module_mechanism)
+        # for i, module_mechanism in enumerate(self._module_mechanisms):
+        #     SmartDashboard.putData(f"Module {i}", module_mechanism)
 
     def __init_telemetry_buffers(self):
         """Pre-allocate reusable arrays for telemetry to avoid per-cycle allocation."""
@@ -102,7 +102,7 @@ class Telemetry:
         Accept the swerve drive state and telemeterize it to SmartDashboard and SignalLogger.
         """
         # Lazy-init buffers on first call
-        if not hasattr(self, '_pose_array'):
+        if not hasattr(self, "_pose_array"):
             self.__init_telemetry_buffers()
 
         # Telemeterize the swerve drive state
@@ -127,7 +127,9 @@ class Telemetry:
             self._module_targets_array[idx + 1] = state.module_targets[i].speed
 
         SignalLogger.write_double_array("DriveState/Pose", self._pose_array)
-        SignalLogger.write_double_array("DriveState/ModuleStates", self._module_states_array)
+        SignalLogger.write_double_array(
+            "DriveState/ModuleStates", self._module_states_array
+        )
         SignalLogger.write_double_array(
             "DriveState/ModuleTargets", self._module_targets_array
         )
@@ -146,4 +148,6 @@ class Telemetry:
                 angle_deg = module_state.angle.degrees()
                 self._module_speeds[i].setAngle(angle_deg)
                 self._module_directions[i].setAngle(angle_deg)
-                self._module_speeds[i].setLength(module_state.speed / (2 * self._max_speed))
+                self._module_speeds[i].setLength(
+                    module_state.speed / (2 * self._max_speed)
+                )

@@ -2,7 +2,11 @@
 This is the parent class for both the woahval and the indexer, since they are both just open loop motors that feed into each other.
 """
 
+from copy import deepcopy
+
 from dataclasses import dataclass
+
+from threading import Lock
 
 from commands2 import Subsystem
 
@@ -25,13 +29,7 @@ from phoenix6.sim import TalonFXSimState
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotations_per_second
 
-
-@make_wpistruct
-@dataclass
-class OpenWheelData:
-    dutyCycle: float
-    velocity: rotations_per_second
-    current: amperes
+from .BraveLogger import BraveLogger, OpenWheelData
 
 
 class OpenLoopWheel(Subsystem):
@@ -73,6 +71,8 @@ class OpenLoopWheel(Subsystem):
 
     _data: OpenWheelData
 
+    _lock: Lock
+
     _getDutyCycleSignal: StatusSignal[float]
 
     _getVelocitySignal: StatusSignal[rotations_per_second]
@@ -84,20 +84,18 @@ class OpenLoopWheel(Subsystem):
 
     def __init__(
         self,
-        id: int,
+        motorId: int,
         name: str,
         rampTime: float = 0.5,
         inverted: bool = False,
-        shootingDutyCycle: float | None = None,
-        idleDutyCycle: float | None = None,
+        shootingDutyCycle: float = 0.5,
+        idleDutyCycle: float = 0.1,
     ) -> None:
-        self._nettable = NetworkTableInstance.getDefault().getTable(f"000{name}")
+        self._shootingDutyCyle = shootingDutyCycle
+        self._idleDutyCycle = idleDutyCycle
+        self._motorInverted = inverted
 
-        self._shootingDutyCyle = shootingDutyCycle or self._shootingDutyCyle
-        self._idleDutyCycle = idleDutyCycle or self._idleDutyCycle
-        self._motorInverted = inverted or self._motorInverted
-
-        self._motor = TalonFX(id, self._canbus)
+        self._motor = TalonFX(motorId, self._canbus)
 
         self._motorConfig = (
             TalonFXConfiguration()
@@ -110,13 +108,7 @@ class OpenLoopWheel(Subsystem):
                 .with_stator_current_limit(True)
             )
             .with_motor_output(
-                MotorOutputConfigs()
-                .with_inverted(
-                    InvertedValue.COUNTER_CLOCKWISE_POSITIVE
-                    if self._motorInverted
-                    else InvertedValue.CLOCKWISE_POSITIVE
-                )
-                .with_neutral_mode(NeutralModeValue.COAST)
+                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
             )
         )
 
@@ -127,6 +119,8 @@ class OpenLoopWheel(Subsystem):
         self._getDutyCycleSignal = self._motor.get_duty_cycle(False)
         self._motorSimState = self._motor.sim_state
 
+        self._lock = Lock()
+
         # Reduce CAN bus traffic — only send signals we explicitly refresh
         # self._motor.optimize_bus_utilization()
 
@@ -135,11 +129,15 @@ class OpenLoopWheel(Subsystem):
             self._getCurrentSignal, self._getVelocitySignal, self._getDutyCycleSignal
         )
 
-        self._data.current = self._getCurrentSignal.value_as_double
-        self._data.velocity = self._getVelocitySignal.value_as_double
-        self._data.dutyCycle = self._getDutyCycleSignal.value_as_double
+        with self._lock:
+            self._data.current = self._getCurrentSignal.value_as_double
+            self._data.velocity = self._getVelocitySignal.value_as_double
+            self._data.dutyCycle = self._getDutyCycleSignal.value_as_double
+            BraveLogger.pushSubsystemData(deepcopy(self._data))
 
-        self._motor.set(self._dutyCycleSetpoint)
+        self._motor.set(
+            self._dutyCycleSetpoint * (1 if not self._motorInverted else -1)
+        )
 
     def simulationPeriodic(self) -> None:
         simMotor = DCMotor.krakenX60()
@@ -192,4 +190,5 @@ class OpenLoopWheel(Subsystem):
         :return: The current data for the wheel.
         :rtype: OpenWheelData
         """
-        return self._data
+        with self._lock:
+            return self._data

@@ -1,9 +1,6 @@
-from .openLoopWheel import OpenLoopWheel, OpenWheelData
+from .openLoopWheel import OpenLoopWheel
 
-
-class IndexerData(OpenWheelData):
-    # this is just a wrapper with a different name for readability
-    pass
+from .BraveLogger import IndexerData
 
 
 class Indexer(OpenLoopWheel):
@@ -14,11 +11,11 @@ class Indexer(OpenLoopWheel):
 
     def __init__(self) -> None:
         super().__init__(
-            id=23,
+            motorId=23,
             name="Indexer",
             inverted=False,
             rampTime=0,
-            shootingDutyCycle=0.0,
+            shootingDutyCycle=1.0,
             idleDutyCycle=0.0,
         )
         self._data = IndexerData(0.0, 0.0, 0.0)

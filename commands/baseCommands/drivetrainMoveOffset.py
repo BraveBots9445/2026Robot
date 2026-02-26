@@ -19,8 +19,8 @@ class DrivetrainMoveOffset(Command):
         self.drivetrain = drivetrain
         self.addRequirements(drivetrain)
 
-        self.xpid = PIDController(10.0, 0.0, 0.0)
-        self.ypid = PIDController(10.0, 0.0, 0.0)
+        self.xpid = PIDController(1.0, 0.0, 0.0)
+        self.ypid = PIDController(1.0, 0.0, 0.0)
         self.tpid = PIDController(1.0, 0.0, 0.0)
 
         self.tpid.enableContinuousInput(-pi, pi)
@@ -31,9 +31,9 @@ class DrivetrainMoveOffset(Command):
 
         self.offset = offset
 
-        SmartDashboard.putData("Drivetrain Move Offset xPID", self.xpid)
-        SmartDashboard.putData("Drivetrain Move Offset yPID", self.ypid)
-        SmartDashboard.putData("Drivetrain Move Offset tPID", self.tpid)
+        # SmartDashboard.putData("Drivetrain Move Offset xPID", self.xpid)
+        # SmartDashboard.putData("Drivetrain Move Offset yPID", self.ypid)
+        # SmartDashboard.putData("Drivetrain Move Offset tPID", self.tpid)
         self.setpoint = Pose2d()
 
     def initialize(self):

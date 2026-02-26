@@ -16,4 +16,4 @@ class IntakeSetAngle(Command):
         self.intake.setPivotSetpointDegrees(self.angle)
 
     def isFinished(self) -> bool:
-        return True
+        return abs(self.intake._pivotSetpoint.degrees() - self.angle) < 1.0

@@ -115,9 +115,9 @@ class FuelShootingVisualizer(Subsystem):
         ).publish()
         self._updateNotifier = Notifier(self.update)
         self._dt = 0.10
-        self._updateNotifier.startPeriodic(
-            self._dt
-        )  # sim-only visualizer, 250ms is plenty
+        # self._updateNotifier.startPeriodic(
+        #     self._dt
+        # )  # sim-only visualizer, 250ms is plenty
 
     def update(self) -> None:
         """

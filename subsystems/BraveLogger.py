@@ -1,22 +1,115 @@
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any
 
 from ntcore import NetworkTableInstance, NetworkTable, StructPublisher
 
 from wpilib import Notifier
+
 from wpimath.geometry import Rotation2d
 
 from wpiutil.wpistruct import make_wpistruct
 
-from subsystems import (
-    TurretData,
-    ClimberData,
-    IndexerData,
-    WoahvalData,
-    PassiveHooksData,
-    IntakeData,
-    ShooterData,
+from wpimath.units import (
+    degrees,
+    inches,
+    amperes,
 )
+from wpimath.geometry import Rotation2d
+
+from phoenix6.units import rotations_per_second, rotation
+
+
+@make_wpistruct
+@dataclass
+class ClimberData:
+    # TODO: Refactor the motor raw stuff to be an external util
+    positionIn: inches
+    velocityInPerSec: inches
+    positionSetpointIn: inches
+    # hookAngleSetpoint: Rotation2d
+    hookAngleDegrees: degrees
+
+    hookDutyCycle: float
+    motorCurrent: amperes
+    motorOutputPercent: float
+    motorPositionRaw: rotation
+    motorVelocityRaw: rotations_per_second
+
+
+@make_wpistruct
+@dataclass
+class OpenWheelData:
+    dutyCycle: float
+    velocity: rotations_per_second
+    current: amperes
+
+
+class IndexerData(OpenWheelData):
+    # this is just a wrapper with a different name for readability
+    pass
+
+
+class WoahvalData(OpenWheelData):
+    # this is just a wrapper with a different name for readability
+    pass
+
+
+@make_wpistruct
+@dataclass
+class IntakeData:
+    # pivotPosition: Rotation2d
+    # pivotSetpoint: Rotation2d
+    pivotPositionDegrees: degrees
+    pivotSetpointDegrees: degrees
+    pivotCurrent: float
+    pivotDutyCycle: float
+    pivotClosedLoopSlot: int
+    pivotVelocity: float
+    rollerSetpoint: float
+    rollerDutyCycle: float
+    rollerCurrent: float
+    rollerVelocity: float
+
+
+@make_wpistruct
+@dataclass
+class KickerData:
+    angleDeg: degrees
+    positionIn: inches
+    deployed: bool
+
+
+@make_wpistruct
+@dataclass
+class PassiveHooksData:
+    setpointDegrees: degrees
+    # setpoint: Rotation2d
+    deployed: bool
+
+
+@make_wpistruct
+@dataclass
+class ShooterData:
+    actualFlywheelSpeedRpm: float
+    desiredFlywheelSpeedRpm: float
+    actualHoodAngleDegrees: degrees
+    desiredHoodAngleDegrees: degrees
+    # actualHoodAngle: Rotation2d
+    # desiredHoodAngle: Rotation2d
+    motorCurrent: float
+    motorDutyCycle: float
+    hoodMotorCurrent: float
+
+
+@make_wpistruct
+@dataclass
+class TurretData:
+    # _rotation: Rotation2d
+    _rotationDegrees: degrees
+    # _rotationSetpoint: Rotation2d
+    _rotationSetpointDegrees: degrees
+    _motorCurrent: amperes
+    _motorDutyCycle: float
 
 
 @make_wpistruct
@@ -40,44 +133,48 @@ class BraveLogger:
 
     def __init__(
         self,
-        getTurretData: Callable[[], TurretData],
-        getClimberData: Callable[[], ClimberData],
-        getIndexerData: Callable[[], IndexerData],
-        getWoahvalData: Callable[[], WoahvalData],
-        getPassiveHooksData: Callable[[], PassiveHooksData],
-        getIntakeData: Callable[[], IntakeData],
-        getShooterData: Callable[[], ShooterData],
     ) -> None:
-        self._nettable = NetworkTableInstance.getDefault().getTable("000BraveLogger")
-        self._dataPub = self._nettable.getStructTopic("Data", BraveData).publish()
-        self._data = BraveData(
-            TurretData(Rotation2d(), 0, Rotation2d(), 0, 0, 0),
-            ClimberData(0, 0, 0, Rotation2d(), 0, 0, 0, 0, 0, 0),
+        BraveLogger._nettable = NetworkTableInstance.getDefault().getTable(
+            "000BraveLogger"
+        )
+        BraveLogger._dataPub = self._nettable.getStructTopic(
+            "Data", BraveData
+        ).publish()
+        BraveLogger._data = BraveData(
+            TurretData(0, 0, 0, 0),
+            ClimberData(0, 0, 0, 0, 0, 0, 0, 0, 0),
             IndexerData(0, 0, False),
             WoahvalData(0, 0, False),
-            PassiveHooksData(0, Rotation2d(), False),
-            IntakeData(Rotation2d(), Rotation2d(), 0, 0, 0, 0, 0, 0, 0, 0),
-            ShooterData(0, 0, Rotation2d(), Rotation2d(), 0, 0, 0),
+            PassiveHooksData(0, False),
+            IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            ShooterData(0, 0, 0, 0, 0, 0, 0),
         )
+        BraveLogger._notifier = Notifier(BraveLogger.log)
+        BraveLogger._notifier.startPeriodic(0.02)
 
-        self._getTurretData = getTurretData
-        self._getClimberData = getClimberData
-        self._getIndexerData = getIndexerData
-        self._getWoahvalData = getWoahvalData
-        self._getPassiveHooksData = getPassiveHooksData
-        self._getIntakeData = getIntakeData
-        self._getShooterData = getShooterData
+    @staticmethod
+    def log() -> None:
+        BraveLogger._dataPub.set(BraveLogger._data)
 
-        self._notifier = Notifier(self._publishData)
-        self._notifier.startPeriodic(0.02)
+    @staticmethod
+    def pushSubsystemData(data: Any) -> None:
+        """
+        Pushes the given data to the network table for the subsystem.
 
-    def _publishData(self) -> None:
-        self._data.turretData = self._getTurretData()
-        self._data.climberData = self._getClimberData()
-        self._data.indexerData = self._getIndexerData()
-        self._data.woahvalData = self._getWoahvalData()
-        self._data.passiveHooksData = self._getPassiveHooksData()
-        self._data.intakeData = self._getIntakeData()
-        self._data.shooterData = self._getShooterData()
-
-        self._dataPub.set(self._data)
+        :param data: The data to push to the network table.
+        :type data: Any wpistruct type (e.g., TurretData, ClimberData, etc.)
+        """
+        if isinstance(data, TurretData):
+            BraveLogger._data.turretData = data
+        elif isinstance(data, ClimberData):
+            BraveLogger._data.climberData = data
+        elif isinstance(data, IndexerData):
+            BraveLogger._data.indexerData = data
+        elif isinstance(data, WoahvalData):
+            BraveLogger._data.woahvalData = data
+        elif isinstance(data, PassiveHooksData):
+            BraveLogger._data.passiveHooksData = data
+        elif isinstance(data, IntakeData):
+            BraveLogger._data.intakeData = data
+        elif isinstance(data, ShooterData):
+            BraveLogger._data.shooterData = data
