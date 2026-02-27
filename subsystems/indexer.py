@@ -16,6 +16,7 @@ class Indexer(OpenLoopWheel):
             inverted=False,
             rampTime=0,
             shootingDutyCycle=1.0,
+            # shootingDutyCycle=0.0,
             idleDutyCycle=0.0,
         )
         self._data = IndexerData(0.0, 0.0, 0.0)

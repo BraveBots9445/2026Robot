@@ -73,6 +73,8 @@ from commands.baseCommands.woahvalStop import WoahvalStop
 from commands.baseCommands.indexerScore import IndexerScore
 from commands.baseCommands.indexerStop import IndexerStop
 from commands.baseCommands.turretSetAngle import TurretSetAngle
+from commands.baseCommands.shootOnMove import ShootOnMove
+from commands.baseCommands.shootStatic import ShootStatic
 
 from commands import ShooterTuneDistance
 
@@ -90,6 +92,8 @@ class RobotContainer:
     def __init__(self) -> None:
         self.driver_controller = CommandController9445(0)
         self.operator_controller = CommandController9445(1)
+        self.test_remote = CommandController9445(2)
+
         self.pdh = PowerDistribution()
         self.pdh.setSwitchableChannel(True)
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
@@ -185,7 +189,10 @@ class RobotContainer:
         ).ignoringDisable(True).schedule()
 
         SmartDashboard.putData(self.auto_chooser)
+
+        self.test_remote.back().onTrue(self.turret._tmpResetCommand())
         # SmartDashboard.putData(self.drivetrain)
+        SmartDashboard.putData(self.turret)
 
     def set_teleop_bindings(self) -> None:
         """driver"""
@@ -201,15 +208,15 @@ class RobotContainer:
         )
 
         self.turret.setDefaultCommand(
-            RepeatCommand(
-                DeferredCommand(
-                    lambda: TurretSetAngle(
-                        self.turret,
-                        -self.drivetrain.get_state().pose.rotation().degrees(),
-                    ),
-                    self.turret,
-                )
-            )
+            ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
+        )
+
+        self.driver_controller.rightTrigger().onTrue(
+            IndexerScore(self.indexer)
+        ).onFalse(IndexerStop(self.indexer))
+
+        self.driver_controller.leftTrigger().onTrue(WoahvalScore(self.woahval)).onFalse(
+            WoahvalStop(self.woahval)
         )
 
         # robot oriented on Left stick push hold
@@ -225,14 +232,14 @@ class RobotContainer:
         )
 
         # slow mode
-        self.driver_controller.leftTrigger().onTrue(
-            DrivetrainHalfSpeed(self.drivetrain)
-        )
+        # self.driver_controller.leftTrigger().onTrue(
+        #     DrivetrainHalfSpeed(self.drivetrain)
+        # )
 
         # defense mode
-        self.driver_controller.rightTrigger().onTrue(
-            DrivetrainDoubleSpeed(self.drivetrain)
-        )
+        # self.driver_controller.rightTrigger().onTrue(
+        #     DrivetrainDoubleSpeed(self.drivetrain)
+        # )
 
         # self.driver_controller.b().onTrue(
         #     InstantCommand(self.drivetrain.seed_field_centric)
@@ -246,19 +253,18 @@ class RobotContainer:
         """
         Insert code here for the secondary driver
         """
-        self.driver_controller.leftTrigger().onTrue(self.stateManger.startIntaking())
-        self.driver_controller.leftBumper().onTrue(self.stateManger.stopIntaking())
+        # self.driver_controller.leftTrigger().onTrue(self.stateManger.startIntaking())
+        # self.driver_controller.leftBumper().onTrue(self.stateManger.stopIntaking())
 
-        self.driver_controller.rightTrigger().onTrue(
-            self.stateManger.startClimbingLow()
-        )
+        # self.driver_controller.rightTrigger().onTrue(
+        #     self.stateManger.startClimbingLow()
+        # )
 
-        self.driver_controller.a().onTrue(self.stateManger.startShooting())
-        self.driver_controller.b().onTrue(self.stateManger.startAiming())
+        # self.driver_controller.a().onTrue(self.stateManger.startShooting())
+        # self.driver_controller.b().onTrue(self.stateManger.startAiming())
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
-        self.test_remote = CommandController9445(2)
 
         self.shooter.setDefaultCommand(
             ShooterTuneDistance(
@@ -291,7 +297,6 @@ class RobotContainer:
         #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(160))
         # )
 
-        # self.test_remote.rightBumper().onTrue(self.turret._tmpResetCommand())
         self.test_remote.leftTrigger().onTrue(IntakeDeploy(self.intake))
         self.test_remote.leftBumper().onTrue(IntakeRetract(self.intake))
 

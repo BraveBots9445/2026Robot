@@ -2,7 +2,7 @@ from math import hypot, pi
 
 from typing import Callable
 
-from wpilib import RobotController, RobotBase
+from wpilib import RobotController, RobotBase, RobotState
 
 from wpimath.geometry import Transform3d, Pose3d
 from wpimath.kinematics import ChassisSpeeds
@@ -39,12 +39,12 @@ class VisionCamera:
     The pose estimator object from photonvision
     """
 
-    _baseStdDevs: tuple[float, float, float] = (0.1, 0.1, pi)
+    _baseStdDevs: tuple[float, float, float] = (0.1, 0.1, 0.1)
     """
     The default standard deviations in meters and radians to modify based on measurement factors
     """
 
-    _jerkStdDevFactor: float = 50000
+    _jerkStdDevFactor: float = 5
     """
     The factor to multiply the jerk by when calculating standard deviations.
     This is to penalize sudden changes in estimated pose, which are likely to be errors.
@@ -149,7 +149,7 @@ class VisionCamera:
         if estPose is None:
             return (None, targets)
         poseRes = estPose.estimatedPose
-        if poseRes.X() < 0 or poseRes.Y() < 0 or poseRes.Z() < -0.1:
+        if poseRes.X() < 0 or poseRes.Y() < 0:  # or poseRes.Z() < -0.1:
             return (None, targets)
         self._logVisionMeasurement(
             estPose.estimatedPose,
@@ -228,16 +228,17 @@ class VisionCamera:
 
         distanceFactor = distance.translation().norm() ** 1.4
 
-        # this is supposed to penalize sudden changes in estimated pose
         jerkFactor = 0
-        if estPose is not None and self._prevEst is not None:
-            measurementDistShift = estPose.translation().distance(
-                self._prevEst.translation()
-            )
-            jerkFactor = (
-                max(measurementDistShift, measurementDistShift**4.0)
-                * self._jerkStdDevFactor
-            )
+        if RobotState.isEnabled():
+            # this is supposed to penalize sudden changes in estimated pose
+            if estPose is not None and self._prevEst is not None:
+                measurementDistShift = estPose.translation().distance(
+                    self._prevEst.translation()
+                )
+                jerkFactor = (
+                    max(measurementDistShift, measurementDistShift**4.0)
+                    * self._jerkStdDevFactor
+                )
 
         ambiguityFactor = (10 * ambiguity) ** 2
 

@@ -28,6 +28,7 @@ class Robot(TimedCommandRobot):
         if RobotBase.isSimulation():
             DataLogManager.stop()
         SignalLogger.stop()
+        DriverStation.silenceJoystickConnectionWarning(True)
         self._nettable = NetworkTableInstance.getDefault().getTable("datatable")
         self._timePub = self._nettable.getDoubleTopic("time").publish()
         self._timer = Timer()

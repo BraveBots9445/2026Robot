@@ -180,7 +180,7 @@ class Shooter(Subsystem):
     """
 
     # hood PIDs
-    _hoodP: float = 10.0
+    _hoodP: float = 9.0
     _hoodI: float = 0.0
     _hoodD: float = 0.0
 

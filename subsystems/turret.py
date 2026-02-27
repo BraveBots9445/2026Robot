@@ -105,7 +105,7 @@ class Turret(Subsystem):
 
     _motorInverted: bool = True
 
-    _gearRatio: float = 4 * 200 / 18
+    _gearRatio: float = 4 * 200 / 20
     """
     The gear ratio of the turret mechanism.
     This is measured as motor rotations / turret rotations.
@@ -202,8 +202,8 @@ class Turret(Subsystem):
             True
         )
         motorConfig.closedLoop.pid(self._motorP, self._motorI, self._motorD).maxOutput(
-            1.0
-        ).minOutput(-1.0)
+            0.5
+        ).minOutput(-0.5)
         motorConfig.encoder.positionConversionFactor(
             1 / self._gearRatio
         ).velocityConversionFactor(1 / self._gearRatio)

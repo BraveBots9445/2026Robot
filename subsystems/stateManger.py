@@ -162,8 +162,8 @@ class StateManager(Subsystem):
             "shootingState"
         ).publish()
 
-        # self._pubNotifier = Notifier(self.publish)
-        # self._pubNotifier.startPeriodic(0.5)  # state names change rarely, 500ms is fine
+        self._pubNotifier = Notifier(self.publish)
+        self._pubNotifier.startPeriodic(0.5)  # state names change rarely, 500ms is fine
 
     def publish(self) -> None:
         self._extendingStatePub.set(self._extendingState.name)

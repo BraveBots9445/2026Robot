@@ -186,6 +186,9 @@ class ShootOnMoveCalculator:
         self._virtualTargetPub = self._nettable.getStructTopic(
             "VirtualTarget", Pose3d
         ).publish()
+        self._tmpFinalPosePub = self._nettable.getStructTopic(
+            "Robot Pose Translated", Pose3d
+        ).publish()
 
     def _getSetpointsStep(self, target: Pose3d) -> tuple[StateSetpoint, seconds]:
         """
@@ -198,14 +201,17 @@ class ShootOnMoveCalculator:
         """
         # Get current robot state
         robotPose = self._getRobotPose()
+        robotPose.transformBy(self._launcherTransform)
+        self._tmpFinalPosePub.set(robotPose)
         dist = (
             robotPose.translation()
             .toTranslation2d()
             .distance(target.translation().toTranslation2d())
         )
 
-        displacement = target.relativeTo(robotPose)
-        turretAngleRads = atan2(displacement.Y(), displacement.X())
+        poseTranslation = robotPose.translation()
+        targetTranslation = target.translation()
+        angleOff = (targetTranslation - poseTranslation).toTranslation2d().angle()
 
         angleDeg = interp(dist, self._distanceInterpArray, self._hoodAngleInterpArray)
         flywheelRpm = interp(
@@ -218,9 +224,11 @@ class ShootOnMoveCalculator:
 
         return (
             StateSetpoint(
+                # 0,
+                # Rotation2d(),
                 flywheelRpm,
                 Rotation2d.fromDegrees(angleDeg),
-                Rotation2d(turretAngleRads),
+                angleOff - robotPose.rotation().toRotation2d(),
             ),
             t,
         )
@@ -236,17 +244,18 @@ class ShootOnMoveCalculator:
         :type iterations: int, optional
         """
         self._targetPub.set(target)
-        if iterations < 1:
-            iterations = 1
-        virtualTarget = target.transformBy(self._launcherTransform)
-        setpoints = StateSetpoint(0, Rotation2d(), Rotation2d())
-        robotVel = self._getRobotVelocity()
-        for _ in range(iterations):
-            setpoints, timeToShot = self._getSetpointsStep(virtualTarget)
-            virtualTarget = virtualTarget.transformBy(
-                self._ChassisSpeedsToTranslation3d(robotVel, timeToShot).inverse()
-            )
-        self._virtualTargetPub.set(virtualTarget)
+        setpoints, timeToShot = self._getSetpointsStep(target)
+        # if iterations < 1:
+        #     iterations = 1
+        # virtualTarget = target.transformBy(self._launcherTransform)
+        # setpoints = StateSetpoint(0, Rotation2d(), Rotation2d())
+        # robotVel = self._getRobotVelocity()
+        # for _ in range(iterations):
+        #     setpoints, timeToShot = self._getSetpointsStep(virtualTarget)
+        #     virtualTarget = virtualTarget.transformBy(
+        #         self._ChassisSpeedsToTranslation3d(robotVel, timeToShot).inverse()
+        #     )
+        # self._virtualTargetPub.set(virtualTarget)
         return setpoints
 
     def _ChassisSpeedsToTranslation3d(

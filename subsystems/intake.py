@@ -223,7 +223,7 @@ class Intake(Subsystem):
                 .with_forward_soft_limit_enable(True)
                 .with_reverse_soft_limit_enable(True)
                 .with_forward_soft_limit_threshold(degreesToRotations(90))
-                .with_reverse_soft_limit_threshold(degreesToRotations(-5))
+                .with_reverse_soft_limit_threshold(degreesToRotations(-3))
             )
             .with_slot0(self._pivotSlot0Config)
             .with_slot1(self._pivotSlot1Config)
@@ -350,9 +350,9 @@ class Intake(Subsystem):
         self._positionDutyCycleRequest.position = radiansToRotations(
             self._pivotSetpoint.radians()
         )
-        # self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
-        # self._pivotMotor.set_control(self._positionDutyCycleRequest)
-        # self._rollerMotor.set(self._rollerSetpoint)
+        self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
+        self._pivotMotor.set_control(self._positionDutyCycleRequest)
+        self._rollerMotor.set(self._rollerSetpoint)
 
     def simulationPeriodic(self) -> None:
         self._pivotSim.setInputVoltage(self._pivotMotor.get() * 12)

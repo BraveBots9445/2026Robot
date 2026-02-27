@@ -47,8 +47,8 @@ class Vision(Subsystem):
     )
 
     _frontRightCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(12), inchesToMeters(-12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(45, 0, -45),
+        Translation3d(inchesToMeters(-12), inchesToMeters(-12.5), inchesToMeters(9)),
+        Rotation3d.fromDegrees(0, 34, 180),
     )
 
     _frontLeftCameraToRobot: Transform3d = Transform3d(
@@ -98,7 +98,6 @@ class Vision(Subsystem):
         :param getRobotPose: A callable to get the current robot pose for simulation purposes only
         :type getRobotPose: Callable[[], Pose2d]
         """
-        return
         self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
 
         self._turretCamera = VisionCamera(
@@ -110,28 +109,28 @@ class Vision(Subsystem):
         )
 
         self._frontRightCamera = VisionCamera(
-            "ArducamOV9281-FL (1)",
+            "ArducamOV9281-FR",
             self._tagLayout,
             self._frontRightCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
 
-        self._frontLeftCamera = VisionCamera(
-            "ArducamOV9281-BL",
-            self._tagLayout,
-            self._frontLeftCameraToRobot,
-            logVisionMeasurement,
-            getRobotVelocity,
-        )
+        # self._frontLeftCamera = VisionCamera(
+        #     "ArducamOV9281-BL",
+        #     self._tagLayout,
+        #     self._frontLeftCameraToRobot,
+        #     logVisionMeasurement,
+        #     getRobotVelocity,
+        # )
 
-        self._rearCamera = VisionCamera(
-            "Arducam_OV9281_USB_Camera (1)",
-            self._tagLayout,
-            self._rearCameraToRobot,
-            logVisionMeasurement,
-            getRobotVelocity,
-        )
+        # self._rearCamera = VisionCamera(
+        #     "Arducam_OV9281_USB_Camera (1)",
+        #     self._tagLayout,
+        #     self._rearCameraToRobot,
+        #     logVisionMeasurement,
+        #     getRobotVelocity,
+        # )
 
         self._poseEstPub = self.nettable.getStructArrayTopic(
             "EstimatedPoses",
@@ -153,41 +152,39 @@ class Vision(Subsystem):
             self._visionSim.addCamera(
                 self._frontRightCamera.getCameraSim(), self._frontRightCameraToRobot  # type: ignore
             )
-            self._visionSim.addCamera(
-                self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
-            )
-            self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
+            # self._visionSim.addCamera(
+            #     self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
+            # )
+            # self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
             # SmartDashboard.putData(self._visionSim.getDebugField())
             self._simNotifier = Notifier(self._simulationPeriodic)
             self._simNotifier.startPeriodic(0.06)
 
     def periodic(self) -> None:
         # turret camera does not do pose estimation
-        return
-
         if not self._enabled:
             return
-        estFL, tagsFL = self._frontRightCamera.update()
-        estFR, tagsFR = self._frontLeftCamera.update()
-        estR, tagsR = self._rearCamera.update()
-        _estTu, tagsTu = self._turretCamera.update()
+        # estFL, tagsFL = self._frontRightCamera.update()
+        estFR, tagsFR = self._frontRightCamera.update()
+        # estR, tagsR = self._rearCamera.update()
+        # _estTu, tagsTu = self._turretCamera.update()
 
         # Build pose list without repeated concatenation
         poses = []
-        if estFL is not None:
-            poses.append(self._pose3dToPose2d(estFL))
+        # if estFL is not None:
+        #     poses.append(self._pose3dToPose2d(estFL))
         if estFR is not None:
             poses.append(self._pose3dToPose2d(estFR))
-        if estR is not None:
-            poses.append(self._pose3dToPose2d(estR))
+        # if estR is not None:
+        #     poses.append(self._pose3dToPose2d(estR))
         self._poseEstPub.set(poses)
 
         # Build tag list without chained concatenation
         allTags = []
-        allTags.extend(tagsFL)
+        # allTags.extend(tagsFL)
         allTags.extend(tagsFR)
-        allTags.extend(tagsR)
-        allTags.extend(tagsTu)
+        # allTags.extend(tagsR)
+        # allTags.extend(tagsTu)
         self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in allTags])
 
     def _simulationPeriodic(self) -> None:

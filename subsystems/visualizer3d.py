@@ -61,8 +61,8 @@ class Visualizer3D:
 
     _turretInitialPose = Pose3d(
         Translation3d(
-            inchesToMeters(-3),
-            inchesToMeters(4.5),
+            inchesToMeters(0),
+            inchesToMeters(6.0),
             inchesToMeters(12.914),
         ),
         Rotation3d(),

@@ -17,6 +17,7 @@ class Woahval(OpenLoopWheel):
             inverted=True,
             name="Woahval",
             shootingDutyCycle=1.0,
+            # shootingDutyCycle=0.0,
             idleDutyCycle=0.1,
         )
         self._data = WoahvalData(0.0, 0.0, 0.0)
