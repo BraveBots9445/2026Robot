@@ -233,7 +233,7 @@ class ShootOnMoveCalculator:
             t,
         )
 
-    def getSetpoints(self, target: Pose3d, iterations: int = 3) -> StateSetpoint:
+    def getSetpoints(self, target: Pose3d, maxIterations: int = 3) -> StateSetpoint:
         """
         Get the setpoints for the shooter, hood, and turret
         Uses a Recursive LuT method with a moving virtual target to account for the moving robot
@@ -245,17 +245,21 @@ class ShootOnMoveCalculator:
         """
         self._targetPub.set(target)
         setpoints, timeToShot = self._getSetpointsStep(target)
-        # if iterations < 1:
-        #     iterations = 1
-        # virtualTarget = target.transformBy(self._launcherTransform)
-        # setpoints = StateSetpoint(0, Rotation2d(), Rotation2d())
-        # robotVel = self._getRobotVelocity()
-        # for _ in range(iterations):
-        #     setpoints, timeToShot = self._getSetpointsStep(virtualTarget)
-        #     virtualTarget = virtualTarget.transformBy(
-        #         self._ChassisSpeedsToTranslation3d(robotVel, timeToShot).inverse()
-        #     )
-        # self._virtualTargetPub.set(virtualTarget)
+        if maxIterations < 1:
+            maxIterations = 1
+        virtualTarget = target.transformBy(self._launcherTransform)
+        setpoints = StateSetpoint(0, Rotation2d(), Rotation2d())
+        robotVel = self._getRobotVelocity()
+        prevTimeOfFlight = float("inf")
+        for _ in range(maxIterations):
+            setpoints, timeToShot = self._getSetpointsStep(virtualTarget)
+            virtualTarget = virtualTarget.transformBy(
+                self._ChassisSpeedsToTranslation3d(robotVel, timeToShot).inverse()
+            )
+            if timeToShot - prevTimeOfFlight <= 0.15:
+                break
+            prevTimeOfFlight = timeToShot
+        self._virtualTargetPub.set(virtualTarget)
         return setpoints
 
     def _ChassisSpeedsToTranslation3d(

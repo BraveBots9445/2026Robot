@@ -102,7 +102,7 @@ class Intake(Subsystem):
     This is measured as (motor rotations) / (pivot rotations).
     """
 
-    _pivotAbsoluteEncoderOffset: float = -0.372
+    _pivotAbsoluteEncoderOffset: float = 0.484
     """
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """
@@ -223,7 +223,7 @@ class Intake(Subsystem):
                 .with_forward_soft_limit_enable(True)
                 .with_reverse_soft_limit_enable(True)
                 .with_forward_soft_limit_threshold(degreesToRotations(90))
-                .with_reverse_soft_limit_threshold(degreesToRotations(-3))
+                .with_reverse_soft_limit_threshold(degreesToRotations(-3.5))
             )
             .with_slot0(self._pivotSlot0Config)
             .with_slot1(self._pivotSlot1Config)
@@ -255,7 +255,7 @@ class Intake(Subsystem):
             )
             .with_current_limits(
                 CurrentLimitsConfigs()
-                .with_stator_current_limit(20)
+                .with_stator_current_limit(40)
                 .with_stator_current_limit_enable(True)
             )
         )
@@ -347,11 +347,14 @@ class Intake(Subsystem):
         # self._pivotAngleMech.setAngle(pivotPosition.degrees())
         # self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
-        self._positionDutyCycleRequest.position = radiansToRotations(
-            self._pivotSetpoint.radians()
-        )
-        self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
-        self._pivotMotor.set_control(self._positionDutyCycleRequest)
+        if self._pivotSetpoint.degrees() > 10:
+            self._positionDutyCycleRequest.position = radiansToRotations(
+                self._pivotSetpoint.radians()
+            )
+            self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
+            self._pivotMotor.set_control(self._positionDutyCycleRequest)
+        else:
+            self._pivotMotor.set(-0.25)
         self._rollerMotor.set(self._rollerSetpoint)
 
     def simulationPeriodic(self) -> None:

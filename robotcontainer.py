@@ -10,7 +10,7 @@ from commands2 import (
     InstantCommand,
     DeferredCommand,
 )
-from commands2.button import CommandXboxController
+from commands2.button import CommandXboxController, Trigger
 
 from wpimath.geometry import (
     Transform2d,
@@ -21,6 +21,8 @@ from wpimath.geometry import (
     Rotation3d,
 )
 from wpimath.units import inchesToMeters
+
+from wpilib import RobotState
 
 from subsystems.vision import Vision
 from subsystems.visualizer3d import Visualizer3D
@@ -75,6 +77,7 @@ from commands.baseCommands.indexerStop import IndexerStop
 from commands.baseCommands.turretSetAngle import TurretSetAngle
 from commands.baseCommands.shootOnMove import ShootOnMove
 from commands.baseCommands.shootStatic import ShootStatic
+from commands.baseCommands.intakeSetRollerSpeed import IntakeSetRollerSpeed
 
 from commands import ShooterTuneDistance
 
@@ -188,11 +191,13 @@ class RobotContainer:
             ).ignoringDisable(True)
         ).ignoringDisable(True).schedule()
 
+        Trigger(RobotState.isEnabled).onTrue(
+            self.stateManger.resetAllianceZoneCommand()
+        )
+
         SmartDashboard.putData(self.auto_chooser)
 
         self.test_remote.back().onTrue(self.turret._tmpResetCommand())
-        # SmartDashboard.putData(self.drivetrain)
-        SmartDashboard.putData(self.turret)
 
     def set_teleop_bindings(self) -> None:
         """driver"""
@@ -201,7 +206,7 @@ class RobotContainer:
                 self.drivetrain,
                 self.driver_controller.getFRCLX,
                 self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
+                lambda: -self.driver_controller.getFRCRY(),
                 self.drivetrain.getMaxSpeed,
                 self.drivetrain.getMaxAngularRateDeg,
             )
@@ -229,6 +234,10 @@ class RobotContainer:
                 self.drivetrain.getMaxSpeed,
                 self.drivetrain.getMaxAngularRateDeg,
             )
+        )
+
+        self.driver_controller.a().whileTrue(IntakeDeploy(self.intake)).onFalse(
+            IntakeSetRollerSpeed(self.intake, 0)
         )
 
         # slow mode

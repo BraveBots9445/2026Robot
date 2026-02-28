@@ -128,7 +128,7 @@ class Shooter(Subsystem):
 
     _flywheelSlot0Configs: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(0.5)
+        .with_k_p(0.35)
         .with_k_i(0)
         .with_k_d(0.0)
         .with_k_s(0)
@@ -150,7 +150,7 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (hood rotations)
     """
 
-    _hoodZeroOffset: float = 0.9122596
+    _hoodZeroOffset: float = 0.9882542
     """
     The offset in rotations for the hood's absolute encoder to be considered the zero position of the hood (zero launch angle)
     """
@@ -191,6 +191,11 @@ class Shooter(Subsystem):
     _flywheelSetpoint: revolutions_per_minute = 0
     """
     The target speed for the flywheel in RPM
+    """
+
+    _flywheelFudgeFactor: float = 0.85
+    """
+    The number to multiply the flywheel setpoint by for changing system conditions
     """
 
     _hoodAngleSetpoint: Rotation2d = Rotation2d()
@@ -414,12 +419,17 @@ class Shooter(Subsystem):
                     self._flywheelSetpoint
                     / kSECONDS_PER_MINUTE
                     / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
+                    * self._flywheelFudgeFactor
                 )
                 self._flywheelMotor.set_control(self._velocityVoltageRequest)
             else:
                 out = self._flywheelBangBangController.calculate(
                     abs(flywheelVelocity / kSECONDS_PER_MINUTE),
-                    abs(self._flywheelSetpoint / kSECONDS_PER_MINUTE),
+                    abs(
+                        self._flywheelSetpoint
+                        / kSECONDS_PER_MINUTE
+                        * self._flywheelFudgeFactor
+                    ),
                 ) * (1 if self._flywheelSetpoint >= 0 else -1)
                 self._flywheelMotor.set(out)
 

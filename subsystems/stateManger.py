@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from enum import Enum
 
 from commands2 import Subsystem, Command, SelectCommand, cmd
@@ -6,9 +8,11 @@ from commands2.button import Trigger
 from ntcore import NetworkTableInstance, NetworkTable, StringPublisher
 
 from wpimath.units import inchesToMeters
-from wpimath.geometry import Translation2d
+from wpimath.geometry import Translation2d, Rectangle2d, Pose2d, Rotation2d, Pose3d
 
 from wpilib import Notifier
+
+from wpiutil.wpistruct import make_wpistruct
 
 from commands.stateTransitionCommands.aimToShoot import AimToShoot
 from commands.stateTransitionCommands.shootToAim import ShootToAim
@@ -39,7 +43,6 @@ from subsystems import (
 )
 
 from tools.rebuilt import Rebuilt
-from tools.polygonZone import PolygonZone
 
 
 class ShootingState(Enum):
@@ -54,6 +57,13 @@ class ExtendingState(Enum):
     INTAKING = 1
     CLIMBING_LOW = 2
     CLIMBING_HIGH = 3
+
+
+@make_wpistruct
+@dataclass
+class TriggerStates:
+    mustStow: bool
+    inAllianceZone: bool
 
 
 class StateManager(Subsystem):
@@ -84,51 +94,39 @@ class StateManager(Subsystem):
     _shootingState: ShootingState = ShootingState.NONE
 
     _trenchZones = [
-        PolygonZone(
-            [
-                Translation2d(inchesToMeters(100), inchesToMeters(0)),
-                Translation2d(inchesToMeters(260), inchesToMeters(0)),
-                Translation2d(inchesToMeters(260), inchesToMeters(65)),
-                Translation2d(inchesToMeters(100), inchesToMeters(65)),
-            ],
+        Rectangle2d(
+            Translation2d(inchesToMeters(100), inchesToMeters(0)),
+            Translation2d(inchesToMeters(260), inchesToMeters(65)),
         ),
-        PolygonZone(
-            [
-                Translation2d(inchesToMeters(100), Rebuilt.Width - inchesToMeters(0)),
-                Translation2d(inchesToMeters(260), Rebuilt.Width - inchesToMeters(0)),
-                Translation2d(inchesToMeters(260), Rebuilt.Width - inchesToMeters(65)),
-                Translation2d(inchesToMeters(100), Rebuilt.Width - inchesToMeters(65)),
-            ],
+        Rectangle2d(
+            Translation2d(inchesToMeters(100), Rebuilt.Width - inchesToMeters(0)),
+            Translation2d(inchesToMeters(260), Rebuilt.Width - inchesToMeters(65)),
         ),
-        PolygonZone(
-            [
-                Translation2d(Rebuilt.Length - inchesToMeters(100), inchesToMeters(0)),
-                Translation2d(Rebuilt.Length - inchesToMeters(260), inchesToMeters(0)),
-                Translation2d(Rebuilt.Length - inchesToMeters(260), inchesToMeters(65)),
-                Translation2d(Rebuilt.Length - inchesToMeters(100), inchesToMeters(65)),
-            ],
+        Rectangle2d(
+            Translation2d(Rebuilt.Length - inchesToMeters(100), inchesToMeters(0)),
+            Translation2d(Rebuilt.Length - inchesToMeters(260), inchesToMeters(65)),
         ),
-        PolygonZone(
-            [
-                Translation2d(
-                    Rebuilt.Length - inchesToMeters(100),
-                    Rebuilt.Width - inchesToMeters(0),
-                ),
-                Translation2d(
-                    Rebuilt.Length - inchesToMeters(260),
-                    Rebuilt.Width - inchesToMeters(0),
-                ),
-                Translation2d(
-                    Rebuilt.Length - inchesToMeters(260),
-                    Rebuilt.Width - inchesToMeters(65),
-                ),
-                Translation2d(
-                    Rebuilt.Length - inchesToMeters(100),
-                    Rebuilt.Width - inchesToMeters(65),
-                ),
-            ],
+        Rectangle2d(
+            Translation2d(
+                Rebuilt.Length - inchesToMeters(100),
+                Rebuilt.Width - inchesToMeters(0),
+            ),
+            Translation2d(
+                Rebuilt.Length - inchesToMeters(260),
+                Rebuilt.Width - inchesToMeters(65),
+            ),
         ),
     ]
+
+    _allianceZone = Rectangle2d(
+        Rebuilt.getPosition(
+            Pose3d(
+                Pose2d(inchesToMeters(91.055), inchesToMeters(158.845), Rotation2d(0))
+            )
+        ).toPose2d(),
+        inchesToMeters(182.11),
+        inchesToMeters(317.69),
+    )
 
     def __init__(
         self,
@@ -161,13 +159,24 @@ class StateManager(Subsystem):
         self._shootingStatePub = self._nettable.getStringTopic(
             "shootingState"
         ).publish()
+        self._zonesCenterPub = self._nettable.getStructArrayTopic(
+            "zonesCenters", Pose2d
+        ).publish()
+        self._triggerStatesPub = self._nettable.getStructTopic(
+            "triggerStates", TriggerStates
+        ).publish()
 
         self._pubNotifier = Notifier(self.publish)
         self._pubNotifier.startPeriodic(0.5)  # state names change rarely, 500ms is fine
 
+        self._zonesCenterPub.set([rect.center() for rect in self._trenchZones])
+
     def publish(self) -> None:
         self._extendingStatePub.set(self._extendingState.name)
         self._shootingStatePub.set(self._shootingState.name)
+        self._triggerStatesPub.set(
+            TriggerStates(self.getMustStowBool(), self.getInAllianceZoneBool())
+        )
 
     def startIntaking(self) -> Command:
         def update():
@@ -348,12 +357,35 @@ class StateManager(Subsystem):
             lambda: update(),
         )
 
+    def getMustStowTrigger(self) -> Trigger:
+        return Trigger(self.getMustStowBool)
+
     def getMustStowBool(self) -> bool:
         pose = self._drivetrain.get_state().pose
         for zone in self._trenchZones:
-            if zone.containsPose(pose):
+            if zone.contains(pose.translation()):
                 return True
         return False
 
-    def getMustStow(self) -> Trigger:
-        return Trigger(self.getMustStowBool)
+    def getInAllianceZoneBool(self) -> bool:
+        pose = self._drivetrain.get_state().pose
+        return self._allianceZone.contains(pose.translation())
+
+    def getInAllianceZoneTrigger(self) -> Trigger:
+        return Trigger(self.getInAllianceZoneBool)
+
+    def resetAllianceZone(self) -> None:
+        self._allianceZone = Rectangle2d(
+            Rebuilt.getPosition(
+                Pose3d(
+                    Pose2d(
+                        inchesToMeters(91.055), inchesToMeters(158.845), Rotation2d(0)
+                    )
+                )
+            ).toPose2d(),
+            inchesToMeters(182.11),
+            inchesToMeters(317.69),
+        )
+
+    def resetAllianceZoneCommand(self) -> Command:
+        return cmd.runOnce(self.resetAllianceZone, self).ignoringDisable(True)
