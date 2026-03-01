@@ -15,12 +15,8 @@ class IndexerDejam(Command):
         self.time = time
 
     def initialize(self):
-        self.timer.start()
+        self.timer.restart()
         self.indexer.setSetpoint(-0.1)
-
-    def execute(self):
-        if self.timer.hasElapsed(self.time / 2):
-            self.indexer.setSetpoint(0.1)
 
     def isFinished(self) -> bool:
         return self.timer.hasElapsed(self.time)

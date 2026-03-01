@@ -1,0 +1,49 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "ShootOnMove"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "IndexerScore"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "WoahvalScore"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 5.0
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "IndexerStop"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "WoahvalStop"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": false,
+  "folder": null,
+  "choreoAuto": false
+}

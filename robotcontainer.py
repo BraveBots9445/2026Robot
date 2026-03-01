@@ -46,7 +46,7 @@ from wpimath.geometry import (
 from wpimath.units import inchesToMeters
 
 ########## VENDOR (etc) IMPORTS ##########
-from pathplannerlib.auto import AutoBuilder
+from pathplannerlib.auto import AutoBuilder, NamedCommands
 
 
 ########## SUBSYSTEM IMPORTS ##########
@@ -78,6 +78,7 @@ from commands.baseCommands.turretSetAngle import TurretSetAngle
 from commands.baseCommands.shootOnMove import ShootOnMove
 from commands.baseCommands.shootStatic import ShootStatic
 from commands.baseCommands.intakeSetRollerSpeed import IntakeSetRollerSpeed
+from commands.baseCommands.indexerDejam import IndexerDejam
 
 from commands import ShooterTuneDistance
 
@@ -195,7 +196,18 @@ class RobotContainer:
             self.stateManger.resetAllianceZoneCommand()
         )
 
+        # NamedCommands.registerCommand(
+        #     "ShootOnMove",
+        #     ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator),
+        # )
+
+        # NamedCommands.registerCommand("WoahvalScore", WoahvalScore(self.woahval))
+        # NamedCommands.registerCommand("IndexerScore", IndexerScore(self.indexer))
+
+        # NamedCommands.registerCommand("WoahvalStop", WoahvalStop(self.woahval))
+        # NamedCommands.registerCommand("IndexerStop", IndexerStop(self.indexer))
         SmartDashboard.putData(self.auto_chooser)
+        SmartDashboard.putData(self.shooter)
 
         self.test_remote.back().onTrue(self.turret._tmpResetCommand())
 
@@ -216,14 +228,6 @@ class RobotContainer:
             ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
         )
 
-        self.driver_controller.rightTrigger().onTrue(
-            IndexerScore(self.indexer)
-        ).onFalse(IndexerStop(self.indexer))
-
-        self.driver_controller.leftTrigger().onTrue(WoahvalScore(self.woahval)).onFalse(
-            WoahvalStop(self.woahval)
-        )
-
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(
             DrivetrainDriveRobotOriented(
@@ -241,14 +245,14 @@ class RobotContainer:
         )
 
         # slow mode
-        # self.driver_controller.leftTrigger().onTrue(
-        #     DrivetrainHalfSpeed(self.drivetrain)
-        # )
+        self.driver_controller.leftTrigger().onTrue(
+            DrivetrainHalfSpeed(self.drivetrain)
+        )
 
         # defense mode
-        # self.driver_controller.rightTrigger().onTrue(
-        #     DrivetrainDoubleSpeed(self.drivetrain)
-        # )
+        self.driver_controller.rightTrigger().onTrue(
+            DrivetrainDoubleSpeed(self.drivetrain)
+        )
 
         # self.driver_controller.b().onTrue(
         #     InstantCommand(self.drivetrain.seed_field_centric)
@@ -256,13 +260,30 @@ class RobotContainer:
 
         self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
-        self.driver_controller.y().onTrue(self.stateManger.stopShooting())
+        # self.driver_controller.y().onTrue(self.stateManger.stopShooting())
 
         """Operator"""
         """
         Insert code here for the secondary driver
         """
+        self.operator_controller.rightTrigger().onTrue(
+            IndexerDejam(self.indexer, 0.25).andThen(IndexerScore(self.indexer))
+        ).onFalse(IndexerStop(self.indexer))
+
+        self.operator_controller.leftTrigger().onTrue(
+            WoahvalScore(self.woahval)
+        ).onFalse(WoahvalStop(self.woahval))
+
+        self.operator_controller.povUp().onTrue(self.shooter.bumpFudgeCommand())
+        self.operator_controller.povDown().onTrue(self.shooter.dumpFudgeCommand())
+
+        self.operator_controller.povRight().onTrue(
+            self.turret.bumpManualOffsetCommand()
+        )
+        self.operator_controller.povLeft().onTrue(self.turret.dumpManualOffsetCommand())
+
         # self.driver_controller.leftTrigger().onTrue(self.stateManger.startIntaking())
+
         # self.driver_controller.leftBumper().onTrue(self.stateManger.stopIntaking())
 
         # self.driver_controller.rightTrigger().onTrue(
@@ -274,6 +295,7 @@ class RobotContainer:
 
     def set_test_bindings(self) -> None:
         # will be sysid testing for drivetrain (+others?) sometime
+        return
 
         self.shooter.setDefaultCommand(
             ShooterTuneDistance(

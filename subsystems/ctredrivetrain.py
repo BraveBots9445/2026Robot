@@ -8,7 +8,7 @@ from typing import Callable, overload
 from wpilib import DriverStation, Notifier, RobotController
 from wpilib.sysid import SysIdRoutineLog
 from wpimath.geometry import Pose2d, Rotation2d
-from wpimath.units import radiansToDegrees
+from wpimath.units import radiansToDegrees, degreesToRadians
 
 
 class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
@@ -17,19 +17,9 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     Subsystem so it can easily be used in command-based projects.
     """
 
-    _nom_max_speed: units.meters_per_second = 4.0
+    _nom_max_speed: units.meters_per_second = 2.5
     """Nominal maximum speed of the robot in meters per second"""
-    _nom_max_angular_rate: units.radians_per_second = math.pi
-    """Nominal maximum angular rate of the robot in radians per second"""
-
-    _curr_max_speed: units.meters_per_second = _nom_max_speed
-    """Current maximum speed of the robot in meters per second"""
-    _curr_max_angular_rate: units.radians_per_second = _nom_max_angular_rate
-    """Current maximum angular rate of the robot in radians per second"""
-
-    _nom_max_speed: units.meters_per_second = 4.0
-    """Nominal maximum speed of the robot in meters per second"""
-    _nom_max_angular_rate: units.radians_per_second = 2 * math.pi
+    _nom_max_angular_rate: units.radians_per_second = degreesToRadians(180)
     """Nominal maximum angular rate of the robot in radians per second"""
 
     _curr_max_speed: units.meters_per_second = _nom_max_speed

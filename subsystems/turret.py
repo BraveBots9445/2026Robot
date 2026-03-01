@@ -96,6 +96,8 @@ class Turret(Subsystem):
     The desired rotation setpoint for the turret.
     """
 
+    _manualSetpointOffset: Rotation2d = Rotation2d()
+
     ########## CONFIGS ##########
     _canbus: str = ""
     """
@@ -105,7 +107,7 @@ class Turret(Subsystem):
 
     _motorInverted: bool = True
 
-    _gearRatio: float = 4 * 200 / 20
+    _gearRatio: float = 4 * 200 / 19
     """
     The gear ratio of the turret mechanism.
     This is measured as motor rotations / turret rotations.
@@ -277,7 +279,9 @@ class Turret(Subsystem):
         #     )  # facing straight forward is 0.5 rotations (exactly in the middle of the -180 to 180)
 
         self._motorClosedLoop.setSetpoint(
-            radiansToRotations(self._rotationSetpoint.radians()),
+            radiansToRotations(
+                self._rotationSetpoint.radians() + self._manualSetpointOffset.radians()
+            ),
             SparkMax.ControlType.kPosition,
         )
 
@@ -360,3 +364,15 @@ class Turret(Subsystem):
 
     def _tmpSetSetpointCommand(self, setpoint: Rotation2d) -> Command:
         return cmd.runOnce(lambda: self.setSetpoint(setpoint))
+
+    def bumpManualOffset(self, bumpValueDegrees: degrees = 5) -> None:
+        self._manualSetpointOffset += Rotation2d.fromDegrees(bumpValueDegrees)
+
+    def dumpManualOffset(self, dumpValueDegrees: degrees = 5) -> None:
+        self._manualSetpointOffset -= Rotation2d.fromDegrees(dumpValueDegrees)
+
+    def bumpManualOffsetCommand(self, bumpValueDegrees: degrees = 5) -> Command:
+        return cmd.runOnce(lambda: self.bumpManualOffset(bumpValueDegrees))
+
+    def dumpManualOffsetCommand(self, dumpValueDegrees: degrees = 5) -> Command:
+        return cmd.runOnce(lambda: self.dumpManualOffset(dumpValueDegrees))

@@ -7,6 +7,7 @@ from math import pi
 from threading import Lock
 
 from commands2 import Subsystem, Command
+from commands2 import cmd
 
 from ntcore import NetworkTable, NetworkTableInstance, DoublePublisher, StructPublisher
 from ntcore.util import ntproperty
@@ -150,7 +151,7 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (hood rotations)
     """
 
-    _hoodZeroOffset: float = 0.9882542
+    _hoodZeroOffset: float = 0.04284428
     """
     The offset in rotations for the hood's absolute encoder to be considered the zero position of the hood (zero launch angle)
     """
@@ -193,7 +194,7 @@ class Shooter(Subsystem):
     The target speed for the flywheel in RPM
     """
 
-    _flywheelFudgeFactor: float = 0.85
+    _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 0.975)
     """
     The number to multiply the flywheel setpoint by for changing system conditions
     """
@@ -607,3 +608,15 @@ class Shooter(Subsystem):
         """
         with self._lock:
             return self._data
+
+    def bumpFudge(self, bumpVal: float = 0.025) -> None:
+        self._flywheelFudgeFactor += bumpVal
+
+    def dumpFudge(self, dumpVal: float = 0.025) -> None:
+        self._flywheelFudgeFactor -= dumpVal
+
+    def bumpFudgeCommand(self, bumpVal: float = 0.025) -> Command:
+        return cmd.runOnce(lambda: self.bumpFudge(bumpVal))
+
+    def dumpFudgeCommand(self, dumpVal: float = 0.025) -> Command:
+        return cmd.runOnce(lambda: self.dumpFudge(dumpVal))
