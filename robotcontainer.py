@@ -79,6 +79,7 @@ from commands.baseCommands.shootOnMove import ShootOnMove
 from commands.baseCommands.shootStatic import ShootStatic
 from commands.baseCommands.intakeSetRollerSpeed import IntakeSetRollerSpeed
 from commands.baseCommands.indexerDejam import IndexerDejam
+from commands.baseCommands.indexerShoot import IndexerShoot
 
 from commands import ShooterTuneDistance
 
@@ -106,8 +107,10 @@ class RobotContainer:
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
 
         self.vision = Vision(
-            lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
-                Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
+            lambda pose, timestamp, standardDevs: self.drivetrain.add_vision_measurement(
+                Pose2d(pose.X(), pose.Y(), pose.rotation().toRotation2d()),
+                timestamp,
+                standardDevs,
             ),
             lambda: self.drivetrain.get_state().speeds,
             lambda: self.drivetrain.get_state().pose,
@@ -196,16 +199,6 @@ class RobotContainer:
             self.stateManger.resetAllianceZoneCommand()
         )
 
-        # NamedCommands.registerCommand(
-        #     "ShootOnMove",
-        #     ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator),
-        # )
-
-        # NamedCommands.registerCommand("WoahvalScore", WoahvalScore(self.woahval))
-        # NamedCommands.registerCommand("IndexerScore", IndexerScore(self.indexer))
-
-        # NamedCommands.registerCommand("WoahvalStop", WoahvalStop(self.woahval))
-        # NamedCommands.registerCommand("IndexerStop", IndexerStop(self.indexer))
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.shooter)
 
@@ -240,10 +233,6 @@ class RobotContainer:
             )
         )
 
-        self.driver_controller.a().whileTrue(IntakeDeploy(self.intake)).onFalse(
-            IntakeSetRollerSpeed(self.intake, 0)
-        )
-
         # slow mode
         self.driver_controller.leftTrigger().onTrue(
             DrivetrainHalfSpeed(self.drivetrain)
@@ -254,20 +243,15 @@ class RobotContainer:
             DrivetrainDoubleSpeed(self.drivetrain)
         )
 
-        # self.driver_controller.b().onTrue(
-        #     InstantCommand(self.drivetrain.seed_field_centric)
-        # )
-
         self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
-        # self.driver_controller.y().onTrue(self.stateManger.stopShooting())
+        self.driver_controller.a().whileTrue(IntakeDeploy(self.intake)).onFalse(
+            IntakeSetRollerSpeed(self.intake, 0)
+        )
 
         """Operator"""
-        """
-        Insert code here for the secondary driver
-        """
         self.operator_controller.rightTrigger().onTrue(
-            IndexerDejam(self.indexer, 0.25).andThen(IndexerScore(self.indexer))
+            IndexerShoot(self.indexer)
         ).onFalse(IndexerStop(self.indexer))
 
         self.operator_controller.leftTrigger().onTrue(
@@ -282,21 +266,7 @@ class RobotContainer:
         )
         self.operator_controller.povLeft().onTrue(self.turret.dumpManualOffsetCommand())
 
-        # self.driver_controller.leftTrigger().onTrue(self.stateManger.startIntaking())
-
-        # self.driver_controller.leftBumper().onTrue(self.stateManger.stopIntaking())
-
-        # self.driver_controller.rightTrigger().onTrue(
-        #     self.stateManger.startClimbingLow()
-        # )
-
-        # self.driver_controller.a().onTrue(self.stateManger.startShooting())
-        # self.driver_controller.b().onTrue(self.stateManger.startAiming())
-
     def set_test_bindings(self) -> None:
-        # will be sysid testing for drivetrain (+others?) sometime
-        return
-
         self.shooter.setDefaultCommand(
             ShooterTuneDistance(
                 self.shooter,
@@ -315,30 +285,6 @@ class RobotContainer:
             )
         )
 
-        # self.test_remote.povUp().onTrue(
-        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-135))
-        # )
-        # self.test_remote.povLeft().onTrue(
-        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(135))
-        # )
-        # self.test_remote.povRight().onTrue(
-        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(-90))
-        # )
-        # self.test_remote.povDown().onTrue(
-        #     self.turret._tmpSetSetpointCommand(Rotation2d.fromDegrees(160))
-        # )
-
-        self.test_remote.leftTrigger().onTrue(IntakeDeploy(self.intake))
-        self.test_remote.leftBumper().onTrue(IntakeRetract(self.intake))
-
-        self.test_remote.a().onTrue(WoahvalScore(self.woahval)).onFalse(
-            WoahvalStop(self.woahval)
-        )
-
-        self.test_remote.rightBumper().onTrue(IndexerScore(self.indexer)).onFalse(
-            IndexerStop(self.indexer)
-        )
-
     def set_pp_named_commands(self) -> None:
         """
         Insert code here for the pathplanner named commands
@@ -347,6 +293,3 @@ class RobotContainer:
 
     def get_auto_command(self) -> Command:
         return self.auto_chooser.getSelected()
-
-    def log(self) -> None:
-        self.braveLogger.log()

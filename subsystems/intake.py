@@ -1,7 +1,5 @@
 from copy import deepcopy
 
-from dataclasses import dataclass
-
 from threading import Lock
 
 from commands2 import Subsystem
@@ -9,9 +7,6 @@ from commands2 import Subsystem
 from ntcore import (
     NetworkTable,
     NetworkTableInstance,
-    DoublePublisher,
-    StructPublisher,
-    IntegerPublisher,
 )
 
 from wpilib import (
@@ -19,8 +14,8 @@ from wpilib import (
     Mechanism2d,
     MechanismLigament2d,
     Color8Bit,
-    SmartDashboard,
     RobotBase,
+    SmartDashboard,
 )
 from wpilib.simulation import SingleJointedArmSim
 
@@ -35,8 +30,6 @@ from wpimath.units import (
     degreesToRotations,
 )
 from wpimath.system.plant import DCMotor
-
-from wpiutil.wpistruct import make_wpistruct
 
 from phoenix6.configs import (
     TalonFXConfiguration,
@@ -67,7 +60,7 @@ from .BraveLogger import BraveLogger, IntakeData
 
 class Intake(Subsystem):
     """
-    A (pivoting, for now) intake subsystem for intaking fuel.
+    A pivoting intake subsystem for intaking fuel.
     It has a pivot KrakenX60, a pivot CANcoder (WCP Throughbore), and a roller KrakenX60.
     The pivot is on closed loop position control, and the roller is on open loop duty cycle control.
     """
@@ -121,14 +114,8 @@ class Intake(Subsystem):
         SensorDirectionValue.COUNTER_CLOCKWISE_POSITIVE
     )
     """
-    The direction for the cancoder such that it increases when the intake is deployed 
+    The direction for the cancoder such that it increases when the intake is pulled in 
     """
-
-    _pivotMOI: kilogram_square_meters = (
-        0.0161108325  # TODO: Recalculate this if the material != 6061
-    )
-
-    _pivotLength: meters = inchesToMeters(12.5)
 
     _pivotMotorConfig: TalonFXConfiguration
 
@@ -204,6 +191,12 @@ class Intake(Subsystem):
 
     _pivotSim: SingleJointedArmSim
 
+    _pivotMOI: kilogram_square_meters = (
+        0.0161108325  # TODO: Recalculate this if the material != 6061
+    )
+
+    _pivotLength: meters = inchesToMeters(12.5)
+
     def __init__(self) -> None:
         self._lock = Lock()
         self._nettable = NetworkTableInstance.getDefault().getTable("000Intake")
@@ -274,10 +267,6 @@ class Intake(Subsystem):
         self._rollerVelocitySignal = self._rollerMotor.get_velocity(False)
         self._rollerDutyCycleSignal = self._rollerMotor.get_duty_cycle(False)
 
-        # self._pivotMotor.optimize_bus_utilization()
-        # self._rollerMotor.optimize_bus_utilization()
-
-        # Pre-allocate control request to reuse every cycle
         self._positionDutyCycleRequest = PositionDutyCycle(0)
 
         self._pivotSetpoint = self.getAngle()
@@ -307,8 +296,8 @@ class Intake(Subsystem):
         self._encoderSimState = self._pivotEncoder.sim_state
         self._rollerSimState = self._rollerMotor.sim_state
 
-        # SmartDashboard.putData("Intake/Subsystem", self)
-        # SmartDashboard.putData("Intake/PivotMech", pivotMech)
+        SmartDashboard.putData("Intake/Subsystem", self)
+        SmartDashboard.putData("Intake/PivotMech", pivotMech)
 
     def periodic(self) -> None:
         StatusSignal.refresh_all(
@@ -344,8 +333,8 @@ class Intake(Subsystem):
 
             BraveLogger.pushSubsystemData(deepcopy(self._data))
 
-        # self._pivotAngleMech.setAngle(pivotPosition.degrees())
-        # self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
+        self._pivotAngleMech.setAngle(pivotPosition.degrees())
+        self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
         if self._pivotSetpoint.degrees() > 10:
             self._positionDutyCycleRequest.position = radiansToRotations(
@@ -359,7 +348,6 @@ class Intake(Subsystem):
 
     def simulationPeriodic(self) -> None:
         self._pivotSim.setInputVoltage(self._pivotMotor.get() * 12)
-        self._pivotSim.update(0.02)
 
         pivotVelocity = radiansToRotations(self._pivotSim.getVelocity())
         pivotRotorVelocity = pivotVelocity * self._pivotGearRatio
@@ -374,6 +362,8 @@ class Intake(Subsystem):
         )
         self._rollerSimState.set_rotor_velocity(rollerVelocity)
         self._rollerSimState.add_rotor_position(rollerVelocity * 0.02)
+
+        self._pivotSim.update(0.02)
 
     def getAngle(self) -> Rotation2d:
         """

@@ -4,18 +4,14 @@ This is the parent class for both the woahval and the indexer, since they are bo
 
 from copy import deepcopy
 
-from dataclasses import dataclass
-
 from threading import Lock
 
 from commands2 import Subsystem
 
-from ntcore import NetworkTable, NetworkTableInstance, DoublePublisher
+from ntcore import NetworkTable
 
 from wpimath.system.plant import DCMotor
 from wpimath.units import amperes, radiansToRotations
-
-from wpiutil.wpistruct import make_wpistruct
 
 from phoenix6.configs import (
     TalonFXConfiguration,
@@ -24,7 +20,7 @@ from phoenix6.configs import (
     MotorOutputConfigs,
 )
 from phoenix6.hardware import TalonFX
-from phoenix6.signals import InvertedValue, NeutralModeValue
+from phoenix6.signals import NeutralModeValue
 from phoenix6.sim import TalonFXSimState
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotations_per_second
@@ -121,8 +117,7 @@ class OpenLoopWheel(Subsystem):
 
         self._lock = Lock()
 
-        # Reduce CAN bus traffic — only send signals we explicitly refresh
-        # self._motor.optimize_bus_utilization()
+        self.setName(name)
 
     def periodic(self) -> None:
         StatusSignal.refresh_all(

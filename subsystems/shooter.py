@@ -1,7 +1,5 @@
 from copy import deepcopy
 
-from dataclasses import dataclass
-
 from math import pi
 
 from threading import Lock
@@ -9,7 +7,7 @@ from threading import Lock
 from commands2 import Subsystem, Command
 from commands2 import cmd
 
-from ntcore import NetworkTable, NetworkTableInstance, DoublePublisher, StructPublisher
+from ntcore import NetworkTable, NetworkTableInstance
 from ntcore.util import ntproperty
 
 from wpilib import (
@@ -27,7 +25,6 @@ from wpimath.units import (
     inchesToMeters,
     meters_per_second_squared,
     kilogram_square_meters,
-    rotationsToDegrees,
     amperes,
     radiansToRotations,
     degrees,
@@ -35,9 +32,6 @@ from wpimath.units import (
 from wpimath.geometry import Rotation2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
 from wpimath.controller import BangBangController
-
-from wpiutil.wpistruct import make_wpistruct
-
 
 from phoenix6.hardware import TalonFX
 from phoenix6.sim import TalonFXSimState
@@ -63,7 +57,6 @@ from rev import (
     SparkMaxSim,
     SparkAbsoluteEncoderSim,
     SparkClosedLoopController,
-    FeedForwardConfig,
 )
 
 from .BraveLogger import BraveLogger, ShooterData
@@ -107,11 +100,6 @@ class Shooter(Subsystem):
     "canivore" for the CANivore CAN bus, "rio" or "" for the RoboRIO CAN bus.
     """
 
-    _useClosedLoopFlywheel = ntproperty("UseClosedLoopFlywheel", True)
-    """
-    If True, use closed loop velocity control on the TalonFX, otherwise, use Bang-Bang
-    """
-
     _flywheelRadius: meters = inchesToMeters(2)
     """
     The radius in meters of the flywheel
@@ -136,8 +124,6 @@ class Shooter(Subsystem):
         .with_k_v(0.115)
         .with_k_a(0)
     )
-
-    _flywheelBangBangController: BangBangController
 
     _flywheelGearRatio: float = 1 / 1
     """
@@ -327,10 +313,6 @@ class Shooter(Subsystem):
         self._getFlywheelCurrentSignal = self._flywheelMotor.get_stator_current(False)
         self._getDutyCycleSignal = self._flywheelMotor.get_duty_cycle(False)
 
-        # Reduce CAN bus traffic
-        # self._flywheelMotor.optimize_bus_utilization()
-
-        # Pre-allocate control request to reuse every cycle
         self._velocityVoltageRequest = VelocityVoltage(0)
 
         self._flywheelMotorSimState = self._flywheelMotor.sim_state
@@ -357,22 +339,19 @@ class Shooter(Subsystem):
             DCMotor.krakenX60(1),
         )
 
-        # TODO: This performs poorly - the simulated angle is far too high according to the sim, but the motor performs reasonably.
         self._hoodSim = SingleJointedArmSim(
             DCMotor.NEO550(),
             1 / self._hoodGearRatio,
             self._hoodMOI,
             self._hoodArmLength,
-            -float("inf"),  # this is because of the angle problem
+            -float("inf"),
             float("inf"),
-            # self._hoodMinAngle.radians(),
-            # self._hoodMaxAngle.radians(),
             True,
             self._hoodMinAngle.radians(),
         )
 
-        # SmartDashboard.putData("Shooter/Hood Mech", hoodMech)
-        # SmartDashboard.putData("Shooter/Subsystem", self)
+        SmartDashboard.putData("Shooter/Hood Mech", hoodMech)
+        SmartDashboard.putData("Shooter/Subsystem", self)
 
         self._lock = Lock()
 
@@ -397,8 +376,6 @@ class Shooter(Subsystem):
         with self._lock:
             self._data.actualFlywheelSpeedRpm = flywheelVelocity
             self._data.desiredFlywheelSpeedRpm = desiredFlywheelVelocity
-            # self._data.actualHoodAngle = hoodAngle
-            # self._data.desiredHoodAngle = hoodAngleSetpoint
             self._data.actualHoodAngleDegrees = hoodAngle.degrees()
             self._data.desiredHoodAngleDegrees = hoodAngleSetpoint.degrees()
             self._data.motorDutyCycle = self._getDutyCycleSignal.value_as_double
@@ -408,31 +385,19 @@ class Shooter(Subsystem):
             BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         # update mech2d
-        # self._hoodMech.setAngle(hoodAngle.degrees())
-        # self._hoodSetpointMech.setAngle(hoodAngleSetpoint.degrees())
+        self._hoodMech.setAngle(hoodAngle.degrees())
+        self._hoodSetpointMech.setAngle(hoodAngleSetpoint.degrees())
         # set controls
         if abs(desiredFlywheelVelocity) < 50:
             self._flywheelMotor.set(0)
-        # if self._useClosedLoopFlywheel:
         else:
-            if self._useClosedLoopFlywheel:
-                self._velocityVoltageRequest.velocity = (
-                    self._flywheelSetpoint
-                    / kSECONDS_PER_MINUTE
-                    / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
-                    * self._flywheelFudgeFactor
-                )
-                self._flywheelMotor.set_control(self._velocityVoltageRequest)
-            else:
-                out = self._flywheelBangBangController.calculate(
-                    abs(flywheelVelocity / kSECONDS_PER_MINUTE),
-                    abs(
-                        self._flywheelSetpoint
-                        / kSECONDS_PER_MINUTE
-                        * self._flywheelFudgeFactor
-                    ),
-                ) * (1 if self._flywheelSetpoint >= 0 else -1)
-                self._flywheelMotor.set(out)
+            self._velocityVoltageRequest.velocity = (
+                self._flywheelSetpoint
+                / kSECONDS_PER_MINUTE
+                / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
+                * self._flywheelFudgeFactor
+            )
+            self._flywheelMotor.set_control(self._velocityVoltageRequest)
 
         self._hoodMotorClosedLoop.setSetpoint(
             (self._hoodAngleSetpoint - self._hoodMinAngle).degrees() / 360,
@@ -440,8 +405,8 @@ class Shooter(Subsystem):
         )
 
     def simulationPeriodic(self) -> None:
-        self._flywheelSim.setInput(
-            [self._flywheelMotor.get_motor_voltage().value_as_double]
+        self._flywheelSim.setInputVoltage(
+            self._flywheelMotor.get_motor_voltage().value_as_double
         )
         self._flywheelSim.update(0.02)
 

@@ -1,19 +1,14 @@
 from copy import deepcopy
 
-from dataclasses import dataclass
-
 from math import pi
 
 from threading import Lock
 
-from commands2 import Subsystem, Command, SelectCommand, cmd
+from commands2 import Subsystem, Command, cmd
 
 from ntcore import (
     NetworkTable,
     NetworkTableInstance,
-    StructPublisher,
-    DoublePublisher,
-    BooleanPublisher,
 )
 
 from wpimath.geometry import Rotation2d
@@ -21,7 +16,6 @@ from wpimath.units import (
     kilogram_square_meters,
     radiansToRotations,
     degrees,
-    amperes,
     degreesToRotations,
 )
 from wpimath import angleModulus
@@ -30,14 +24,11 @@ from wpimath.system.plant import DCMotor, LinearSystemId
 from wpilib import (
     Mechanism2d,
     MechanismLigament2d,
-    SmartDashboard,
-    RobotBase,
     Color8Bit,
     RobotState,
+    SmartDashboard,
 )
 from wpilib.simulation import DCMotorSim, SingleJointedArmSim
-
-from wpiutil.wpistruct import make_wpistruct
 
 from phoenix6.hardware import CANcoder
 from phoenix6.configs import CANcoderConfiguration
@@ -52,6 +43,7 @@ from rev import (
     ResetMode,
     PersistMode,
     SparkClosedLoopController,
+    AbsoluteEncoder,
 )
 
 from .BraveLogger import BraveLogger, TurretData
@@ -63,8 +55,8 @@ class Turret(Subsystem):
     This controls the aizmuth of the shooter.
     This subsystem is designed to not allow for wrap around between the -180 and 180 degree positions.
 
-    It is controlled by a single TalonFX motor controller controlling a KrakenX60 (TODO: Is that true?).
-    It is indexed by a CANCoder absolute encoder acting as a remote limit switch, seeing a manget on the turret carriage.
+    It is controlled by a single Spark Max motor controller controlling a Neo 550
+    It is indexed by a Rev Throughbore absolute encoder
     """
 
     ########## HARDWARE ##########
@@ -84,10 +76,9 @@ class Turret(Subsystem):
     The motor attached encoder for the turret 
     """
 
-    _cancoder: CANcoder
+    _absoluteEncoder: AbsoluteEncoder
     """
     The encoder for the turret. This is used for indexing.
-    When the magnet mounted on the turret passes the CANCoder, it's position is set to zero.
     """
 
     ########## SETPOINTS ##########
@@ -147,12 +138,6 @@ class Turret(Subsystem):
     """
 
     ########## SIMULATION ##########
-    # _turretSim: SingleJointedArmSim
-    # """
-    # The simulation model for the turret.
-    # A single jointed arm without gravity is a turret
-    # """
-
     _motorSim: SparkMaxSim
     """
     The simulation object for the turret motor.
@@ -176,13 +161,6 @@ class Turret(Subsystem):
 
     _lock: Lock
 
-    # _turretRadius: meters = 0.3
-    # """
-    # The radius of the turret.
-    # This should come from CAD.
-    # This should be from the center of rotation to the furthest point on the turret.
-    # """
-
     def __init__(self) -> None:
         self._lock = Lock()
         self._nettable = NetworkTableInstance.getDefault().getTable("000Turret")
@@ -190,7 +168,6 @@ class Turret(Subsystem):
         self._motor = SparkMax(24, SparkMax.MotorType.kBrushless)
         self._motorClosedLoop = self._motor.getClosedLoopController()
         self._encoder = self._motor.getEncoder()
-        # self._cancoder = CANcoder(24, self._canbus)
 
         motorConfig = SparkBaseConfig()
         motorConfig.smartCurrentLimit(30).secondaryCurrentLimit(35).setIdleMode(
@@ -216,13 +193,10 @@ class Turret(Subsystem):
 
         self._encoder.setPosition(0.0)
 
-        # self._data = TurretData(Rotation2d(), 0, Rotation2d(), 0, 0, 0)
         self._data = TurretData(0, 0, 0, 0)
 
         self._motorSim = SparkMaxSim(self._motor, DCMotor.NEO550())
         self._encoderSim = SparkRelativeEncoderSim(self._motor)
-
-        # self._canCoderMagnetStatusSignal = self._cancoder.get_fault_bad_magnet(False)
 
         turretMech = Mechanism2d(100, 100)
         self._turretMech = turretMech.getRoot("Turret Angle", 50, 50).appendLigament(
@@ -239,8 +213,6 @@ class Turret(Subsystem):
             0.0,
             -float("inf"),
             float("inf"),
-            # degreesToRadians(-180),
-            # degreesToRadians(180),
             False,
             0.0,
         )
@@ -251,32 +223,21 @@ class Turret(Subsystem):
 
         self._lock = Lock()
 
-        # SmartDashboard.putData("Turret Mech", turretMech)
-        # SmartDashboard.putData("Turret", self)
+        SmartDashboard.putData("Turret Mech", turretMech)
+        SmartDashboard.putData("Turret", self)
 
     def periodic(self) -> None:
         angle = Rotation2d.fromRotations(self._encoder.getPosition())
-        # isMagnetDetected = self._canCoderMagnetStatusSignal.value
         with self._lock:
-            # self._data._rotation = angle
             self._data._rotationDegrees = angle.degrees()
-            # self._data._rotationSetpoint = self._rotationSetpoint
             self._data._rotationSetpointDegrees = self._rotationSetpoint.degrees()
             self._data._motorCurrent = self._motor.getOutputCurrent()
             self._data._motorDutyCycle = self._motor.getAppliedOutput()
 
             BraveLogger.pushSubsystemData(deepcopy(self._data))
 
-        # self._turretMech.setAngle(angle.degrees())
-        # self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
-
-        # reset the position of the motor when the cancoder magnet is detected
-        # TODO: Do we need to mandate a low speed for this to happen?
-        # TODO: Where is the cancoder/magnet physically located?
-        # if isMagnetDetected and RobotBase.isReal():
-        #     self._encoder.setPosition(
-        #         0.5
-        #     )  # facing straight forward is 0.5 rotations (exactly in the middle of the -180 to 180)
+        self._turretMech.setAngle(angle.degrees())
+        self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
 
         self._motorClosedLoop.setSetpoint(
             radiansToRotations(
@@ -288,13 +249,13 @@ class Turret(Subsystem):
     def simulationPeriodic(self) -> None:
         self._turretSim.setInputVoltage(self._motor.getAppliedOutput() * 12)
 
-        self._turretSim.update(0.02)
-
         mechVel = self._turretSim.getVelocity() / self._gearRatio
 
         self._motorSim.iterate(mechVel, 12, 0.02)
         self._motorSim.setMotorCurrent(self._turretSim.getCurrentDraw())
         self._encoderSim.iterate(mechVel, 0.02)
+
+        self._turretSim.update(0.02)
 
     def setSetpoint(self, angle: Rotation2d) -> None:
         """

@@ -1,12 +1,10 @@
 from copy import deepcopy
 
-from dataclasses import dataclass
-
 from math import pi
 
 from threading import Lock
 
-from commands2 import Subsystem, Command
+from commands2 import Subsystem
 
 from ntcore import NetworkTableInstance, NetworkTable
 
@@ -26,8 +24,6 @@ from wpimath.units import (
 )
 from wpimath.geometry import Rotation2d
 from wpimath.system.plant import DCMotor
-
-from wpiutil.wpistruct import make_wpistruct
 
 from phoenix6.configs import (
     TalonFXConfiguration,
@@ -195,10 +191,6 @@ class Climber(Subsystem):
         self._rawPositionSignal = self._motor.get_position(False)
         self._rawVelocitySignal = self._motor.get_velocity(False)
 
-        # Reduce CAN bus traffic — only send signals we explicitly refresh
-        # self._motor.optimize_bus_utilization()
-
-        # Pre-allocate control request object to reuse every cycle
         self._positionVoltageRequest = PositionVoltage(0)
 
         self._elevatorSim = ElevatorSim(
@@ -208,8 +200,6 @@ class Climber(Subsystem):
             inchesToMeters(self._pulleyDiameter) / 2,
             -float("inf"),
             float("inf"),
-            # inchesToMeters(self._minHeight - 5),
-            # inchesToMeters(self._maxHeight + 5),
             True,
             0,
         )
@@ -228,8 +218,8 @@ class Climber(Subsystem):
         self._motorSim = TalonFXSimState(self._motor)
 
         self._positionSetpoint = self.getPositionInches()
-        # SmartDashboard.putData("Climber", self)
-        # SmartDashboard.putData("Climber Mech", mech)
+        SmartDashboard.putData("Climber", self)
+        SmartDashboard.putData("Climber Mech", mech)
 
     def periodic(self) -> None:
         return
@@ -292,7 +282,6 @@ class Climber(Subsystem):
 
         self._motorSim.add_rotor_position(rotorVel * 0.02)
         self._motorSim.set_rotor_velocity(rotorVel)
-        # print(rotorVel)
 
     def getPositionInches(self) -> inches:
         return self.getData().positionIn

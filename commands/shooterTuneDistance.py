@@ -103,8 +103,8 @@ class ShooterTuneDistance(Command):
                 flywheelVelocityRPM=self.flywheelVelocitySetpoint,
                 hoodAngledeg=self.hoodAngleSetpointDeg,
             )
-            if newSetpoints not in self.setpoints:
-                self.setpoints.append(newSetpoints)
+            # if newSetpoints not in self.setpoints:
+            self.setpoints.append(newSetpoints)
             self.setpointsPub.set(self.setpoints)
         self.prevLogged = storeSetpoints
 
