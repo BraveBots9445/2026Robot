@@ -7,10 +7,8 @@ from commands2 import (
     RepeatCommand,
     WaitCommand,
     SequentialCommandGroup,
-    InstantCommand,
-    DeferredCommand,
 )
-from commands2.button import CommandXboxController, Trigger
+from commands2.button import Trigger
 
 from wpimath.geometry import (
     Transform2d,
@@ -66,20 +64,6 @@ from commands.baseCommands.drivetrainDriveRobotOriented import (
 from commands.baseCommands.drivetrainSpeedHalf import DrivetrainHalfSpeed
 from commands.baseCommands.drivetrainSpeedDouble import DrivetrainDoubleSpeed
 from commands.baseCommands.drivetrainMoveOffset import DrivetrainMoveOffset
-
-from commands.baseCommands.intakeSetAngle import IntakeSetAngle
-from commands.baseCommands.intakeDeploy import IntakeDeploy
-from commands.baseCommands.intakeRetract import IntakeRetract
-from commands.baseCommands.woahvalScore import WoahvalScore
-from commands.baseCommands.woahvalStop import WoahvalStop
-from commands.baseCommands.indexerScore import IndexerScore
-from commands.baseCommands.indexerStop import IndexerStop
-from commands.baseCommands.turretSetAngle import TurretSetAngle
-from commands.baseCommands.shootOnMove import ShootOnMove
-from commands.baseCommands.shootStatic import ShootStatic
-from commands.baseCommands.intakeSetRollerSpeed import IntakeSetRollerSpeed
-from commands.baseCommands.indexerDejam import IndexerDejam
-from commands.baseCommands.indexerShoot import IndexerShoot
 
 from commands import ShooterTuneDistance
 
@@ -217,10 +201,6 @@ class RobotContainer:
             )
         )
 
-        self.turret.setDefaultCommand(
-            ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
-        )
-
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(
             DrivetrainDriveRobotOriented(
@@ -245,19 +225,7 @@ class RobotContainer:
 
         self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
-        self.driver_controller.a().whileTrue(IntakeDeploy(self.intake)).onFalse(
-            IntakeSetRollerSpeed(self.intake, 0)
-        )
-
         """Operator"""
-        self.operator_controller.rightTrigger().onTrue(
-            IndexerShoot(self.indexer)
-        ).onFalse(IndexerStop(self.indexer))
-
-        self.operator_controller.leftTrigger().onTrue(
-            WoahvalScore(self.woahval)
-        ).onFalse(WoahvalStop(self.woahval))
-
         self.operator_controller.povUp().onTrue(self.shooter.bumpFudgeCommand())
         self.operator_controller.povDown().onTrue(self.shooter.dumpFudgeCommand())
 

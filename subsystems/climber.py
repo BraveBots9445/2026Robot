@@ -8,7 +8,7 @@ from commands2 import Subsystem
 
 from ntcore import NetworkTableInstance, NetworkTable
 
-from wpilib import Servo, Mechanism2d, MechanismLigament2d, Color8Bit
+from wpilib import Servo, Mechanism2d, MechanismLigament2d, Color8Bit, SmartDashboard
 from wpilib.simulation import ElevatorSim
 
 from .BraveLogger import BraveLogger
@@ -138,7 +138,6 @@ class Climber(Subsystem):
     _robotMass: kilograms = lbsToKilograms(120.0)
 
     def __init__(self) -> None:
-        return
         self._lock = Lock()
         self._nettable = NetworkTableInstance.getDefault().getTable("000Climber")
 
@@ -161,7 +160,7 @@ class Climber(Subsystem):
             )
         )
 
-        self._mechState = ClimberData(0, 0, 0, Rotation2d(), 0, 0, 0, 0, 0, 0)
+        self._mechState = ClimberData(0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         self._motor.configurator.apply(self._motorConfig)
 
@@ -222,7 +221,6 @@ class Climber(Subsystem):
         SmartDashboard.putData("Climber Mech", mech)
 
     def periodic(self) -> None:
-        return
         StatusSignal.refresh_all(
             self._currentSignal,
             self._dutyCycleSignal,
@@ -235,7 +233,6 @@ class Climber(Subsystem):
             self._mechState.positionIn = self.getPositionInches()
             self._mechState.velocityInPerSec = self.getVelocityInchesPerSec()
             self._mechState.positionSetpointIn = self._positionSetpoint
-            self._mechState.hookAngleSetpoint = self._hookAngleSetpoint
             self._mechState.hookAngleDegrees = self._servo.getAngle()
 
             if self._mechState.positionSetpointIn <= self._mechState.positionIn:
@@ -258,11 +255,10 @@ class Climber(Subsystem):
         self._elevatorSetpointMech.setLength(self._mechState.positionSetpointIn)
         self._hookMech.setAngle(self._mechState.hookAngleDegrees)
         self._setpointHookMech.setAngle(
-            self._mechState.hookAngleSetpoint.degrees()
+            self._mechState.hookAngleDegrees
         )  # both hook angles should be the same
 
     def simulationPeriodic(self) -> None:
-        return
         if self._positionSetpoint > self._mechState.positionIn:
             # raise
             self._elevatorSim.setInputVoltage(self._motor.get() * 12)
@@ -284,60 +280,47 @@ class Climber(Subsystem):
         self._motorSim.set_rotor_velocity(rotorVel)
 
     def getPositionInches(self) -> inches:
-        return self.getData().positionIn
         return self._getRotationsToInches(self._rawPositionSignal.value_as_double)
 
     def getVelocityInchesPerSec(self) -> inches:
-        return
         return self._getRotationsToInches(self._rawVelocitySignal.value_as_double)
 
     def atSetpoint(self) -> bool:
-        return
         return (
             abs(self._mechState.positionSetpointIn - self._mechState.positionIn)
             < self._tolerance
         )
 
     def setHeightSetpoint(self, height: inches) -> None:
-        return
         self._positionSetpoint = max(min(self._maxHeight, height), self._minHeight)
 
     def setHookSetpointDegrees(self, angle: degrees) -> None:
-        return
         self._hookAngleSetpoint = Rotation2d.fromDegrees(angle)
 
     def deployHook(self) -> None:
-        return
         self.setHookSetpointDegrees(0)
 
     def retractHook(self) -> None:
-        return
         self.setHookSetpointDegrees(90)
 
     def getHookDeployed(self) -> bool:
-        return
         return self._hookAngleSetpoint.degrees() < 85
 
     def _getRotationsToInches(self, rotations: rotation) -> inches:
-        return
         return rotations * self._pulleyDiameter * pi / self._gearRatio
 
     def _getInchesToRotations(self, inches: inches) -> rotation:
-        return
         return inches * self._gearRatio / (self._pulleyDiameter * pi)
 
     def _getFeetToRotations(self, feet: feet) -> rotation:
-        return
         return self._getInchesToRotations(feet * kINCHES_PER_FOOT)
 
     @property
     def minHeight(self) -> inches:
-        return
         return self._minHeight
 
     @property
     def maxHeight(self) -> inches:
-        return
         return self._maxHeight
 
     def getData(self) -> ClimberData:
