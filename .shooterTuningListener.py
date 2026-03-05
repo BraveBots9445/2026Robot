@@ -56,7 +56,6 @@ while True:
             if not setpoint in setpoints:
                 setpoints.append(setpoint)
         prevData = data
-        print("-" * 50)
         orderedSetpointsList = sorted(
             list(setpoints), key=lambda setpoint: setpoint.distanceM
         )
