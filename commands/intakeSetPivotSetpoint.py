@@ -1,5 +1,7 @@
 from commands2 import Command
 from subsystems.intakeV2 import Intake
+from wpimath.geometry import Rotation2d
+
 
 class IntakePivotSetsetpoint(Command):
     def __init__(self, intake: Intake, pivotsetpoint):
@@ -12,7 +14,7 @@ class IntakePivotSetsetpoint(Command):
         pass
 
     def execute(self):
-        self.intake.setpivotsetpoint(self.pivotsetpoint)
+        self.pivotsetpoint = Rotation2d.fromDegrees(self.pivotsetpoint)
         pass
 
     def end(self, interrupted: bool):

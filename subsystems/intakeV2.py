@@ -1,11 +1,17 @@
 from commands2 import Subsystem
+from wpimath.geometry import Rotation2d
 from wpimath.system.plant import DCMotor
-from wpimath.units import radiansToRotations, degrees
+from wpimath.units import radiansToRotations, degrees, inchesToMeters, degreesToRotations
 from wpimath.controller import PIDController
 from wpilib import SmartDashboard
+from wpilib.simulation import SingleJointedArmSim
 from ntcore import NetworkTableInstance
 
+from phoenix6 import configs, signals
 from phoenix6.hardware import TalonFX,CANcoder
+
+
+
 
 class Intake(Subsystem):
     simTalon = DCMotor.krakenX60()
@@ -14,20 +20,30 @@ class Intake(Subsystem):
         self.nettable = NetworkTableInstance.getDefault().getTable("000Intake")
         self.pivotmotor = TalonFX(20)
         self.rollermotor = TalonFX(21)
-        self.rollersetpoint = 0
-        self.pivotsetpoint = 0
+        self.pivotsetpoint = Rotation2d(90)
         self.speed = 0
-        self.angle = 0
-        self.encoder = CANcoder(20)
-        self.rollerPID = PIDController(Kp=0.003, Ki=0, Kd=0)
-        SmartDashboard.putData(self.rollerPID)
-        self.pivotPID = PIDController(Kp=0.131, Ki=0, Kd=0)
+        self.cancoderid = 20
+        self.cancoder = CANcoder(self.cancoderid)
+        self.pivotPID = PIDController(Kp=.10, Ki=0, Kd=0)
+        talonfxconfigurator = self.pivotmotor.configurator
         SmartDashboard.putData(self.pivotPID)
+        SmartDashboard.putData(self)
+        self._gearRatio = 9 / 1
+        self._armSim = SingleJointedArmSim(self.simTalon, self._gearRatio, 0.0161, inchesToMeters(12.5), -float('inf'), float('inf'), True, 0)\
+        
+        fx_cfg = configs.TalonFXConfiguration()
+        fx_cfg.feedback.feedback_remote_sensor_id = self.cancoderid
+        fx_cfg.feedback.feedback_sensor_source = signals.FeedbackSensorSourceValue.REMOTE_CANCODER
+        limit_configs = configs.CurrentLimitsConfigs()
+        limit_configs.stator_current_limit = 120
+        limit_configs.stator_current_limit_enable = True
+
+        talonfxconfigurator = self.pivotmotor.configurator
+        talonfxconfigurator.apply(fx_cfg)
 
     def periodic(self):
         self.nettable.putNumber("roller_motor_velocity", self.rollermotor.get_velocity().value_as_double)
         self.nettable.putNumber("pivot_motor_velocity", self.pivotmotor.get_velocity().value_as_double)
-        self.nettable.putNumber("roller_setpoint", self.rollersetpoint)
         self.nettable.putNumber("pivot_setpoint", self.pivotsetpoint)
         self.nettable.putNumber("pivot_duty_cycle", self.pivotmotor.get())
         self.nettable.putNumber("roller_duty_cycle", self.rollermotor.get())
@@ -40,17 +56,14 @@ class Intake(Subsystem):
         self.nettable.putNumber("pivot_motor_temp", self.pivotmotor.get_device_temp().value_as_double)
         self.nettable.putNumber("roller_motor_temp", self.rollermotor.get_device_temp().value_as_double)
 
-        self.rollerPIDcalcuate=self.rollerPID.calculate(self.get_speed(),self.rollersetpoint)
-        self.pivotPIDcalcuate=self.pivotPID.calculate(self.get_angle(),self.pivotsetpoint)
-        self.nettable.putNumber("rollerPID_calculate", self.rollerPIDcalcuate)
-        self.nettable.putNumber("pivotPID_calculate", self.pivotPIDcalcuate)
-        self.pivotmotor.set(self.pivotPIDcalcuate)
-
-        self.rollermotor.set(self.rollerPIDcalcuate)
-        self.pivotmotor.set(self.pivotPIDcalcuate)
+        pivotPIDcalculate=self.pivotPID.calculate(self.get_angle(),degreesToRotations(self.pivotsetpoint.degrees()))
+        self.nettable.putNumber("pivotPID_calculate", pivotPIDcalculate)
+        self.pivotmotor.set(pivotPIDcalculate)
         
     def simulationPeriodic(self):
-        rotation_rotationsPerSecond = radiansToRotations( self.simTalon.freeSpeed * self.pivotmotor.get() ) 
+        self._armSim.setInputVoltage(self.pivotmotor.get() * 12)
+        self._armSim.update(0.02)
+        rotation_rotationsPerSecond = radiansToRotations( self._armSim.getVelocity() ) * self._gearRatio
         self.pivotmotor.sim_state.add_rotor_position( rotation_rotationsPerSecond * 0.02 )
         self.pivotmotor.sim_state.set_rotor_velocity( rotation_rotationsPerSecond )
 
@@ -65,20 +78,9 @@ class Intake(Subsystem):
         return self.pivotmotor.get_position().value_as_double
 
     def set_speed(self, speed):
-        if speed > 1:
-            speed = 1
-        if speed < -1:
-            speed = -1
-        self.speed = speed
-    def set_angle(self, angle):
-        if angle > 1:
-            angle = 1
-        if angle < -1:
-            angle = -1
-        self.angle = angle
-    
-    def setrollersetpoint(self, rollersetpoint):
-        self.rollersetpoint = rollersetpoint
-    
-    def setpivotsetpoint(self, pivotsetpoint: degrees):
-        self.pivotsetpoint = pivotsetpoint
+        speed = max(min(speed,100),0)
+
+    def set_angle(self, angle :degrees):
+        angle = max(min(angle,110),0)
+
+        self.pivotsetpoint = Rotation2d.fromDegrees(angle)

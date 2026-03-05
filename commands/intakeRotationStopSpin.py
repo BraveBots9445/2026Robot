@@ -1,7 +1,7 @@
 from commands2 import Command
 from subsystems.intake import Intake
 
-class IntakeRoationSpin(Command):
+class IntakeRoationStopSpin(Command):
     def __init__(self, intake: Intake):
         super().__init__()
         self.addRequirements(intake)
@@ -11,7 +11,7 @@ class IntakeRoationSpin(Command):
         pass
 
     def execute(self):
-        self.intake.set_speed(.6)
+        self.intake.set_speed(0)
         pass
 
     def end(self, interrupted: bool):
