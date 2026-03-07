@@ -13,4 +13,4 @@ class ShooterStowHood(Command):
         self.shooter.setHoodAngleSetpoint(self.shooter.minHoodAngle)
 
     def isFinished(self) -> bool:
-        return True
+        return self.shooter.getHoodAngle().degrees() > 45

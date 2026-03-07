@@ -99,7 +99,7 @@ class Turret(Subsystem):
 
     _motorInverted: bool = True
 
-    _gearRatio: float = 4 * 200 / 19
+    _gearRatio: float = 4 * 200 / 20
     """
     The gear ratio of the turret mechanism.
     This is measured as motor rotations / turret rotations.

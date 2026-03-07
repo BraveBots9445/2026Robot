@@ -14,6 +14,8 @@ from wpilib import (
 
 from phoenix6.signal_logger import SignalLogger
 
+from rev import StatusLogger
+
 from robotcontainer import RobotContainer
 
 
@@ -23,11 +25,12 @@ class Robot(TimedCommandRobot):
 
     # Initialize Robot
     def robotInit(self):
-        self.m_robotContainer = RobotContainer()
-        DriverStation.startDataLog(DataLogManager.getLog())
-        if RobotBase.isSimulation():
-            DataLogManager.stop()
+        SignalLogger.enable_auto_logging(False)
         SignalLogger.stop()
+        StatusLogger.disableAutoLogging()
+        self.m_robotContainer = RobotContainer()
+        if RobotBase.isReal():
+            DriverStation.startDataLog(DataLogManager.getLog())
         DriverStation.silenceJoystickConnectionWarning(True)
         self._nettable = NetworkTableInstance.getDefault().getTable("datatable")
         self._timePub = self._nettable.getDoubleTopic("time").publish()

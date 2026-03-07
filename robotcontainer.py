@@ -57,6 +57,9 @@ from generated.tuner_constants import TunerConstants
 
 
 ########## COMMAND IMPORTS ##########
+
+from commands.stateTransitionCommands.toStow import ToStow
+
 from commands.baseCommands.drivetrainDriveFieldOriented import (
     DrivetrainDriveFieldOriented,
 )
@@ -66,6 +69,7 @@ from commands.baseCommands.drivetrainDriveRobotOriented import (
 from commands.baseCommands.drivetrainSpeedHalf import DrivetrainHalfSpeed
 from commands.baseCommands.drivetrainSpeedDouble import DrivetrainDoubleSpeed
 from commands.baseCommands.drivetrainMoveOffset import DrivetrainMoveOffset
+from commands.baseCommands.drivetrainAutoAlignTrench import DrivetrainAutoAlignTrench
 
 from commands.baseCommands.intakeSetAngle import IntakeSetAngle
 from commands.baseCommands.intakeDeploy import IntakeDeploy
@@ -188,8 +192,18 @@ class RobotContainer:
 
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.shooter)
+        SmartDashboard.putData(self.drivetrain)
 
         self.test_remote.back().onTrue(self.turret._tmpResetCommand())
+
+        self.zoneManager.getMustStowTrigger().whileTrue(
+            ToStow(
+                self.climber,
+                self.shooter,
+                self.turret,
+                self.zoneManager.getMustStowBool,
+            )
+        )
 
     def set_teleop_bindings(self) -> None:
         """driver"""
@@ -203,9 +217,21 @@ class RobotContainer:
                 self.drivetrain.getMaxAngularRateDeg,
             )
         )
+        self.zoneManager.getMustStowTrigger(1.25).whileTrue(
+            DrivetrainAutoAlignTrench(
+                self.drivetrain,
+                self.driver_controller.getFRCLX,
+                self.driver_controller.getFRCLY,
+            )
+        )
 
-        self.turret.setDefaultCommand(
-            ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
+        # self.turret.setDefaultCommand(
+        #     ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
+        # )
+        self.shooter.setDefaultCommand(
+            ShootOnMove(
+                self.shooter, self.turret, self.shootOnMoveCalculator
+            ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
         )
 
         # robot oriented on Left stick push hold

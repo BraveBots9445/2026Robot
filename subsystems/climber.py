@@ -292,7 +292,7 @@ class Climber(Subsystem):
         return self._getRotationsToInches(self._rawVelocitySignal.value_as_double)
 
     def atSetpoint(self) -> bool:
-        return
+        return True
         return (
             abs(self._mechState.positionSetpointIn - self._mechState.positionIn)
             < self._tolerance
@@ -315,7 +315,7 @@ class Climber(Subsystem):
         self.setHookSetpointDegrees(90)
 
     def getHookDeployed(self) -> bool:
-        return
+        return False
         return self._hookAngleSetpoint.degrees() < 85
 
     def _getRotationsToInches(self, rotations: rotation) -> inches:

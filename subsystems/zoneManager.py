@@ -5,7 +5,7 @@ from commands2.button import Trigger
 
 from ntcore import NetworkTableInstance, NetworkTable, StructPublisher
 
-from wpimath.units import inchesToMeters, seconds
+from wpimath.units import inchesToMeters, meters, seconds
 from wpimath.geometry import Translation2d, Rectangle2d, Pose2d, Rotation2d, Pose3d
 
 from wpiutil.wpistruct import make_wpistruct
@@ -36,11 +36,14 @@ class ZoneManager(Subsystem):
 
     _nettable: NetworkTable
 
+    _trenchLength: meters = inchesToMeters(67.0)
+    _trenchWidth: meters = inchesToMeters(59.84)
+
     _trenchZones = [
         Rectangle2d(
             Pose2d(inchesToMeters(182.11), inchesToMeters(49.84 / 2), Rotation2d()),
-            inchesToMeters(47.0),
-            inchesToMeters(49.84),
+            _trenchLength,
+            _trenchWidth,
         ),
         Rectangle2d(
             Pose2d(
@@ -48,8 +51,17 @@ class ZoneManager(Subsystem):
                 Rebuilt.Width - inchesToMeters(49.84 / 2),
                 Rotation2d(),
             ),
-            inchesToMeters(47.0),
-            inchesToMeters(49.84),
+            _trenchLength,
+            _trenchWidth,
+        ),
+        Rectangle2d(
+            Pose2d(
+                Rebuilt.Length - inchesToMeters(182.11),
+                inchesToMeters(49.84 / 2),
+                Rotation2d(),
+            ),
+            _trenchLength,
+            _trenchWidth,
         ),
         Rectangle2d(
             Pose2d(
@@ -57,17 +69,8 @@ class ZoneManager(Subsystem):
                 Rebuilt.Width - inchesToMeters(49.84 / 2),
                 Rotation2d(),
             ),
-            inchesToMeters(47.0),
-            inchesToMeters(49.84),
-        ),
-        Rectangle2d(
-            Pose2d(
-                Rebuilt.Length - inchesToMeters(182.11),
-                Rebuilt.Width - inchesToMeters(49.84 / 2),
-                Rotation2d(),
-            ),
-            inchesToMeters(47.0),
-            inchesToMeters(49.84),
+            _trenchLength,
+            _trenchWidth,
         ),
     ]
 
@@ -103,10 +106,10 @@ class ZoneManager(Subsystem):
         self._state.onRight = not self._state.onLeft
         self._statePub.set(self._state)
 
-    def getMustStowTrigger(self) -> Trigger:
-        return Trigger(self.getMustStowBool)
+    def getMustStowTrigger(self, time: seconds = 0.75) -> Trigger:
+        return Trigger(lambda: self.getMustStowBool(time))
 
-    def _willMustStow(self, time: seconds = 0.5) -> bool:
+    def _willMustStow(self, time: seconds = 0.75) -> bool:
         # TODO: If we are on the bump and drive towards the trench, this will trigger must stow even though we are not in the trench.
         # This should be fine, so we will just test and see if behavior is bad.
         # solution is to ignore if we are moving to the outside of the field within a certain x range
@@ -174,9 +177,8 @@ class ZoneManager(Subsystem):
 
         return False
 
-    def getMustStowBool(self) -> bool:
-        pose = self._drivetrain.get_state().pose
-        return self._getMustStowBool(pose)
+    def getMustStowBool(self, time: seconds = 0.75) -> bool:
+        return self._willMustStow(time)
 
     def _getMustStowBool(self, pose: Pose2d) -> bool:
         for zone in self._trenchZones:

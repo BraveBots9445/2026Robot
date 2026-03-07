@@ -15,6 +15,7 @@ from wpilib import (
     MechanismLigament2d,
     SmartDashboard,
     Color8Bit,
+    RobotBase,
 )
 from wpilib.simulation import FlywheelSim, SingleJointedArmSim
 
@@ -131,7 +132,7 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (flywheel rotations) 
     """
 
-    _hoodGearRatio: float = 1 / 9
+    _hoodGearRatio: float = 9 / 1
     """
     The gear ratio between the hood motor and the hood output. 
     This is calculated as (motor rotations) / (hood rotations)
@@ -156,7 +157,7 @@ class Shooter(Subsystem):
 
     _hoodArmLength: meters = inchesToMeters(9.5)
 
-    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(0)
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(-10)
     """
     The minimum angle of the hood. This is where the hood is fully retracted
     """
@@ -167,9 +168,9 @@ class Shooter(Subsystem):
     """
 
     # hood PIDs
-    _hoodP: float = 9.0
-    _hoodI: float = 0.0
-    _hoodD: float = 0.0
+    _hoodP: float = 9.0 if RobotBase.isReal() else 0.25
+    _hoodI: float = 0.0 if RobotBase.isReal() else 0.0
+    _hoodD: float = 0.0 if RobotBase.isReal() else 0.0
 
     _hoodkG: float = 0.2
 
@@ -341,12 +342,12 @@ class Shooter(Subsystem):
 
         self._hoodSim = SingleJointedArmSim(
             DCMotor.NEO550(),
-            1 / self._hoodGearRatio,
+            self._hoodGearRatio,
             self._hoodMOI,
             self._hoodArmLength,
             -float("inf"),
             float("inf"),
-            True,
+            False,
             self._hoodMinAngle.radians(),
         )
 
@@ -368,10 +369,7 @@ class Shooter(Subsystem):
         flywheelVelocity = self.getFlywheelVelocity()
         desiredFlywheelVelocity = self.getFlywheelSetpoint()
         hoodAngleSetpoint = self.getHoodAngleSetpoint()
-        hoodAngle = (
-            Rotation2d.fromRotations(self._hoodEncoder.getPosition())
-            + self._hoodMinAngle
-        )
+        hoodAngle = Rotation2d.fromRotations(self._hoodEncoder.getPosition())
 
         with self._lock:
             self._data.actualFlywheelSpeedRpm = flywheelVelocity
@@ -400,7 +398,7 @@ class Shooter(Subsystem):
             self._flywheelMotor.set_control(self._velocityVoltageRequest)
 
         self._hoodMotorClosedLoop.setSetpoint(
-            (self._hoodAngleSetpoint - self._hoodMinAngle).degrees() / 360,
+            self._hoodAngleSetpoint.degrees() / 360,
             SparkMax.ControlType.kPosition,
         )
 
@@ -408,7 +406,6 @@ class Shooter(Subsystem):
         self._flywheelSim.setInputVoltage(
             self._flywheelMotor.get_motor_voltage().value_as_double
         )
-        self._flywheelSim.update(0.02)
 
         self._flywheelMotorSimState.set_rotor_velocity(
             radiansToRotations(self._flywheelSim.getAngularVelocity())
@@ -418,10 +415,9 @@ class Shooter(Subsystem):
         self._hoodSim.setInputVoltage(
             self._hoodMotor.getAppliedOutput() * self._hoodMotor.getBusVoltage()
         )
-        self._hoodSim.update(0.02)
 
         hoodVelocity = (
-            radiansToRotations(self._hoodSim.getVelocity()) / self._hoodGearRatio
+            radiansToRotations(self._hoodSim.getVelocity()) * self._hoodGearRatio
         )
 
         self._hoodMotorSim.iterate(
@@ -430,6 +426,9 @@ class Shooter(Subsystem):
             0.02,
         )
         self._hoodEncoderSim.iterate(hoodVelocity, 0.02)
+
+        self._hoodSim.update(0.02)
+        self._flywheelSim.update(0.02)
 
     def setFlywheelSetpoint(self, setpoint: revolutions_per_minute) -> None:
         """
