@@ -14,21 +14,6 @@ from wpilib import Notifier
 
 from wpiutil.wpistruct import make_wpistruct
 
-from commands.stateTransitionCommands.aimToShoot import AimToShoot
-from commands.stateTransitionCommands.shootToAim import ShootToAim
-from commands.stateTransitionCommands.climbLowToIntake import ClimbLowToIntake
-from commands.stateTransitionCommands.intakeToClimbLow import IntakeToClimbLow
-from commands.stateTransitionCommands.intakeToClimbHigh import IntakeToClimbHigh
-from commands.stateTransitionCommands.intakeToNone import IntakeToNone
-from commands.stateTransitionCommands.toStow import ToStow
-from commands.stateTransitionCommands.noneToClimbLow import NoneToClimbLow
-from commands.stateTransitionCommands.noneToClimbHigh import NoneToClimbHigh
-from commands.stateTransitionCommands.noneToIntake import NoneToIntake
-from commands.stateTransitionCommands.climbLowToClimbHigh import ClimbLowToClimbHigh
-from commands.stateTransitionCommands.noneToShoot import NoneToShoot
-from commands.stateTransitionCommands.noneToAim import NoneToAim
-from commands.stateTransitionCommands.aimToNone import AimToNone
-
 from subsystems import (
     CommandSwerveDrivetrain,
     Shooter,
@@ -38,7 +23,6 @@ from subsystems import (
     Woahval,
     Climber,
     Intake,
-    PassiveHooks,
     ShootOnMoveCalculator,
 )
 
@@ -80,7 +64,6 @@ class StateManager(Subsystem):
     _woahval: Woahval
     _climber: Climber
     _intake: Intake
-    _passiveHooks: PassiveHooks
     _shootOnMoveCalculator: ShootOnMoveCalculator
 
     _nettable: NetworkTable
@@ -138,7 +121,6 @@ class StateManager(Subsystem):
         woahval: Woahval,
         climber: Climber,
         intake: Intake,
-        passiveHooks: PassiveHooks,
         shootOnMoveCalculator: ShootOnMoveCalculator,
     ):
         self._drivetrain = drivetrain
@@ -149,7 +131,6 @@ class StateManager(Subsystem):
         self._woahval = woahval
         self._climber = climber
         self._intake = intake
-        self._passiveHooks = passiveHooks
         self._shootOnMoveCalculator = shootOnMoveCalculator
 
         self._nettable = NetworkTableInstance.getDefault().getTable("000State")
@@ -186,6 +167,8 @@ class StateManager(Subsystem):
                 self._extendingState = ExtendingState.INTAKING
             return startState
 
+        return
+
         return SelectCommand(
             {
                 ExtendingState.NONE: NoneToIntake(self._intake),
@@ -207,6 +190,8 @@ class StateManager(Subsystem):
                 # not all states becuase we don't want to override climbing
             return startState
 
+        return
+
         return SelectCommand(
             {
                 ExtendingState.NONE: cmd.none(),  # not intaking, do nothing
@@ -222,6 +207,8 @@ class StateManager(Subsystem):
             startState = self._extendingState
             self._extendingState = ExtendingState.CLIMBING_LOW
             return startState
+
+        return
 
         return SelectCommand(
             {
@@ -240,6 +227,8 @@ class StateManager(Subsystem):
             startState = self._extendingState
             self._extendingState = ExtendingState.CLIMBING_HIGH
             return startState
+
+        return
 
         return SelectCommand(
             {
@@ -261,6 +250,8 @@ class StateManager(Subsystem):
             self._shootingState = ShootingState.STOWED
             return 0
 
+        return
+
         return SelectCommand(
             {0: ToStow(self._intake, self._climber, self._shooter)},
             lambda: update(),
@@ -271,6 +262,8 @@ class StateManager(Subsystem):
             startState = self._shootingState
             self._shootingState = ShootingState.AIMING
             return startState
+
+        return
 
         return SelectCommand(
             {
@@ -309,6 +302,7 @@ class StateManager(Subsystem):
             self._shootingState = ShootingState.SHOOTING
             return startState
 
+        return
         return SelectCommand(
             {
                 ShootingState.NONE: NoneToShoot(
@@ -345,6 +339,8 @@ class StateManager(Subsystem):
             startState = self._shootingState
             self._shootingState = ShootingState.NONE
             return startState
+
+        return
 
         return SelectCommand(
             {

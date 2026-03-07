@@ -107,7 +107,6 @@ class RobotContainer:
         self.kicker = Kicker()
         self.indexer = Indexer()
         self.woahval = Woahval()
-        self.passiveHooks = PassiveHooks()
 
         self.visualizer3d = Visualizer3D(
             lambda: Transform3d(
@@ -153,7 +152,6 @@ class RobotContainer:
             self.woahval,
             self.climber,
             self.intake,
-            self.passiveHooks,
             self.shootOnMoveCalculator,
         )
 
