@@ -13,7 +13,7 @@ class Rebuilt:
     Rotation: Rotation3d = Rotation3d.fromDegrees(0.0, 0.0, 180.0)
 
     @staticmethod
-    def getPosition(position: RebuiltPositions) -> Pose3d:
+    def getPosition(position: RebuiltPositions | Pose3d) -> Pose3d:
         pose: Pose3d = position
         if DriverStation.getAlliance() == DriverStation.Alliance.kRed:
             pose = pose.rotateAround(Rebuilt.Translation, Rebuilt.Rotation)

@@ -10,5 +10,6 @@ class IntakeDeploy(SequentialCommandGroup):
     def __init__(self, intake: Intake):
         super().__init__(
             IntakeSetRollerSpeed(intake, 0.68),
-            IntakeSetAngle(intake, -5),
+            # IntakeSetRollerSpeed(intake, 1.0),
+            IntakeSetAngle(intake, 0),
         )

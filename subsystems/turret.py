@@ -27,6 +27,7 @@ from wpilib import (
     Color8Bit,
     RobotState,
     SmartDashboard,
+    RobotBase,
 )
 from wpilib.simulation import DCMotorSim, SingleJointedArmSim
 
@@ -105,9 +106,9 @@ class Turret(Subsystem):
     """
 
     # motor PID gains
-    _motorP: float = 4.0
-    _motorI: float = 0.0
-    _motorD: float = 0.25
+    _motorP: float = 4.0 if RobotBase.isReal() else 2.0
+    _motorI: float = 0.0 if RobotBase.isReal() else 0.0
+    _motorD: float = 0.25 if RobotBase.isReal() else 0.125
 
     _canCoderConfig: CANcoderConfiguration
     """
@@ -153,7 +154,7 @@ class Turret(Subsystem):
     The simulation model for the turret motor.
     """
 
-    _turretMOI: kilogram_square_meters = 0.01
+    _turretMOI: kilogram_square_meters = 0.30
     """
     The moment of inertia of the turret.
     This should come from CAD
@@ -249,7 +250,7 @@ class Turret(Subsystem):
     def simulationPeriodic(self) -> None:
         self._turretSim.setInputVoltage(self._motor.getAppliedOutput() * 12)
 
-        mechVel = self._turretSim.getVelocity() / self._gearRatio
+        mechVel = self._turretSim.getVelocity() * self._gearRatio
 
         self._motorSim.iterate(mechVel, 12, 0.02)
         self._motorSim.setMotorCurrent(self._turretSim.getCurrentDraw())

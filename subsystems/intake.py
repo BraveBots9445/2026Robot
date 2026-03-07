@@ -336,14 +336,14 @@ class Intake(Subsystem):
         self._pivotAngleMech.setAngle(pivotPosition.degrees())
         self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
-        if self._pivotSetpoint.degrees() > 10:
-            self._positionDutyCycleRequest.position = radiansToRotations(
-                self._pivotSetpoint.radians()
-            )
-            self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
-            self._pivotMotor.set_control(self._positionDutyCycleRequest)
-        else:
-            self._pivotMotor.set(-0.25)
+        # if self._pivotSetpoint.degrees() > 10:
+        #     self._positionDutyCycleRequest.position = radiansToRotations(
+        #         self._pivotSetpoint.radians()
+        #     )
+        #     self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
+        #     self._pivotMotor.set_control(self._positionDutyCycleRequest)
+        # else:
+        #     self._pivotMotor.set(-0.25)
         self._rollerMotor.set(self._rollerSetpoint)
 
     def simulationPeriodic(self) -> None:

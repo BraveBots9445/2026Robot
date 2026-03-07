@@ -87,7 +87,7 @@ from commands import ShooterTuneDistance
 from tools.CommandXboxController9445 import CommandController9445
 from tools.rebuilt import Rebuilt, RebuiltPositions
 
-from subsystems.stateManger import StateManager
+from subsystems.zoneManager import ZoneManager
 
 
 class RobotContainer:
@@ -160,18 +160,7 @@ class RobotContainer:
             / self.fuelShootingVisualizer._kEnergyTransferEfficiency,
         )
 
-        self.stateManger = StateManager(
-            self.drivetrain,
-            self.shooter,
-            self.turret,
-            self.kicker,
-            self.indexer,
-            self.woahval,
-            self.climber,
-            self.intake,
-            self.passiveHooks,
-            self.shootOnMoveCalculator,
-        )
+        self.zoneManager = ZoneManager(self.drivetrain)
 
         self.braveLogger = BraveLogger()
 
@@ -195,9 +184,7 @@ class RobotContainer:
             ).ignoringDisable(True)
         ).ignoringDisable(True).schedule()
 
-        Trigger(RobotState.isEnabled).onTrue(
-            self.stateManger.resetAllianceZoneCommand()
-        )
+        Trigger(RobotState.isEnabled).onTrue(self.zoneManager.resetZonesCommand())
 
         SmartDashboard.putData(self.auto_chooser)
         SmartDashboard.putData(self.shooter)
@@ -267,23 +254,27 @@ class RobotContainer:
         self.operator_controller.povLeft().onTrue(self.turret.dumpManualOffsetCommand())
 
     def set_test_bindings(self) -> None:
-        self.shooter.setDefaultCommand(
-            ShooterTuneDistance(
-                self.shooter,
-                self.test_remote.getFRCLX,
-                self.test_remote.getFRCRX,
-                self.test_remote.rightTrigger().getAsBoolean,
-                lambda: Pose3d(self.drivetrain.get_state().pose)
-                .translation()
-                .distance(Rebuilt.getPosition(RebuiltPositions.Hub).translation()),
-            )
-        )
+        # self.shooter.setDefaultCommand(
+        #     ShooterTuneDistance(
+        #         self.shooter,
+        #         self.test_remote.getFRCLX,
+        #         self.test_remote.getFRCRX,
+        #         self.test_remote.rightTrigger().getAsBoolean,
+        #         lambda: Pose3d(self.drivetrain.get_state().pose)
+        #         .translation()
+        #         .distance(Rebuilt.getPosition(RebuiltPositions.Hub).translation()),
+        #     )
+        # )
+
+        # self.test_remote.rightTrigger().onTrue(
+        #     WaitCommand(2.0).andThen(
+        #         DrivetrainMoveOffset(self.drivetrain, Transform2d(0.5, 0, Rotation2d()))
+        #     )
+        # )
 
         self.test_remote.rightTrigger().onTrue(
-            WaitCommand(2.0).andThen(
-                DrivetrainMoveOffset(self.drivetrain, Transform2d(0.5, 0, Rotation2d()))
-            )
-        )
+            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
 
     def set_pp_named_commands(self) -> None:
         """
