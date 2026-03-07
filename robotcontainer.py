@@ -1,78 +1,179 @@
+########## STANDARD LIBRARY IMPORTS ##########
+from math import pi
+
+########## WPILIB IMPORTS ##########
 from commands2 import (
     Command,
+    RepeatCommand,
+    WaitCommand,
+    SequentialCommandGroup,
     InstantCommand,
+    DeferredCommand,
 )
-from phoenix6 import swerve
+from commands2.button import CommandXboxController, Trigger
 
-from wpimath import applyDeadband
-from wpimath.geometry import Transform2d, Rotation2d
+from wpimath.geometry import (
+    Transform2d,
+    Rotation2d,
+    Transform3d,
+    Pose2d,
+    Translation3d,
+    Rotation3d,
+)
 from wpimath.units import inchesToMeters
 
+from wpilib import RobotState
+
 from subsystems.vision import Vision
-from commands.intakeIntake import IntakeIntake
-from commands.intakeRotationSpin import IntakeRoationSpin
-from commands.intakeSetPivotSetpoint import IntakePivotSetsetpoint
-from commands.intakeSetRollerSetpoint import IntakeRollerSetsetpoint
-from subsystems.intakeV2 import Intake
+from subsystems.visualizer3d import Visualizer3D
+from subsystems.BraveLogger import BraveLogger
+
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
-
-from commands2.button import CommandXboxController
 
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
 
 from wpilib import PowerDistribution, SmartDashboard
 
-from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
+from wpimath.geometry import (
+    Rotation2d,
+    Pose2d,
+    Pose3d,
+    Transform3d,
+    Transform2d,
+)
+from wpimath.units import inchesToMeters
+
+########## VENDOR (etc) IMPORTS ##########
+from pathplannerlib.auto import AutoBuilder, NamedCommands
+
+
+########## SUBSYSTEM IMPORTS ##########
+from subsystems import *
+
+from telemetry import Telemetry
+from generated.tuner_constants import TunerConstants
+
+
+########## COMMAND IMPORTS ##########
+from commands.baseCommands.drivetrainDriveFieldOriented import (
+    DrivetrainDriveFieldOriented,
+)
+from commands.baseCommands.drivetrainDriveRobotOriented import (
+    DrivetrainDriveRobotOriented,
+)
+from commands.baseCommands.drivetrainSpeedHalf import DrivetrainHalfSpeed
+from commands.baseCommands.drivetrainSpeedDouble import DrivetrainDoubleSpeed
+from commands.baseCommands.drivetrainMoveOffset import DrivetrainMoveOffset
+
+from commands.baseCommands.intakeSetAngle import IntakeSetAngle
+from commands.baseCommands.intakeDeploy import IntakeDeploy
+from commands.baseCommands.intakeRetract import IntakeRetract
+from commands.baseCommands.woahvalScore import WoahvalScore
+from commands.baseCommands.woahvalStop import WoahvalStop
+from commands.baseCommands.indexerScore import IndexerScore
+from commands.baseCommands.indexerStop import IndexerStop
+from commands.baseCommands.turretSetAngle import TurretSetAngle
+from commands.baseCommands.shootOnMove import ShootOnMove
+from commands.baseCommands.shootStatic import ShootStatic
+from commands.baseCommands.intakeSetRollerSpeed import IntakeSetRollerSpeed
+from commands.baseCommands.indexerDejam import IndexerDejam
+from commands.baseCommands.indexerShoot import IndexerShoot
+
+from commands import ShooterTuneDistance
+
+########## TEAM IMPORTS ##########
+from tools.CommandXboxController9445 import CommandController9445
+from tools.rebuilt import Rebuilt, RebuiltPositions
+
+from subsystems.stateManger import StateManager
 
 
 class RobotContainer:
     _max_speed_percent = ntproperty("MaxVelocityPercent", 1.0)
     _max_angular_rate_percent = ntproperty("MaxOmegaPercent", 1.0)
 
-    _max_speed = TunerConstants.speed_at_12_volts
-    _max_angular_rate = 0.75  # radians per second
-
     def __init__(self) -> None:
-        self.driver_controller = CommandXboxController(0)
-        self.operator_controller = CommandXboxController(1)
+        self.driver_controller = CommandController9445(0)
+        self.operator_controller = CommandController9445(1)
+        self.test_remote = CommandController9445(2)
+
         self.pdh = PowerDistribution()
         self.pdh.setSwitchableChannel(True)
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
 
-        self.level = 1
-
-        # Setting up bindings for necessary control of the swerve drive platform
-        self._drive = (
-            swerve.requests.FieldCentric()
-            .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(
-                swerve.SwerveModule.DriveRequestType.OPEN_LOOP_VOLTAGE
-            )
-        )  # Use open-loop control for drive motors
-
-        self._robot_drive = (
-            swerve.requests.RobotCentric()
-            .with_deadband(0)  # deadband is handled in get_velocity_x/y
-            .with_drive_request_type(
-                swerve.SwerveModule.DriveRequestType.OPEN_LOOP_VOLTAGE
-            )
-        )  # Use open-loop control for drive motors
-
-        self._brake = swerve.requests.SwerveDriveBrake()
-        self._point = swerve.requests.PointWheelsAt()
-
-        self._logger = Telemetry(self._max_speed)
-
         self.drivetrain = TunerConstants.create_drivetrain()
-        self.intake = Intake()
+        self._logger = Telemetry(self.drivetrain.getMaxSpeed())
 
-        #self.vision = Vision(
-         #   self.drivetrain.add_vision_measurement,
-          #  lambda: self.drivetrain.get_state().pose,
-           # lambda: self.drivetrain.get_state().speeds,
-        #)
+        self.vision = Vision(
+            lambda pose, timestamp, standardDevs: self.drivetrain.add_vision_measurement(
+                Pose2d(pose.X(), pose.Y(), pose.rotation().toRotation2d()),
+                timestamp,
+                standardDevs,
+            ),
+            lambda: self.drivetrain.get_state().speeds,
+            lambda: self.drivetrain.get_state().pose,
+        )
+
+        self.shooter = Shooter()
+        self.turret = Turret()
+        self.intake = Intake()
+        self.climber = Climber()
+        self.kicker = Kicker()
+        self.indexer = Indexer()
+        self.woahval = Woahval()
+        self.passiveHooks = PassiveHooks()
+
+        self.visualizer3d = Visualizer3D(
+            lambda: Transform3d(
+                Translation3d(0, 0, inchesToMeters(self.climber.getPositionInches())),
+                Rotation3d(0, 0, 0),
+            ),
+            lambda: Transform3d(
+                Translation3d(), Rotation3d(0, -self.intake.getAngle().radians(), 0)
+            ),
+            lambda: Transform3d(),
+            lambda: Transform3d(Translation3d(), Rotation3d(self.turret.getRotation())),
+            self.shooter.getHoodAngle,
+        )
+
+        self.fuelShootingVisualizer = FuelShootingVisualizer(
+            lambda: Pose3d(self.drivetrain.get_state().pose),
+            lambda: self.drivetrain.get_state().speeds,
+            self.turret.getRotation,
+            self.shooter.getHoodAngle,
+            lambda: self.shooter.getFlywheelVelocity(),
+            inchesToMeters(2),
+            self.visualizer3d.transform3dToTurret,
+        )
+
+        self.shootOnMoveCalculator = ShootOnMoveCalculator(
+            lambda: Pose3d(self.drivetrain.get_state().pose),
+            lambda: self.drivetrain.get_state().speeds,
+            self.visualizer3d.transform3dToTurret,
+            lambda omega: omega
+            * inchesToMeters(2)
+            * 2
+            * pi
+            / 60
+            / self.fuelShootingVisualizer._kEnergyTransferEfficiency,
+        )
+
+        self.stateManger = StateManager(
+            self.drivetrain,
+            self.shooter,
+            self.turret,
+            self.kicker,
+            self.indexer,
+            self.woahval,
+            self.climber,
+            self.intake,
+            self.passiveHooks,
+            self.shootOnMoveCalculator,
+        )
+
+        self.braveLogger = BraveLogger()
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -82,109 +183,107 @@ class RobotContainer:
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
-        SmartDashboard.putData(self.auto_chooser)
-        SmartDashboard.putData(self.drivetrain)
-
-    def get_velocity_x(self) -> float:
-        # x and y are swapped in wpilib vs/common convention
-        # this is considered a rotation about the joystick, so forwards is negative
-        x = -applyDeadband(self.driver_controller.getLeftY(), 0.05)
-        return x * abs(x) * self._max_speed * self._max_speed_percent
-
-    def get_velocity_y(self) -> float:
-        # x and y are swapped in wpilib vs/common convention
-        # West/left is positive in wpilib, not on controller
-        y = -applyDeadband(self.driver_controller.getLeftX(), 0.05)
-        return y * abs(y) * self._max_speed * self._max_speed_percent
-
-    def get_angular_rate(self) -> float:
-        t = -applyDeadband(self.driver_controller.getRightX(), 0.05)
-        return t * abs(t) * self._max_angular_rate * self._max_angular_rate_percent
-
-    def get_pathfind_constraints(self) -> PathConstraints:
-        return PathConstraints(
-            self._max_speed * self._max_speed_percent * 2,
-            1,
-            self._max_angular_rate * self._max_angular_rate_percent * 3,
-            1,
+        self.drivetrain.reset_pose(
+            Rebuilt.getPosition(
+                RebuiltPositions.Hub
+                + Transform3d(Translation3d(-1, 0, 0), Rotation3d())
+            ).toPose2d()
         )
+        RepeatCommand(
+            SequentialCommandGroup(
+                self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
+            ).ignoringDisable(True)
+        ).ignoringDisable(True).schedule()
+
+        Trigger(RobotState.isEnabled).onTrue(
+            self.stateManger.resetAllianceZoneCommand()
+        )
+
+        SmartDashboard.putData(self.auto_chooser)
+        SmartDashboard.putData(self.shooter)
+
+        self.test_remote.back().onTrue(self.turret._tmpResetCommand())
 
     def set_teleop_bindings(self) -> None:
         """driver"""
         self.drivetrain.setDefaultCommand(
-            self.drivetrain.apply_request(
-                lambda: self._drive.with_velocity_x(self.get_velocity_x())
-                .with_velocity_y(self.get_velocity_y())
-                .with_rotational_rate(self.get_angular_rate())
+            DrivetrainDriveFieldOriented(
+                self.drivetrain,
+                self.driver_controller.getFRCLX,
+                self.driver_controller.getFRCLY,
+                lambda: -self.driver_controller.getFRCRY(),
+                self.drivetrain.getMaxSpeed,
+                self.drivetrain.getMaxAngularRateDeg,
             )
+        )
+
+        self.turret.setDefaultCommand(
+            ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
         )
 
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(
-            self.drivetrain.apply_request(
-                lambda: self._robot_drive.with_velocity_x(self.get_velocity_x())
-                .with_velocity_y(self.get_velocity_y())
-                .with_rotational_rate(self.get_angular_rate())
+            DrivetrainDriveRobotOriented(
+                self.drivetrain,
+                self.driver_controller.getFRCLX,
+                self.driver_controller.getFRCLY,
+                self.driver_controller.getFRCRY,
+                self.drivetrain.getMaxSpeed,
+                self.drivetrain.getMaxAngularRateDeg,
             )
         )
 
-        # slow mode and defense mode
-        def half_speed():
-            self._max_speed_percent /= 2
-            self._max_angular_rate_percent /= 2
-
-        def double_speed():
-            self._max_speed_percent *= 2
-            self._max_angular_rate_percent *= 2
-
         # slow mode
-        self.driver_controller.leftTrigger().onTrue(InstantCommand(half_speed)).onFalse(
-            InstantCommand(double_speed)
+        self.driver_controller.leftTrigger().onTrue(
+            DrivetrainHalfSpeed(self.drivetrain)
         )
 
         # defense mode
         self.driver_controller.rightTrigger().onTrue(
-            InstantCommand(double_speed)
-        ).onFalse(InstantCommand(half_speed))
+            DrivetrainDoubleSpeed(self.drivetrain)
+        )
 
-       # self.driver_controller.x().onTrue(
-        #    self.vision.toggle_vision_measurements_command()
-        #)
+        self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
+
+        self.driver_controller.a().whileTrue(IntakeDeploy(self.intake)).onFalse(
+            IntakeSetRollerSpeed(self.intake, 0)
+        )
 
         """Operator"""
-        """
-        Insert code here for the secondary driver
-        """
-        self.operator_controller.rightTrigger().whileTrue(
-            IntakeIntake(self.intake)
-        )
-        self.operator_controller.leftTrigger().whileTrue(
-            IntakeRoationSpin(self.intake)
-        )
-        self.operator_controller.b().whileTrue(
-            IntakeRollerSetsetpoint(self.intake, -5.2)
-         )
-        self.operator_controller.a().whileTrue(
-            IntakeRollerSetsetpoint(self.intake, 0)
-         )
-        self.operator_controller.y().whileTrue(
-            IntakeRollerSetsetpoint(self.intake, 3.1415926)
-         )
-        self.operator_controller.x().whileTrue(
-            IntakePivotSetsetpoint(self.intake, 0)
-         )
-        self.operator_controller.rightBumper().whileTrue(
-            IntakePivotSetsetpoint(self.intake, 5)
-         )
-        self.operator_controller.leftBumper().whileTrue(
-            IntakePivotSetsetpoint(self.intake, -5)
-         )
+        self.operator_controller.rightTrigger().onTrue(
+            IndexerShoot(self.indexer)
+        ).onFalse(IndexerStop(self.indexer))
 
+        self.operator_controller.leftTrigger().onTrue(
+            WoahvalScore(self.woahval)
+        ).onFalse(WoahvalStop(self.woahval))
 
+        self.operator_controller.povUp().onTrue(self.shooter.bumpFudgeCommand())
+        self.operator_controller.povDown().onTrue(self.shooter.dumpFudgeCommand())
+
+        self.operator_controller.povRight().onTrue(
+            self.turret.bumpManualOffsetCommand()
+        )
+        self.operator_controller.povLeft().onTrue(self.turret.dumpManualOffsetCommand())
 
     def set_test_bindings(self) -> None:
-        # will be sysid testing for drivetrain (+others?) sometime
-        self.test_remote = CommandXboxController(2)
+        self.shooter.setDefaultCommand(
+            ShooterTuneDistance(
+                self.shooter,
+                self.test_remote.getFRCLX,
+                self.test_remote.getFRCRX,
+                self.test_remote.rightTrigger().getAsBoolean,
+                lambda: Pose3d(self.drivetrain.get_state().pose)
+                .translation()
+                .distance(Rebuilt.getPosition(RebuiltPositions.Hub).translation()),
+            )
+        )
+
+        self.test_remote.rightTrigger().onTrue(
+            WaitCommand(2.0).andThen(
+                DrivetrainMoveOffset(self.drivetrain, Transform2d(0.5, 0, Rotation2d()))
+            )
+        )
 
     def set_pp_named_commands(self) -> None:
         """

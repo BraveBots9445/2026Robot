@@ -20,7 +20,7 @@ class Intake(Subsystem):
         self.nettable = NetworkTableInstance.getDefault().getTable("000Intake")
         self.pivotmotor = TalonFX(20)
         self.rollermotor = TalonFX(21)
-        self.pivotsetpoint = Rotation2d(90)
+        self.pivotsetpoint = Rotation2d.fromDegrees(90)
         self.speed = 0
         self.cancoderid = 20
         self.cancoder = CANcoder(self.cancoderid)
@@ -38,8 +38,8 @@ class Intake(Subsystem):
         limit_configs.stator_current_limit = 120
         limit_configs.stator_current_limit_enable = True
 
-        talonfxconfigurator = self.pivotmotor.configurator
         talonfxconfigurator.apply(fx_cfg)
+        talonfxconfigurator.apply(limit_configs)
 
     def periodic(self):
         self.nettable.putNumber("roller_motor_velocity", self.rollermotor.get_velocity().value_as_double)
@@ -78,7 +78,7 @@ class Intake(Subsystem):
         return self.pivotmotor.get_position().value_as_double
 
     def set_speed(self, speed):
-        speed = max(min(speed,100),0)
+        speed = max(min(speed,1),-1)
 
     def set_angle(self, angle :degrees):
         angle = max(min(angle,110),0)

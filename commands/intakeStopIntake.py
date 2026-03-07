@@ -1,7 +1,7 @@
 from commands2 import Command
 from subsystems.intakeV2 import Intake
 
-class IntakeRoationStopSpin(Command):
+class IntakeIntake(Command):
     def __init__(self, intake: Intake):
         super().__init__()
         self.addRequirements(intake)

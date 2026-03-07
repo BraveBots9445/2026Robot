@@ -1,5 +1,5 @@
 from commands2 import Command
-from subsystems.intake import Intake
+from subsystems.intakeV2 import Intake
 
 class IntakeRoationSpin(Command):
     def __init__(self, intake: Intake):
