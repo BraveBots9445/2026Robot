@@ -1,6 +1,6 @@
 {
     "name": "Cool",
-    "disableSimplification": true,
+    "disableSimplification": false,
     "rotations": [
         {
             "axis": "x",
