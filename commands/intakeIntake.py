@@ -1,0 +1,22 @@
+from commands2 import Command
+from subsystems.intakeV2 import Intake
+
+class IntakeIntake(Command):
+    def __init__(self, intake: Intake):
+        super().__init__()
+        self.addRequirements(intake)
+        self.intake = intake
+
+    def initialize(self):
+        pass
+
+    def execute(self):
+        self.intake.set_speed(.6)
+        pass
+
+    def end(self, interrupted: bool):
+        self.intake.set_speed(0)
+        pass
+
+    def isFinished(self) -> bool:
+        return False

@@ -5,7 +5,7 @@ Copy this file and write your own commands based on it. This file should not be 
 from commands2 import Command
 
 
-class CommandTemplate(Command):
+class CommandName(Command):
     def __init__(self):
         super().__init__()
         # Use addRequirements() here to declare subsystem dependencies.

@@ -26,4 +26,9 @@ components = [
 
 # Other pip packages to install, such as vendor packages (each element
 # is equivalent to a line in requirements.txt)
-requires = []
+requires = [
+    "photonlibpy==2026.1.1rc4",
+    "robotpy-pathplannerlib==2026.1.1",
+    "robotpy-rev==2026.0.1",
+    "phoenix6==26.1.0",
+]
