@@ -9,6 +9,7 @@ from commands2 import (
     SequentialCommandGroup,
     InstantCommand,
     DeferredCommand,
+    ParallelCommandGroup,
 )
 from commands2.button import CommandXboxController, Trigger
 
@@ -46,7 +47,7 @@ from wpimath.geometry import (
 from wpimath.units import inchesToMeters
 
 ########## VENDOR (etc) IMPORTS ##########
-from pathplannerlib.auto import AutoBuilder, NamedCommands
+from pathplannerlib.auto import AutoBuilder, EventTrigger, NamedCommands
 
 
 ########## SUBSYSTEM IMPORTS ##########
@@ -172,7 +173,7 @@ class RobotContainer:
             lambda telem: self._logger.telemeterize(telem)
         )
 
-        self.set_pp_named_commands()
+        self.setPathPlannerCommands()
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
@@ -302,11 +303,31 @@ class RobotContainer:
             WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
         ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
 
-    def set_pp_named_commands(self) -> None:
+    def setPathPlannerCommands(self) -> None:
         """
         Insert code here for the pathplanner named commands
         That will be scheduled during path following
         """
+        EventTrigger("IntakeDeploy").onTrue(IntakeDeploy(self.intake))
+        EventTrigger("ShootOnMove").onTrue(
+            ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
+        )
+        EventTrigger("FeedShooter").onTrue(
+            ParallelCommandGroup(
+                IndexerShoot(self.indexer),
+                WoahvalScore(self.woahval),
+            )
+        )
+        EventTrigger("StopFeedingShooter").onTrue(
+            ParallelCommandGroup(
+                IndexerStop(self.indexer),
+                WoahvalStop(self.woahval),
+            )
+        )
 
-    def get_auto_command(self) -> Command:
+        # EventTrigger("IgnoreTrenchZone3s").onTrue(
+        #     self.zoneManager.getIgnoreTrenchCommand(3.0)
+        # )
+
+    def getAutoCommand(self) -> Command:
         return self.auto_chooser.getSelected()

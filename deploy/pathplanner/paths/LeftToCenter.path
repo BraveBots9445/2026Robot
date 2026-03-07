@@ -3,29 +3,45 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 4.0,
-        "y": 7.4553734939759035
+        "x": 4.2590156918687585,
+        "y": 7.4702139800285305
       },
       "prevControl": null,
       "nextControl": {
-        "x": 5.0000000000000036,
-        "y": 7.4553734939759035
+        "x": 5.259015691868762,
+        "y": 7.4702139800285305
+      },
+      "isLocked": false,
+      "linkedName": "LeftTrenchStart"
+    },
+    {
+      "anchor": {
+        "x": 7.830085592011411,
+        "y": 6.460998573466477
+      },
+      "prevControl": {
+        "x": 7.539880281339153,
+        "y": 7.895902609568195
+      },
+      "nextControl": {
+        "x": 8.062981455064193,
+        "y": 5.309457917261056
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 7.8219638554216875,
-        "y": 6.406313253012048
+        "x": 8.011226818830243,
+        "y": 4.869543509272469
       },
       "prevControl": {
-        "x": 7.8219638554216875,
-        "y": 7.881270878636302
+        "x": 7.933594864479314,
+        "y": 5.594108416547789
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "CenterLeftNeutral"
     }
   ],
   "rotationTargets": [
@@ -36,7 +52,14 @@
   ],
   "constraintZones": [],
   "pointTowardsZones": [],
-  "eventMarkers": [],
+  "eventMarkers": [
+    {
+      "name": "IntakeDeploy",
+      "waypointRelativePos": 0.3241053342336276,
+      "endWaypointRelativePos": null,
+      "command": null
+    }
+  ],
   "globalConstraints": {
     "maxVelocity": 5.0,
     "maxAcceleration": 3.0,

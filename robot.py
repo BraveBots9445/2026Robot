@@ -46,7 +46,7 @@ class Robot(TimedCommandRobot):
         # wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
 
     def autonomousInit(self):
-        self.m_autonomousCommand = self.m_robotContainer.get_auto_command()
+        self.m_autonomousCommand = self.m_robotContainer.getAutoCommand()
 
         CommandScheduler.getInstance().schedule(self.m_autonomousCommand)
 

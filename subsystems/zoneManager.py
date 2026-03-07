@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from commands2 import Subsystem, Command, cmd
+from commands2 import Subsystem, Command, cmd, SequentialCommandGroup, WaitCommand
 from commands2.button import Trigger
 
 from ntcore import NetworkTableInstance, NetworkTable, StructPublisher
@@ -24,6 +24,7 @@ class ZoneStates:
     inAllianceZone: bool
     onLeft: bool
     onRight: bool
+    ignoringTrench: bool = False
 
 
 class ZoneManager(Subsystem):
@@ -78,6 +79,8 @@ class ZoneManager(Subsystem):
 
     _leftZone: Rectangle2d
 
+    _ignoringTrench: bool = False
+
     _statePub: StructPublisher
 
     _state: ZoneStates
@@ -87,7 +90,7 @@ class ZoneManager(Subsystem):
 
         self._nettable = NetworkTableInstance.getDefault().getTable("000Zones")
 
-        self._state = ZoneStates(False, False, False, False)
+        self._state = ZoneStates(False, False, False, False, False)
 
         self._zonesCenterPub = self._nettable.getStructArrayTopic(
             "zonesCenters", Pose2d
@@ -113,6 +116,8 @@ class ZoneManager(Subsystem):
         # TODO: If we are on the bump and drive towards the trench, this will trigger must stow even though we are not in the trench.
         # This should be fine, so we will just test and see if behavior is bad.
         # solution is to ignore if we are moving to the outside of the field within a certain x range
+        if self._ignoringTrench:
+            return False
         state = self._drivetrain.get_state()
         pose = state.pose
         vel = state.speeds
@@ -244,3 +249,23 @@ class ZoneManager(Subsystem):
 
     def resetZonesCommand(self) -> Command:
         return cmd.runOnce(self.resetZonesByAlliance, self).ignoringDisable(True)
+
+    def ignoreTrench(self) -> None:
+        self._ignoringTrench = True
+
+    def stopIgnoringTrench(self) -> None:
+        self._ignoringTrench = False
+
+    def getIgnoringTrenchBool(self) -> bool:
+        return self._ignoringTrench
+
+    def getIgnoreTrenchCommand(self, time: seconds) -> Command:
+        return (
+            SequentialCommandGroup(
+                cmd.runOnce(self.ignoreTrench, self),
+                WaitCommand(time),
+                cmd.runOnce(self.stopIgnoringTrench, self),
+            )
+            .finallyDo(lambda _interrupted: self.stopIgnoringTrench())
+            .ignoringDisable(True)
+        )
