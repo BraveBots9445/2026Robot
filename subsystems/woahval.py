@@ -14,10 +14,11 @@ class Woahval(OpenLoopWheel):
     def __init__(self) -> None:
         super().__init__(
             motorId=22,
-            inverted=True,
+            inverted=False,
             name="Woahval",
             shootingDutyCycle=1.0,
             # shootingDutyCycle=0.0,
             idleDutyCycle=0.1,
+            rampTime=0,
         )
         self._data = WoahvalData(0.0, 0.0, 0.0)

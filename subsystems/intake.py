@@ -95,12 +95,12 @@ class Intake(Subsystem):
     This is measured as (motor rotations) / (pivot rotations).
     """
 
-    _pivotAbsoluteEncoderOffset: float = 0.484
+    _pivotAbsoluteEncoderOffset: float = 0.1667
     """
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """
 
-    _pivotMotorDirection: InvertedValue = InvertedValue.CLOCKWISE_POSITIVE
+    _pivotMotorDirection: InvertedValue = InvertedValue.COUNTER_CLOCKWISE_POSITIVE
     """
     The motor direction for the pivot such that a positive output pulls the intake in 
     """
@@ -111,7 +111,7 @@ class Intake(Subsystem):
     """
 
     _pivotAbsoluteEncoderDirection: SensorDirectionValue = (
-        SensorDirectionValue.COUNTER_CLOCKWISE_POSITIVE
+        SensorDirectionValue.CLOCKWISE_POSITIVE
     )
     """
     The direction for the cancoder such that it increases when the intake is pulled in 
@@ -135,10 +135,10 @@ class Intake(Subsystem):
         if RobotBase.isSimulation()
         else (
             Slot0Configs()
-            .with_k_p(1.47)
+            .with_k_p(1.0)
             .with_k_i(0.0)
-            .with_k_d(0.01)
-            .with_k_g(0.015)
+            .with_k_d(0.0)
+            .with_k_g(0.025)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
     )
@@ -299,6 +299,16 @@ class Intake(Subsystem):
         SmartDashboard.putData("Intake/Subsystem", self)
         SmartDashboard.putData("Intake/PivotMech", pivotMech)
 
+        self._data.pivotPositionDegrees = Rotation2d.fromRotations(
+            self._pivotPositionSignal.value_as_double
+        ).degrees()
+
+        self.setPivotSetpoint(
+            Rotation2d.fromRotations(
+                self._pivotEncoder.get_absolute_position().value_as_double
+            )
+        )
+
     def periodic(self) -> None:
         StatusSignal.refresh_all(
             self._pivotCurrentSignal,
@@ -337,11 +347,10 @@ class Intake(Subsystem):
         self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
         # if self._pivotSetpoint.degrees() > 10:
-        #     self._positionDutyCycleRequest.position = radiansToRotations(
-        #         self._pivotSetpoint.radians()
-        #     )
-        #     self._positionDutyCycleRequest.slot = self._pivotClosedLoopSlot
-        #     self._pivotMotor.set_control(self._positionDutyCycleRequest)
+        self._positionDutyCycleRequest.position = radiansToRotations(
+            self._pivotSetpoint.radians()
+        )
+        self._pivotMotor.set_control(self._positionDutyCycleRequest)
         # else:
         #     self._pivotMotor.set(-0.25)
         self._rollerMotor.set(self._rollerSetpoint)

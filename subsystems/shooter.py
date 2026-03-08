@@ -323,6 +323,10 @@ class Shooter(Subsystem):
 
         self._data = ShooterData(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
+        self._data.actualHoodAngleDegrees = Rotation2d.fromRotations(
+            self._hoodEncoder.getPosition()
+        ).degrees()
+
         hoodMech = Mechanism2d(100, 100)
         self._hoodMech = hoodMech.getRoot("hood", 50, 50).appendLigament(
             "hoodPointer", 40, 0

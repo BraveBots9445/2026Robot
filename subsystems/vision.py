@@ -36,8 +36,8 @@ class Vision(Subsystem):
 
     # these names and their associated positions are fake
     _turretCamera: VisionCamera
-    _frontRightCamera: VisionCamera
-    _frontLeftCamera: VisionCamera
+    _backRightCamera: VisionCamera
+    _backLeftCamera: VisionCamera
     _rearCamera: VisionCamera
 
     # TODO: The below offsets are all garbage from copilot
@@ -46,12 +46,12 @@ class Vision(Subsystem):
         Rotation3d(0, 0, 0),
     )
 
-    _frontRightCameraToRobot: Transform3d = Transform3d(
+    _backRightCameraToRobot: Transform3d = Transform3d(
         Translation3d(inchesToMeters(-12), inchesToMeters(-12.5), inchesToMeters(9)),
         Rotation3d.fromDegrees(0, 34, -90),
     )
 
-    _frontLeftCameraToRobot: Transform3d = Transform3d(
+    _backLeftCameraToRobot: Transform3d = Transform3d(
         Translation3d(inchesToMeters(-12), inchesToMeters(12.5), inchesToMeters(9)),
         Rotation3d.fromDegrees(0, 34, 90),
     )
@@ -100,26 +100,26 @@ class Vision(Subsystem):
         """
         self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
 
-        self._turretCamera = VisionCamera(
-            "TurretCamera",
-            self._tagLayout,
-            self._turretCameraToRobot,
-            lambda _arg1, _arg2, _arg3: None,  # the turret never does pose estimation - it just tracks targets
-            lambda: ChassisSpeeds(0, 0, 0),
-        )
+        # self._turretCamera = VisionCamera(
+        #     "TurretCamera",
+        #     self._tagLayout,
+        #     self._turretCameraToRobot,
+        #     lambda _arg1, _arg2, _arg3: None,  # the turret never does pose estimation - it just tracks targets
+        #     lambda: ChassisSpeeds(0, 0, 0),
+        # )
 
-        self._frontRightCamera = VisionCamera(
+        self._backRightCamera = VisionCamera(
             "ArducamOV9281-BR",
             self._tagLayout,
-            self._frontRightCameraToRobot,
+            self._backRightCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
 
-        self._frontLeftCamera = VisionCamera(
+        self._backLeftCamera = VisionCamera(
             "ArducamOV9281-BL",
             self._tagLayout,
-            self._frontLeftCameraToRobot,
+            self._backLeftCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
@@ -150,10 +150,10 @@ class Vision(Subsystem):
             self._visionSim.addAprilTags(self._tagLayout)
             # self._visionSim.addCamera(self._turretCamera.getCameraSim(), self._turretCameraToRobot)  # type: ignore
             self._visionSim.addCamera(
-                self._frontRightCamera.getCameraSim(), self._frontRightCameraToRobot  # type: ignore
+                self._backRightCamera.getCameraSim(), self._backRightCameraToRobot  # type: ignore
             )
             self._visionSim.addCamera(
-                self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
+                self._backLeftCamera.getCameraSim(), self._backLeftCameraToRobot  # type: ignore
             )
             # self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
             # SmartDashboard.putData(self._visionSim.getDebugField())
@@ -164,24 +164,24 @@ class Vision(Subsystem):
         # turret camera does not do pose estimation
         if not self._enabled:
             return
-        estFL, tagsFL = self._frontLeftCamera.update()
-        estFR, tagsFR = self._frontRightCamera.update()
+        estBL, tagsBL = self._backLeftCamera.update()
+        estBR, tagsBR = self._backRightCamera.update()
         # estR, tagsR = self._rearCamera.update()
         # _estTu, tagsTu = self._turretCamera.update()
 
         # Build pose list without repeated concatenation
         poses = []
-        if estFL is not None:
-            poses.append(self._pose3dToPose2d(estFL))
-        if estFR is not None:
-            poses.append(self._pose3dToPose2d(estFR))
+        if estBL is not None:
+            poses.append(self._pose3dToPose2d(estBL))
+        if estBR is not None:
+            poses.append(self._pose3dToPose2d(estBR))
         # if estR is not None:
         #     poses.append(self._pose3dToPose2d(estR))
         self._poseEstPub.set(poses)
 
         allTags = []
-        allTags.extend(tagsFL)
-        allTags.extend(tagsFR)
+        allTags.extend(tagsBL)
+        allTags.extend(tagsBR)
         # allTags.extend(tagsR)
         # allTags.extend(tagsTu)
         self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in allTags])

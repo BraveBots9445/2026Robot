@@ -264,13 +264,13 @@ class RobotContainer:
         )
 
         """Operator"""
-        self.operator_controller.rightTrigger().onTrue(
+        self.driver_controller.rightTrigger().onTrue(
             IndexerShoot(self.indexer)
         ).onFalse(IndexerStop(self.indexer))
 
-        self.operator_controller.leftTrigger().onTrue(
-            WoahvalScore(self.woahval)
-        ).onFalse(WoahvalStop(self.woahval))
+        self.driver_controller.leftTrigger().onTrue(WoahvalScore(self.woahval)).onFalse(
+            WoahvalStop(self.woahval)
+        )
 
         self.operator_controller.povUp().onTrue(self.shooter.bumpFudgeCommand())
         self.operator_controller.povDown().onTrue(self.shooter.dumpFudgeCommand())
@@ -299,9 +299,13 @@ class RobotContainer:
         #     )
         # )
 
-        self.test_remote.rightTrigger().onTrue(
-            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
-        ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
+        # self.test_remote.rightTrigger().onTrue(
+        #     WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        # ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
+
+        self.test_remote.a().onTrue(IntakeSetAngle(self.intake, 0))
+        self.test_remote.b().onTrue(IntakeSetAngle(self.intake, 45))
+        self.test_remote.y().onTrue(IntakeSetAngle(self.intake, 90))
 
     def setPathPlannerCommands(self) -> None:
         """

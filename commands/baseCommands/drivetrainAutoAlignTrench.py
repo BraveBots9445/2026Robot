@@ -9,6 +9,8 @@ from wpimath.geometry import Rotation2d, Translation2d
 from wpimath.kinematics import SwerveModuleState
 from wpimath.units import inchesToMeters, degreesToRadians
 
+from wpilib import RobotBase
+
 from phoenix6.swerve.requests import FieldCentric
 
 from subsystems import CommandSwerveDrivetrain
@@ -30,8 +32,16 @@ class DrivetrainAutoAlignTrench(Command):
 
         self.addRequirements(drivetrain)
 
-        self.yPID = PIDController(9.0, 0, 0)
-        self.tPID = PIDController(9.0, 0, 0)
+        self.yPID = (
+            PIDController(9.0, 0, 0)
+            if RobotBase.isSimulation()
+            else PIDController(0.5, 0, 0)
+        )
+        self.tPID = (
+            PIDController(9.0, 0, 0)
+            if RobotBase.isSimulation()
+            else PIDController(0.5, 0, 0)
+        )
         self.tPID.enableContinuousInput(-degreesToRadians(180), degreesToRadians(180))
 
         self.request = FieldCentric()

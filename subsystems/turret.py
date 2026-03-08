@@ -240,12 +240,12 @@ class Turret(Subsystem):
         self._turretMech.setAngle(angle.degrees())
         self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
 
-        self._motorClosedLoop.setSetpoint(
-            radiansToRotations(
-                self._rotationSetpoint.radians() + self._manualSetpointOffset.radians()
-            ),
-            SparkMax.ControlType.kPosition,
-        )
+        # self._motorClosedLoop.setSetpoint(
+        #     radiansToRotations(
+        #         self._rotationSetpoint.radians() + self._manualSetpointOffset.radians()
+        #     ),
+        #     SparkMax.ControlType.kPosition,
+        # )
 
     def simulationPeriodic(self) -> None:
         self._turretSim.setInputVoltage(self._motor.getAppliedOutput() * 12)
