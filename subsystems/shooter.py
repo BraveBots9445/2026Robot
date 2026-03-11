@@ -157,12 +157,12 @@ class Shooter(Subsystem):
 
     _hoodArmLength: meters = inchesToMeters(9.5)
 
-    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(-10)
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(-5)
     """
     The minimum angle of the hood. This is where the hood is fully retracted
     """
 
-    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(50)
+    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(62)
     """
     The max angle of the hood. This is where the hood is fully extended 
     """
@@ -181,7 +181,8 @@ class Shooter(Subsystem):
     The target speed for the flywheel in RPM
     """
 
-    _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 0.975)
+    # _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 0.975)
+    _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 1.0)
     """
     The number to multiply the flywheel setpoint by for changing system conditions
     """

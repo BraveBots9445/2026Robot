@@ -125,8 +125,10 @@ class ZoneManager(Subsystem):
         px = pose.X()
         py = pose.Y()
 
-        vx = vel.vx
-        vy = vel.vy
+        # Transform robot-relative velocity to field-relative
+        heading = pose.rotation()
+        vx = vel.vx * heading.cos() - vel.vy * heading.sin()
+        vy = vel.vx * heading.sin() + vel.vy * heading.cos()
 
         if self._getMustStowBool(pose):
             return True

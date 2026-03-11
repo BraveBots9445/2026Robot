@@ -54,7 +54,7 @@ class DrivetrainMoveOffset(Command):
         )
 
         self.drivetrain.set_control(
-            FieldCentric().with_velocity_x(x).with_velocity_y(y).with_rotational_rate(t)
+            FieldCentric().with_velocity_x(x).with_velocity_y(y).with_rotational_rate(0)
         )
 
     def isFinished(self) -> bool:

@@ -37,28 +37,28 @@ class Vision(Subsystem):
     # these names and their associated positions are fake
     _turretCamera: VisionCamera
     _backRightCamera: VisionCamera
-    _backLeftCamera: VisionCamera
-    _rearCamera: VisionCamera
+    _backLeftReverseCamera: VisionCamera
+    _backLeftForwardCamera: VisionCamera
 
     # TODO: The below offsets are all garbage from copilot
-    _turretCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(0), inchesToMeters(0), inchesToMeters(10)),
-        Rotation3d(0, 0, 0),
+    _backLeftForwardCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(-10.5), inchesToMeters(13.5), inchesToMeters(9)),
+        Rotation3d.fromDegrees(0, 30, 65),
     )
 
-    _backRightCameraToRobot: Transform3d = Transform3d(
+    _backLeftReverseCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(9)),
+        Rotation3d.fromDegrees(0, 30, 150),
+    )
+
+    _backRightForwardCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(-11), inchesToMeters(-12.5), inchesToMeters(9)),
+        Rotation3d.fromDegrees(0, 30, -30),
+    )
+
+    _backRightReverseCameraToRobot: Transform3d = Transform3d(
         Translation3d(inchesToMeters(-12), inchesToMeters(-12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 34, -90),
-    )
-
-    _backLeftCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-12), inchesToMeters(12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 34, 90),
-    )
-
-    _rearCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-12), inchesToMeters(12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(45, 0, 135),
+        Rotation3d.fromDegrees(0, 30, 150),
     )
 
     _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
@@ -100,37 +100,29 @@ class Vision(Subsystem):
         """
         self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
 
-        # self._turretCamera = VisionCamera(
-        #     "TurretCamera",
+        # self._backRightCamera = VisionCamera(
+        #     "ArducamOV9281-BR",
         #     self._tagLayout,
-        #     self._turretCameraToRobot,
-        #     lambda _arg1, _arg2, _arg3: None,  # the turret never does pose estimation - it just tracks targets
-        #     lambda: ChassisSpeeds(0, 0, 0),
-        # )
-
-        self._backRightCamera = VisionCamera(
-            "ArducamOV9281-BR",
-            self._tagLayout,
-            self._backRightCameraToRobot,
-            logVisionMeasurement,
-            getRobotVelocity,
-        )
-
-        self._backLeftCamera = VisionCamera(
-            "ArducamOV9281-BL",
-            self._tagLayout,
-            self._backLeftCameraToRobot,
-            logVisionMeasurement,
-            getRobotVelocity,
-        )
-
-        # self._rearCamera = VisionCamera(
-        #     "Arducam_OV9281_USB_Camera (1)",
-        #     self._tagLayout,
-        #     self._rearCameraToRobot,
+        #     self._backRightForwardCameraToRobot,
         #     logVisionMeasurement,
         #     getRobotVelocity,
         # )
+
+        self._backLeftReverseCamera = VisionCamera(
+            "ArducamOV9281-BL-R",
+            self._tagLayout,
+            self._backLeftReverseCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
+
+        self._backLeftForwardCamera = VisionCamera(
+            "ArducamOV9281-BL-F",
+            self._tagLayout,
+            self._backLeftForwardCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
 
         self._poseEstPub = self.nettable.getStructArrayTopic(
             "EstimatedPoses",
@@ -150,10 +142,10 @@ class Vision(Subsystem):
             self._visionSim.addAprilTags(self._tagLayout)
             # self._visionSim.addCamera(self._turretCamera.getCameraSim(), self._turretCameraToRobot)  # type: ignore
             self._visionSim.addCamera(
-                self._backRightCamera.getCameraSim(), self._backRightCameraToRobot  # type: ignore
+                self._backLeftForwardCamera.getCameraSim(), self._backLeftForwardCameraToRobot  # type: ignore
             )
             self._visionSim.addCamera(
-                self._backLeftCamera.getCameraSim(), self._backLeftCameraToRobot  # type: ignore
+                self._backLeftForwardCamera.getCameraSim(), self._backLeftReverseCameraToRobot  # type: ignore
             )
             # self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
             # SmartDashboard.putData(self._visionSim.getDebugField())
@@ -164,24 +156,24 @@ class Vision(Subsystem):
         # turret camera does not do pose estimation
         if not self._enabled:
             return
-        estBL, tagsBL = self._backLeftCamera.update()
-        estBR, tagsBR = self._backRightCamera.update()
+        estBLR, tagsBLR = self._backLeftReverseCamera.update()
+        estBLF, tagsBLF = self._backLeftForwardCamera.update()
         # estR, tagsR = self._rearCamera.update()
         # _estTu, tagsTu = self._turretCamera.update()
 
         # Build pose list without repeated concatenation
         poses = []
-        if estBL is not None:
-            poses.append(self._pose3dToPose2d(estBL))
-        if estBR is not None:
-            poses.append(self._pose3dToPose2d(estBR))
+        if estBLR is not None:
+            poses.append(self._pose3dToPose2d(estBLR))
+        if estBLF is not None:
+            poses.append(self._pose3dToPose2d(estBLF))
         # if estR is not None:
         #     poses.append(self._pose3dToPose2d(estR))
         self._poseEstPub.set(poses)
 
         allTags = []
-        allTags.extend(tagsBL)
-        allTags.extend(tagsBR)
+        allTags.extend(tagsBLR)
+        allTags.extend(tagsBLF)
         # allTags.extend(tagsR)
         # allTags.extend(tagsTu)
         self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in allTags])

@@ -35,12 +35,12 @@ class DrivetrainAutoAlignTrench(Command):
         self.yPID = (
             PIDController(9.0, 0, 0)
             if RobotBase.isSimulation()
-            else PIDController(0.5, 0, 0)
+            else PIDController(3.0, 0, 0)
         )
         self.tPID = (
             PIDController(9.0, 0, 0)
             if RobotBase.isSimulation()
-            else PIDController(0.5, 0, 0)
+            else PIDController(3.0, 0, 0)
         )
         self.tPID.enableContinuousInput(-degreesToRadians(180), degreesToRadians(180))
 
@@ -63,7 +63,7 @@ class DrivetrainAutoAlignTrench(Command):
         ):
             ySetpoint = inchesToMeters(49.84 / 2)
         else:
-            ySetpoint = Rebuilt.Width - inchesToMeters(49.84 / 2)
+            ySetpoint = Rebuilt.Width - inchesToMeters(26)
         # ySetpoint = inchesToMeters(49.84 / 2)
 
         vy = self.yPID.calculate(
@@ -85,6 +85,6 @@ class DrivetrainAutoAlignTrench(Command):
                 # I tried to use hypot as suggested, but it is super unintuitive.
                 # TODO: See what Shane thinks
             )
-            .with_velocity_y(-vy)
-            .with_rotational_rate(vt)
+            .with_velocity_y(vy)
+            .with_rotational_rate(-vt)
         )

@@ -247,6 +247,10 @@ class RobotContainer:
             )
         )
 
+        self.driver_controller.b().onTrue(
+            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
+
         # slow mode
         self.driver_controller.leftTrigger().onTrue(
             DrivetrainHalfSpeed(self.drivetrain)
@@ -281,31 +285,39 @@ class RobotContainer:
         self.operator_controller.povLeft().onTrue(self.turret.dumpManualOffsetCommand())
 
     def set_test_bindings(self) -> None:
-        # self.shooter.setDefaultCommand(
-        #     ShooterTuneDistance(
-        #         self.shooter,
-        #         self.test_remote.getFRCLX,
-        #         self.test_remote.getFRCRX,
-        #         self.test_remote.rightTrigger().getAsBoolean,
-        #         lambda: Pose3d(self.drivetrain.get_state().pose)
-        #         .translation()
-        #         .distance(Rebuilt.getPosition(RebuiltPositions.Hub).translation()),
-        #     )
-        # )
+        self.shooter.setDefaultCommand(
+            ShooterTuneDistance(
+                self.shooter,
+                self.test_remote.getFRCLX,
+                self.test_remote.getFRCRX,
+                self.test_remote.rightTrigger().getAsBoolean,
+                lambda: Pose3d(self.drivetrain.get_state().pose)
+                .translation()
+                .distance(Rebuilt.getPosition(RebuiltPositions.Hub).translation()),
+            )
+        )
 
         # self.test_remote.rightTrigger().onTrue(
         #     WaitCommand(2.0).andThen(
-        #         DrivetrainMoveOffset(self.drivetrain, Transform2d(0.5, 0, Rotation2d()))
+        #         DrivetrainMoveOffset(
+        #             self.drivetrain, Transform2d(-0.5, 0, Rotation2d())
+        #         )
         #     )
         # )
 
-        # self.test_remote.rightTrigger().onTrue(
-        #     WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
-        # ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
+        self.test_remote.leftTrigger().onTrue(
+            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
 
-        self.test_remote.a().onTrue(IntakeSetAngle(self.intake, 0))
-        self.test_remote.b().onTrue(IntakeSetAngle(self.intake, 45))
-        self.test_remote.y().onTrue(IntakeSetAngle(self.intake, 90))
+        # self.test_remote.a().onTrue(IntakeSetAngle(self.intake, 0))
+        self.test_remote.b().onTrue(
+            IntakeSetAngle(self.intake, 30).andThen(
+                IntakeSetRollerSpeed(self.intake, 0.1)
+            )
+        ).onFalse(
+            IntakeSetAngle(self.intake, 0).andThen(IntakeSetRollerSpeed(self.intake, 0))
+        )
+        # self.test_remote.y().onTrue(IntakeSetAngle(self.intake, 90))
 
     def setPathPlannerCommands(self) -> None:
         """

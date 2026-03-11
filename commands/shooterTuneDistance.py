@@ -79,6 +79,10 @@ class ShooterTuneDistance(Command):
 
         self.hoodAngleSetpointDeg = self.shooter._hoodMinAngle.degrees()
 
+    def initialize(self):
+        self.hoodAngleSetpointDeg = self.shooter.getHoodAngle().degrees()
+        self.flywheelVelocitySetpoint = self.shooter.getFlywheelVelocity()
+
     def execute(self):
         self.flywheelVelocitySetpoint += (
             self.getAdjustFlywheelSpeed() * self.flywheelAdjustmentFactor

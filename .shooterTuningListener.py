@@ -66,7 +66,7 @@ while True:
             f"_hoodAngleInterpArray = array({", ".join(str(setpoint.hoodAngledeg) for setpoint in orderedSetpointsList)})"
         )
         print(
-            f"_flywheelVelInterpArray = array({", ".join(str(setpoint.hoodAngledeg) for setpoint in orderedSetpointsList)})"
+            f"_flywheelVelInterpArray = array({", ".join(str(setpoint.flywheelVelocityRPM) for setpoint in orderedSetpointsList)})"
         )
 
         print("-" * 50)
