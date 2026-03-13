@@ -10,6 +10,7 @@ from commands2 import (
     InstantCommand,
     DeferredCommand,
     ParallelCommandGroup,
+    Subsystem,
 )
 from commands2.button import CommandXboxController, Trigger
 
@@ -22,6 +23,7 @@ from wpimath.geometry import (
     Rotation3d,
 )
 from wpimath.units import inchesToMeters
+from wpimath.kinematics import ChassisSpeeds
 
 from wpilib import RobotState
 
@@ -85,6 +87,7 @@ from commands.baseCommands.shootStatic import ShootStatic
 from commands.baseCommands.intakeSetRollerSpeed import IntakeSetRollerSpeed
 from commands.baseCommands.indexerDejam import IndexerDejam
 from commands.baseCommands.indexerShoot import IndexerShoot
+from commands.baseCommands.turretManual import TurretManual
 
 from commands import ShooterTuneDistance
 
@@ -121,11 +124,10 @@ class RobotContainer:
             lambda: self.drivetrain.get_state().pose,
         )
 
-        self.shooter = Shooter()
         self.turret = Turret()
+        self.shooter = Shooter()
         self.intake = Intake()
         self.climber = Climber()
-        self.kicker = Kicker()
         self.indexer = Indexer()
         self.woahval = Woahval()
         self.passiveHooks = PassiveHooks()
@@ -155,14 +157,12 @@ class RobotContainer:
 
         self.shootOnMoveCalculator = ShootOnMoveCalculator(
             lambda: Pose3d(self.drivetrain.get_state().pose),
-            lambda: self.drivetrain.get_state().speeds,
-            self.visualizer3d.transform3dToTurret,
-            lambda omega: omega
-            * inchesToMeters(2)
-            * 2
-            * pi
-            / 60
-            / self.fuelShootingVisualizer._kEnergyTransferEfficiency,
+            lambda: ChassisSpeeds.fromRobotRelativeSpeeds(
+                (state := self.drivetrain.get_state()).speeds, state.pose.rotation()
+            ),
+            lambda omega: omega * inchesToMeters(2) * 2 * pi / 60,
+            # self.visualizer3d.transform3dToTurret,
+            # / self.fuelShootingVisualizer._kEnergyTransferEfficiency,
         )
 
         self.zoneManager = ZoneManager(self.drivetrain)
@@ -218,13 +218,13 @@ class RobotContainer:
                 self.drivetrain.getMaxAngularRateDeg,
             )
         )
-        self.zoneManager.getMustStowTrigger(1.25).whileTrue(
-            DrivetrainAutoAlignTrench(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-            )
-        )
+        # self.zoneManager.getMustStowTrigger(1.25).whileTrue(
+        #     DrivetrainAutoAlignTrench(
+        #         self.drivetrain,
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #     )
+        # )
 
         # self.turret.setDefaultCommand(
         #     ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
@@ -247,34 +247,57 @@ class RobotContainer:
             )
         )
 
+        # # slow mode
+        # self.driver_controller.leftTrigger().onTrue(
+        #     DrivetrainHalfSpeed(self.drivetrain)
+        # )
+
+        # # defense mode
+        # self.driver_controller.rightTrigger().onTrue(
+        #     DrivetrainDoubleSpeed(self.drivetrain)
+        # )
+
+        # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
+
+        self.driver_controller.rightTrigger().whileTrue(
+            IntakeDeploy(self.intake)
+        ).onFalse(IntakeSetRollerSpeed(self.intake, 0))
+
         self.driver_controller.b().onTrue(
-            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
-        ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
-
-        # slow mode
-        self.driver_controller.leftTrigger().onTrue(
-            DrivetrainHalfSpeed(self.drivetrain)
-        )
-
-        # defense mode
-        self.driver_controller.rightTrigger().onTrue(
-            DrivetrainDoubleSpeed(self.drivetrain)
-        )
-
-        self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
-
-        self.driver_controller.a().whileTrue(IntakeDeploy(self.intake)).onFalse(
-            IntakeSetRollerSpeed(self.intake, 0)
+            InstantCommand(self.drivetrain.seed_field_centric)
         )
 
         """Operator"""
-        self.driver_controller.rightTrigger().onTrue(
-            IndexerShoot(self.indexer)
-        ).onFalse(IndexerStop(self.indexer))
+        # self.driver_controller.rightTrigger().onTrue(
+        #     IndexerShoot(self.indexer)
+        # ).onFalse(IndexerStop(self.indexer))
 
-        self.driver_controller.leftTrigger().onTrue(WoahvalScore(self.woahval)).onFalse(
-            WoahvalStop(self.woahval)
+        # self.driver_controller.leftTrigger().onTrue(WoahvalScore(self.woahval)).onFalse(
+        #     WoahvalStop(self.woahval)
+        # )
+        # self.operator_controller.a().onTrue(
+        self.driver_controller.y().onTrue(
+            IntakeSetRollerSpeed(self.intake, 0.4).andThen(
+                RepeatCommand(
+                    IntakeSetAngle(self.intake, 40)
+                    .andThen(WaitCommand(0.5))
+                    .andThen(
+                        IntakeSetAngle(self.intake, 75),
+                    )
+                )
+            )
+        ).onFalse(
+            IntakeSetAngle(self.intake, 0).andThen(IntakeSetRollerSpeed(self.intake, 0))
         )
+
+        # self.operator_controller.leftStick().whileTrue(
+        #     TurretManual(self.turret, self.operator_controller.getFRCLY)
+        # )
+
+        # self.operator_controller.rightTrigger().onTrue(
+        self.driver_controller.leftTrigger().onTrue(
+            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
 
         self.operator_controller.povUp().onTrue(self.shooter.bumpFudgeCommand())
         self.operator_controller.povDown().onTrue(self.shooter.dumpFudgeCommand())

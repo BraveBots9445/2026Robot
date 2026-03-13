@@ -124,11 +124,11 @@ class OpenLoopWheel(Subsystem):
             self._getCurrentSignal, self._getVelocitySignal, self._getDutyCycleSignal
         )
 
-        with self._lock:
-            self._data.current = self._getCurrentSignal.value_as_double
-            self._data.velocity = self._getVelocitySignal.value_as_double
-            self._data.dutyCycle = self._getDutyCycleSignal.value_as_double
-            BraveLogger.pushSubsystemData(deepcopy(self._data))
+        # with self._lock:
+        self._data.current = self._getCurrentSignal.value_as_double
+        self._data.velocity = self._getVelocitySignal.value_as_double
+        self._data.dutyCycle = self._getDutyCycleSignal.value_as_double
+        BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         self._motor.set(
             self._dutyCycleSetpoint * (1 if not self._motorInverted else -1)
@@ -185,5 +185,5 @@ class OpenLoopWheel(Subsystem):
         :return: The current data for the wheel.
         :rtype: OpenWheelData
         """
-        with self._lock:
-            return self._data
+        # with self._lock:
+        return self._data

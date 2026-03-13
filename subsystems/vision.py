@@ -43,17 +43,17 @@ class Vision(Subsystem):
     # TODO: The below offsets are all garbage from copilot
     _backLeftForwardCameraToRobot: Transform3d = Transform3d(
         Translation3d(inchesToMeters(-10.5), inchesToMeters(13.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 30, 65),
+        Rotation3d.fromDegrees(0, 30, 60),
     )
 
     _backLeftReverseCameraToRobot: Transform3d = Transform3d(
         Translation3d(inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 30, 150),
+        Rotation3d.fromDegrees(0, 30, 120),
     )
 
     _backRightForwardCameraToRobot: Transform3d = Transform3d(
         Translation3d(inchesToMeters(-11), inchesToMeters(-12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 30, -30),
+        Rotation3d.fromDegrees(0, 30, -60),
     )
 
     _backRightReverseCameraToRobot: Transform3d = Transform3d(

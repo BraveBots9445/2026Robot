@@ -376,16 +376,16 @@ class Shooter(Subsystem):
         hoodAngleSetpoint = self.getHoodAngleSetpoint()
         hoodAngle = Rotation2d.fromRotations(self._hoodEncoder.getPosition())
 
-        with self._lock:
-            self._data.actualFlywheelSpeedRpm = flywheelVelocity
-            self._data.desiredFlywheelSpeedRpm = desiredFlywheelVelocity
-            self._data.actualHoodAngleDegrees = hoodAngle.degrees()
-            self._data.desiredHoodAngleDegrees = hoodAngleSetpoint.degrees()
-            self._data.motorDutyCycle = self._getDutyCycleSignal.value_as_double
-            self._data.motorCurrent = self._getFlywheelCurrentSignal.value_as_double
-            self._data.hoodMotorCurrent = self._hoodMotor.getOutputCurrent()
+        # with self._lock:
+        self._data.actualFlywheelSpeedRpm = flywheelVelocity
+        self._data.desiredFlywheelSpeedRpm = desiredFlywheelVelocity
+        self._data.actualHoodAngleDegrees = hoodAngle.degrees()
+        self._data.desiredHoodAngleDegrees = hoodAngleSetpoint.degrees()
+        self._data.motorDutyCycle = self._getDutyCycleSignal.value_as_double
+        self._data.motorCurrent = self._getFlywheelCurrentSignal.value_as_double
+        self._data.hoodMotorCurrent = self._hoodMotor.getOutputCurrent()
 
-            BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         # update mech2d
         self._hoodMech.setAngle(hoodAngle.degrees())
@@ -487,8 +487,7 @@ class Shooter(Subsystem):
         :return: The current hood angle
         :rtype: Rotation2d
         """
-        with self._lock:
-            return Rotation2d.fromDegrees(self._data.actualHoodAngleDegrees)
+        return Rotation2d(self.getData().actualHoodAngleDegrees)
 
     def getHoodVelocity(self) -> rotations_per_second:
         """
@@ -575,8 +574,8 @@ class Shooter(Subsystem):
         :return: The current data for the shooter subsystem
         :rtype: ShooterData
         """
-        with self._lock:
-            return self._data
+        # with self._lock:
+        return self._data
 
     def bumpFudge(self, bumpVal: float = 0.025) -> None:
         self._flywheelFudgeFactor += bumpVal

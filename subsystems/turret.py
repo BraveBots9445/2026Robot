@@ -45,6 +45,7 @@ from rev import (
     PersistMode,
     SparkClosedLoopController,
     AbsoluteEncoder,
+    FeedbackSensor,
 )
 
 from .BraveLogger import BraveLogger, TurretData
@@ -105,10 +106,14 @@ class Turret(Subsystem):
     This is measured as motor rotations / turret rotations.
     """
 
+    _encoderInverted: bool = False
+
+    _zeroOffset: float = 0.0
+
     # motor PID gains
-    _motorP: float = 4.0 if RobotBase.isReal() else 2.0
+    _motorP: float = 4.0 if RobotBase.isReal() else 3.5
     _motorI: float = 0.0 if RobotBase.isReal() else 0.0
-    _motorD: float = 0.25 if RobotBase.isReal() else 0.125
+    _motorD: float = 0.25 if RobotBase.isReal() else 0.0
 
     _canCoderConfig: CANcoderConfiguration
     """
@@ -182,11 +187,14 @@ class Turret(Subsystem):
             True
         )
         motorConfig.closedLoop.pid(self._motorP, self._motorI, self._motorD).maxOutput(
-            0.5
-        ).minOutput(-0.5)
+            1.0
+        ).minOutput(-1.0).setFeedbackSensor(FeedbackSensor.kAbsoluteEncoder)
         motorConfig.encoder.positionConversionFactor(
             1 / self._gearRatio
         ).velocityConversionFactor(1 / self._gearRatio)
+        motorConfig.absoluteEncoder.inverted(False).zeroOffset(
+            self._zeroOffset
+        ).zeroCentered(True)
 
         motorConfig.IdleMode(SparkMax.IdleMode.kBrake)
 
@@ -231,13 +239,13 @@ class Turret(Subsystem):
 
     def periodic(self) -> None:
         angle = Rotation2d.fromRotations(self._encoder.getPosition())
-        with self._lock:
-            self._data._rotationDegrees = angle.degrees()
-            self._data._rotationSetpointDegrees = self._rotationSetpoint.degrees()
-            self._data._motorCurrent = self._motor.getOutputCurrent()
-            self._data._motorDutyCycle = self._motor.getAppliedOutput()
+        # with self._lock:
+        self._data._rotationDegrees = angle.degrees()
+        self._data._rotationSetpointDegrees = self._rotationSetpoint.degrees()
+        self._data._motorCurrent = self._motor.getOutputCurrent()
+        self._data._motorDutyCycle = self._motor.getAppliedOutput()
 
-            BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         self._turretMech.setAngle(angle.degrees())
         self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
@@ -294,8 +302,8 @@ class Turret(Subsystem):
         :return The current rotation of the turret.
         :rtype: Rotation2d
         """
-        with self._lock:
-            return Rotation2d.fromDegrees(self._data._rotationDegrees)
+        # with self._lock:
+        return Rotation2d.fromDegrees(self.getData()._rotationDegrees)
 
     def _rotation2dToRotations(self, angle: Rotation2d) -> float:
         return angleModulus(angle.radians()) / (2 * pi)
@@ -323,8 +331,8 @@ class Turret(Subsystem):
         :return The current data of the turret.
         :rtype: TurretData
         """
-        with self._lock:
-            return self._data
+        # with self._lock:
+        return self._data
 
     def _tmpSetSetpointCommand(self, setpoint: Rotation2d) -> Command:
         return cmd.runOnce(lambda: self.setSetpoint(setpoint))

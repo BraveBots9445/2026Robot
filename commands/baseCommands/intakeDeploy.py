@@ -9,7 +9,7 @@ from subsystems.intake import Intake
 class IntakeDeploy(SequentialCommandGroup):
     def __init__(self, intake: Intake):
         super().__init__(
-            IntakeSetRollerSpeed(intake, 0.50),
+            IntakeSetRollerSpeed(intake, 0.48),
             # IntakeSetRollerSpeed(intake, 1.0),
-            IntakeSetAngle(intake, 0),
+            IntakeSetAngle(intake, -2),
         )

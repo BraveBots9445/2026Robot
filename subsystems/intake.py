@@ -16,6 +16,7 @@ from wpilib import (
     Color8Bit,
     RobotBase,
     SmartDashboard,
+    Timer,
 )
 from wpilib.simulation import SingleJointedArmSim
 
@@ -208,7 +209,7 @@ class Intake(Subsystem):
             TalonFXConfiguration()
             .with_current_limits(
                 CurrentLimitsConfigs()
-                .with_stator_current_limit(60)
+                .with_stator_current_limit(40)
                 .with_stator_current_limit_enable(True)
             )
             .with_software_limit_switch(
@@ -309,6 +310,9 @@ class Intake(Subsystem):
             )
         )
 
+        self._stallTimer = Timer()
+        self._reverseTimer = Timer()
+
     def periodic(self) -> None:
         StatusSignal.refresh_all(
             self._pivotCurrentSignal,
@@ -327,21 +331,67 @@ class Intake(Subsystem):
         if self._pivotSetpoint.degrees() < 45:
             slot = 1
         self._pivotClosedLoopSlot = slot
-        with self._lock:
-            # self._data.pivotPosition = pivotPosition
-            # self._data.pivotSetpoint = self._pivotSetpoint
-            self._data.pivotPositionDegrees = pivotPosition.degrees()
-            self._data.pivotSetpointDegrees = self._pivotSetpoint.degrees()
-            self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
-            self._data.pivotDutyCycle = self._pivotDutyCycleSignal.value_as_double
-            self._data.pivotClosedLoopSlot = self._pivotClosedLoopSlot
-            self._data.pivotVelocity = self._pivotVelocitySignal.value_as_double
-            self._data.rollerSetpoint = self._rollerSetpoint
-            self._data.rollerDutyCycle = self._rollerDutyCycleSignal.value_as_double
-            self._data.rollerCurrent = self._rollerCurrentSignal.value_as_double
-            self._data.rollerVelocity = self._rollerVelocitySignal.value_as_double
+        # with self._lock:
+        # self._data.pivotPosition = pivotPosition
+        # self._data.pivotSetpoint = self._pivotSetpoint
+        self._data.pivotPositionDegrees = pivotPosition.degrees()
+        self._data.pivotSetpointDegrees = self._pivotSetpoint.degrees()
+        self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
+        self._data.pivotDutyCycle = self._pivotDutyCycleSignal.value_as_double
+        self._data.pivotClosedLoopSlot = self._pivotClosedLoopSlot
+        self._data.pivotVelocity = self._pivotVelocitySignal.value_as_double
+        self._data.rollerSetpoint = self._rollerSetpoint
+        self._data.rollerDutyCycle = self._rollerDutyCycleSignal.value_as_double
+        current = self._rollerCurrentSignal.value_as_double
+        velocity = self._rollerVelocitySignal.value_as_double
+        self._data.rollerCurrent = current
+        self._data.rollerVelocity = velocity
 
-            BraveLogger.pushSubsystemData(deepcopy(self._data))
+        # if self._reverseTimer.hasElapsed(0.125):
+        #     self._reverseTimer.stop()
+        #     self._reverseTimer.reset()
+        #     self._stallTimer.stop()
+        #     self._stallTimer.reset()
+        # elif self._stallTimer.isRunning() and self._stallTimer.hasElapsed(0.25):
+        #     self._reverseTimer.start()
+        # elif (
+        #     velocity >= 0
+        #     and velocity < 0.1
+        #     and current > 30
+        #     and not self._reverseTimer.isRunning()
+        # ):
+        #     self._stallTimer.start()
+
+        # if not self._stallTimer.hasElapsed(0.25) or not self._stallTimer.isRunning():
+        #     self._rollerMotor.set(self._rollerSetpoint)
+        # else:
+        #     self._rollerMotor.set(-1.0)
+
+        # if self._stallTimer.hasElapsed(0.25):
+        #     self._reverseTimer.start()
+        # else:
+        #     if not (
+        #         abs(velocity) < 0.1
+        #         or abs(current) > 30
+        #         or not self._reverseTimer.isRunning()
+        #     ):
+        #         self._stallTimer.stop()
+        #         self._stallTimer.reset()
+        #         self._reverseTimer.stop()
+        #         self._reverseTimer.reset()
+
+        # if not self._reverseTimer.isRunning():
+        self._rollerMotor.set(self._rollerSetpoint)
+        # else:
+        #     self._rollerMotor.set(-0.1)
+
+        # if self._reverseTimer.hasElapsed(1.0):
+        #     self._reverseTimer.stop()
+        #     self._stallTimer.stop()
+        #     self._reverseTimer.reset()
+        #     self._stallTimer.reset()
+
+        BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         self._pivotAngleMech.setAngle(pivotPosition.degrees())
         self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
@@ -353,7 +403,6 @@ class Intake(Subsystem):
         self._pivotMotor.set_control(self._positionDutyCycleRequest)
         # else:
         #     self._pivotMotor.set(-0.25)
-        self._rollerMotor.set(self._rollerSetpoint)
 
     def simulationPeriodic(self) -> None:
         self._pivotSim.setInputVoltage(self._pivotMotor.get() * 12)
@@ -440,5 +489,5 @@ class Intake(Subsystem):
         :return: The current data for the intake subsystem.
         :rtype: IntakeData
         """
-        with self._lock:
-            return self._data
+        # with self._lock:
+        return self._data

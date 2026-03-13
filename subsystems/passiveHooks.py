@@ -57,11 +57,11 @@ class PassiveHooks(Subsystem):
         # SmartDashboard.putData("PassiveHooks/Subsystem", self)
 
     def periodic(self) -> None:
-        with self._lock:
-            self._data.setpointDegrees = self._setpoint.degrees()
-            # self._data.setpoint = self._setpoint
-            self._data.deployed = self._setpoint.degrees() < 85
-            BraveLogger.pushSubsystemData(deepcopy(self._data))
+        # with self._lock:
+        self._data.setpointDegrees = self._setpoint.degrees()
+        # self._data.setpoint = self._setpoint
+        self._data.deployed = self._setpoint.degrees() < 85
+        BraveLogger.pushSubsystemData(deepcopy(self._data))
 
         self._servoLeft.setAngle(self._setpoint.degrees())
         self._servoRight.setAngle(self._setpoint.degrees())

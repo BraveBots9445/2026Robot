@@ -114,6 +114,22 @@ class TurretData:
 
 @make_wpistruct
 @dataclass
+class TimerData:
+    autoWinner: int
+    """
+    None = 0
+    US = 1 
+    Them = 2
+    """
+    currentShift: int
+    shiftTime: float
+    matchTime: float
+    rawTimeLeftInShift: float
+    calculatedTimeLeftInShift: float
+
+
+@make_wpistruct
+@dataclass
 class BraveData:
     turretData: TurretData
     climberData: ClimberData
@@ -122,6 +138,7 @@ class BraveData:
     passiveHooksData: PassiveHooksData
     intakeData: IntakeData
     shooterData: ShooterData
+    timerData: TimerData
 
 
 class BraveLogger:
@@ -148,6 +165,7 @@ class BraveLogger:
             PassiveHooksData(0, False),
             IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             ShooterData(0, 0, 0, 0, 0, 0, 0),
+            TimerData(0, 0, 0, 0, 0, 0),
         )
         BraveLogger._notifier = Notifier(BraveLogger.log)
         BraveLogger._notifier.startPeriodic(0.02)
@@ -178,3 +196,5 @@ class BraveLogger:
             BraveLogger._data.intakeData = data
         elif isinstance(data, ShooterData):
             BraveLogger._data.shooterData = data
+        elif isinstance(data, TimerData):
+            BraveLogger._data.timerData = data

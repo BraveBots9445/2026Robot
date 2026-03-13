@@ -9,7 +9,7 @@ from wpimath.geometry import Rotation2d, Translation2d
 from wpimath.kinematics import SwerveModuleState
 from wpimath.units import inchesToMeters, degreesToRadians
 
-from wpilib import RobotBase
+from wpilib import RobotBase, DriverStation
 
 from phoenix6.swerve.requests import FieldCentric
 
@@ -38,7 +38,7 @@ class DrivetrainAutoAlignTrench(Command):
             else PIDController(3.0, 0, 0)
         )
         self.tPID = (
-            PIDController(9.0, 0, 0)
+            PIDController(7.0, 0, 0)
             if RobotBase.isSimulation()
             else PIDController(3.0, 0, 0)
         )
@@ -47,6 +47,9 @@ class DrivetrainAutoAlignTrench(Command):
         self.request = FieldCentric()
 
     def execute(self):
+        yMult = 1
+        if DriverStation.getAlliance() == DriverStation.Alliance.kBlue:
+            yMult = -1
         currPose = self.drivetrain.get_state().pose
         targetDirectionRadians = 0
         optimizationState = SwerveModuleState(1, Rotation2d.fromDegrees(0))
@@ -66,9 +69,12 @@ class DrivetrainAutoAlignTrench(Command):
             ySetpoint = Rebuilt.Width - inchesToMeters(26)
         # ySetpoint = inchesToMeters(49.84 / 2)
 
-        vy = self.yPID.calculate(
-            currPose.Y(),
-            ySetpoint,
+        vy = (
+            self.yPID.calculate(
+                currPose.Y(),
+                ySetpoint,
+            )
+            * yMult
         )
         vt = self.tPID.calculate(
             currPose.rotation().radians(),
@@ -85,6 +91,6 @@ class DrivetrainAutoAlignTrench(Command):
                 # I tried to use hypot as suggested, but it is super unintuitive.
                 # TODO: See what Shane thinks
             )
-            .with_velocity_y(vy)
+            .with_velocity_y(-vy)
             .with_rotational_rate(-vt)
         )

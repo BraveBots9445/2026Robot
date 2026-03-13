@@ -17,14 +17,14 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     Subsystem so it can easily be used in command-based projects.
     """
 
-    _nom_max_speed: units.meters_per_second = 2.5
+    _nom_max_speed: units.meters_per_second = 3.5
     """Nominal maximum speed of the robot in meters per second"""
-    _nom_max_angular_rate: units.radians_per_second = degreesToRadians(180)
+    _nom_max_angular_rate: units.radians_per_second = degreesToRadians(360)
     """Nominal maximum angular rate of the robot in radians per second"""
 
-    _curr_max_speed: units.meters_per_second = _nom_max_speed
+    _curr_max_speed: units.meters_per_second = 2.5
     """Current maximum speed of the robot in meters per second"""
-    _curr_max_angular_rate: units.radians_per_second = _nom_max_angular_rate
+    _curr_max_angular_rate: units.radians_per_second = degreesToRadians(180)
     """Current maximum angular rate of the robot in radians per second"""
 
     # _SIM_LOOP_PERIOD: units.second = 0.005
