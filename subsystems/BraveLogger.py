@@ -17,6 +17,7 @@ from wpimath.units import (
 from wpimath.geometry import Rotation2d
 
 from phoenix6.units import rotations_per_second, rotation
+from phoenix6.status_signal import StatusSignal
 
 
 @make_wpistruct
@@ -123,9 +124,11 @@ class TimerData:
     """
     currentShift: int
     shiftTime: float
-    matchTime: float
-    rawTimeLeftInShift: float
-    calculatedTimeLeftInShift: float
+    matchTimeUp: float
+    matchTimeDown: float
+    timeLeftInShift: float
+    ourActivePeriod: bool
+    rawOurActivePeriod: bool
 
 
 @make_wpistruct
@@ -148,6 +151,8 @@ class BraveLogger:
 
     _data: BraveData
 
+    _statusSignals: list[StatusSignal] = []
+
     def __init__(
         self,
     ) -> None:
@@ -165,14 +170,24 @@ class BraveLogger:
             PassiveHooksData(0, False),
             IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             ShooterData(0, 0, 0, 0, 0, 0, 0),
-            TimerData(0, 0, 0, 0, 0, 0),
+            TimerData(0, 0, 0, 0, 0, 0, False, False),
         )
-        BraveLogger._notifier = Notifier(BraveLogger.log)
-        BraveLogger._notifier.startPeriodic(0.02)
+        BraveLogger._logNotifier = Notifier(BraveLogger.log)
+        BraveLogger._logNotifier.startPeriodic(0.02)
+        BraveLogger._statusSignalNotifier = Notifier(BraveLogger.refreshStatusSignals)
+        BraveLogger._statusSignalNotifier.startPeriodic(0.02)
 
     @staticmethod
     def log() -> None:
         BraveLogger._dataPub.set(BraveLogger._data)
+
+    @staticmethod
+    def refreshStatusSignals() -> None:
+        """
+        Refreshes the status signals for the BraveLogger subsystem.
+        This method is called periodically to update the status signals.
+        """
+        StatusSignal.refresh_all(BraveLogger._statusSignals)  # type: ignore
 
     @staticmethod
     def pushSubsystemData(data: Any) -> None:
@@ -198,3 +213,16 @@ class BraveLogger:
             BraveLogger._data.shooterData = data
         elif isinstance(data, TimerData):
             BraveLogger._data.timerData = data
+
+    @staticmethod
+    def registerStatusSignal(signal: StatusSignal | list[StatusSignal]) -> None:
+        """
+        Registers a status signal to be refreshed periodically.
+
+        :param signal: The status signal to register.
+        :type signal: StatusSignal
+        """
+        if isinstance(signal, list):
+            BraveLogger._statusSignals.extend(signal)
+        else:
+            BraveLogger._statusSignals.append(signal)

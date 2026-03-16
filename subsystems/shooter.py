@@ -315,6 +315,14 @@ class Shooter(Subsystem):
         self._getFlywheelCurrentSignal = self._flywheelMotor.get_stator_current(False)
         self._getDutyCycleSignal = self._flywheelMotor.get_duty_cycle(False)
 
+        BraveLogger.registerStatusSignal(
+            [
+                self._getVelocitySignal,
+                self._getFlywheelCurrentSignal,
+                self._getDutyCycleSignal,
+            ]
+        )
+
         self._velocityVoltageRequest = VelocityVoltage(0)
 
         self._flywheelMotorSimState = self._flywheelMotor.sim_state
@@ -364,12 +372,6 @@ class Shooter(Subsystem):
         ).degrees()
 
     def periodic(self) -> None:
-        StatusSignal.refresh_all(
-            self._getVelocitySignal,
-            self._getFlywheelCurrentSignal,
-            self._getDutyCycleSignal,
-        )
-
         # log data
         flywheelVelocity = self.getFlywheelVelocity()
         desiredFlywheelVelocity = self.getFlywheelSetpoint()

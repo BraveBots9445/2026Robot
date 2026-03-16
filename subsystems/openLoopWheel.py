@@ -113,6 +113,10 @@ class OpenLoopWheel(Subsystem):
         self._getCurrentSignal = self._motor.get_stator_current(False)
         self._getVelocitySignal = self._motor.get_velocity(False)
         self._getDutyCycleSignal = self._motor.get_duty_cycle(False)
+        BraveLogger.registerStatusSignal(
+            [self._getCurrentSignal, self._getVelocitySignal, self._getDutyCycleSignal]
+        )
+
         self._motorSimState = self._motor.sim_state
 
         self._lock = Lock()
@@ -120,10 +124,6 @@ class OpenLoopWheel(Subsystem):
         self.setName(name)
 
     def periodic(self) -> None:
-        StatusSignal.refresh_all(
-            self._getCurrentSignal, self._getVelocitySignal, self._getDutyCycleSignal
-        )
-
         # with self._lock:
         self._data.current = self._getCurrentSignal.value_as_double
         self._data.velocity = self._getVelocitySignal.value_as_double

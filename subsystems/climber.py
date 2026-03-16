@@ -191,6 +191,15 @@ class Climber(Subsystem):
         self._rawPositionSignal = self._motor.get_position(False)
         self._rawVelocitySignal = self._motor.get_velocity(False)
 
+        BraveLogger.registerStatusSignal(
+            [
+                self._currentSignal,
+                self._dutyCycleSignal,
+                self._rawPositionSignal,
+                self._rawVelocitySignal,
+            ]
+        )
+
         self._positionVoltageRequest = PositionVoltage(0)
 
         self._elevatorSim = ElevatorSim(
@@ -223,13 +232,6 @@ class Climber(Subsystem):
 
     def periodic(self) -> None:
         return
-        StatusSignal.refresh_all(
-            self._currentSignal,
-            self._dutyCycleSignal,
-            self._rawPositionSignal,
-            self._rawVelocitySignal,
-        )
-
         slot = 0
         with self._lock:
             self._mechState.positionIn = self.getPositionInches()

@@ -235,15 +235,15 @@ class RobotContainer:
 
         self.timerManager.startTeleop()
 
-        # self.shooter.setDefaultCommand(
-        #     ShooterShootOnMove(
-        #         self.shooter, self.shootOnMoveCalculator
-        #     ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
-        # )
+        self.shooter.setDefaultCommand(
+            ShooterShootOnMove(
+                self.shooter, self.shootOnMoveCalculator
+            ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
+        )
 
-        # self.turret.setDefaultCommand(
-        #     TurretShootOnMove(self.turret, self.shootOnMoveCalculator)
-        # )
+        self.turret.setDefaultCommand(
+            TurretShootOnMove(self.turret, self.shootOnMoveCalculator)
+        )
 
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(

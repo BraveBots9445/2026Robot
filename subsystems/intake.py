@@ -268,6 +268,18 @@ class Intake(Subsystem):
         self._rollerVelocitySignal = self._rollerMotor.get_velocity(False)
         self._rollerDutyCycleSignal = self._rollerMotor.get_duty_cycle(False)
 
+        BraveLogger.registerStatusSignal(
+            [
+                self._pivotCurrentSignal,
+                self._pivotDutyCycleSignal,
+                self._pivotPositionSignal,
+                self._pivotVelocitySignal,
+                self._rollerCurrentSignal,
+                self._rollerVelocitySignal,
+                self._rollerDutyCycleSignal,
+            ]
+        )
+
         self._positionDutyCycleRequest = PositionDutyCycle(0)
 
         self._pivotSetpoint = self.getAngle()
@@ -314,16 +326,6 @@ class Intake(Subsystem):
         self._reverseTimer = Timer()
 
     def periodic(self) -> None:
-        StatusSignal.refresh_all(
-            self._pivotCurrentSignal,
-            self._pivotDutyCycleSignal,
-            self._pivotPositionSignal,
-            self._pivotVelocitySignal,
-            self._rollerCurrentSignal,
-            self._rollerVelocitySignal,
-            self._rollerDutyCycleSignal,
-        )
-
         pivotPosition = Rotation2d.fromRotations(
             self._pivotPositionSignal.value_as_double
         )
