@@ -32,6 +32,7 @@ class TimeManager:
         self._winner = AutoWinner.Err
 
         self._teleopTimer = Timer()
+        self._shiftTimer = Timer()
 
         self._data = TimerData(self._winner.value, 0, 0, 0, 0, 0)
 
@@ -65,6 +66,10 @@ class TimeManager:
 
         if self._shiftTimer.advanceIfElapsed(25):
             self._shiftCounter += 1
+
+        self._data.currentShift = self._shiftCounter
+        self._data.shiftTime = self._shiftTimer.get()
+        self._data.matchTime = self._teleopTimer.get()
 
         BraveLogger.pushSubsystemData(deepcopy(self._data))
 

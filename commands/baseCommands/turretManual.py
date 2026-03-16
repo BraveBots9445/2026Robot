@@ -8,6 +8,8 @@ from subsystems import Turret
 
 
 class TurretManual(Command):
+    _velocityFactor: float = 1
+
     def __init__(self, turret: Turret, moveVel: Callable[[], float]) -> None:
         self.turret = turret
         self.moveVel = moveVel
@@ -15,10 +17,7 @@ class TurretManual(Command):
         self.addRequirements(turret)
 
     def execute(self):
-        self.turret.bumpManualOffset(self.moveVel() * 0.02)
+        self.turret.bumpManualOffset(self.moveVel() * self._velocityFactor)
 
     def isFinished(self) -> bool:
         return False
-
-    def end(self, interrupted: bool):
-        self.turret._manualSetpointOffset = Rotation2d()

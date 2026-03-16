@@ -8,8 +8,8 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 8.088858773181169,
-        "y": 7.2890727532097
+        "x": 7.994452871072589,
+        "y": 7.52209642470206
       },
       "isLocked": false,
       "linkedName": "CenterLeftNeutral"
@@ -20,15 +20,20 @@
         "y": 7.4572753209700435
       },
       "prevControl": {
-        "x": 6.018673323823109,
-        "y": 7.638416547788873
+        "x": 6.510342368045648,
+        "y": 7.547845934379458
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "LeftTrenchExit"
     }
   ],
-  "rotationTargets": [],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.575692963752665,
+      "rotationDegrees": 180.0
+    }
+  ],
   "constraintZones": [],
   "pointTowardsZones": [],
   "eventMarkers": [
@@ -67,7 +72,7 @@
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -90.0
+    "rotation": -119.99999999999999
   },
   "useDefaultConstraints": true
 }

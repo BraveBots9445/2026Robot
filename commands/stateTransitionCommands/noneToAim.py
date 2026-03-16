@@ -1,6 +1,6 @@
 from commands2 import SequentialCommandGroup, ParallelCommandGroup, WaitCommand
 
-from commands.baseCommands.shootOnMove import ShootOnMove
+from commands.baseCommands.shooterShootOnMove import ShootOnMove
 from commands.baseCommands.kickerDeploy import KickerDeploy
 from commands.baseCommands.woahvalScore import WoahvalScore
 from commands.baseCommands.indexerScore import IndexerScore

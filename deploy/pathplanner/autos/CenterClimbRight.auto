@@ -5,21 +5,21 @@
     "data": {
       "commands": [
         {
-          "type": "path",
+          "type": "named",
           "data": {
-            "pathName": "LeftToCenter"
+            "name": "Flywheel4000rpm"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "IntakeClearance"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "CenterToLeft"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "LeftTrenchClimb"
+            "pathName": "CRClimbRight"
           }
         },
         {
@@ -29,22 +29,34 @@
               {
                 "type": "named",
                 "data": {
-                  "name": "ShootOnMove"
+                  "name": "FeedShooter10s"
                 }
               },
               {
                 "type": "named",
                 "data": {
-                  "name": "FeedShooter10s"
+                  "name": "ShootOnMove"
                 }
               }
             ]
           }
         },
         {
+          "type": "named",
+          "data": {
+            "name": "IntakeRetract"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "StopFeedingShooter"
+          }
+        },
+        {
           "type": "path",
           "data": {
-            "pathName": "CLTowerToClimb"
+            "pathName": "CRTowerToClimb"
           }
         }
       ]

@@ -1,24 +1,21 @@
 from commands2 import Command
 
-from subsystems import Shooter, Turret, ShootOnMoveCalculator
+from subsystems import Shooter, ShootOnMoveCalculator
 
 from tools.rebuilt import Rebuilt, RebuiltPositions
 
 
-# TODO: Implement
-class ShootOnMove(Command):
+class ShooterShootOnMove(Command):
     def __init__(
         self,
         shooter: Shooter,
-        turret: Turret,
         shootOnMoveCalculator: ShootOnMoveCalculator,
     ):
         super().__init__()
         self.shooter = shooter
-        self.turret = turret
         self.shootOnMoveCalculator = shootOnMoveCalculator
         self.target = Rebuilt.getPosition(RebuiltPositions.Hub)
-        self.addRequirements(shooter, turret)
+        self.addRequirements(shooter)
 
     def initialize(self):
         self.target = Rebuilt.getPosition(RebuiltPositions.Hub)
@@ -27,7 +24,6 @@ class ShootOnMove(Command):
         setpoints = self.shootOnMoveCalculator.getSetpoints(self.target)
         self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)
         self.shooter.setHoodAngleSetpoint(setpoints.hoodAngle)
-        self.turret.setSetpoint(setpoints.turretAngle)
 
     def isFinished(self) -> bool:
         return False

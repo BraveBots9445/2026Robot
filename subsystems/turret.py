@@ -108,12 +108,12 @@ class Turret(Subsystem):
 
     _encoderInverted: bool = False
 
-    _zeroOffset: float = 0.0
+    _zeroOffset: float = 0.040008545
 
     # motor PID gains
-    _motorP: float = 4.0 if RobotBase.isReal() else 3.5
+    _motorP: float = 5.0 if RobotBase.isReal() else 1.5
     _motorI: float = 0.0 if RobotBase.isReal() else 0.0
-    _motorD: float = 0.25 if RobotBase.isReal() else 0.0
+    _motorD: float = 0.0 if RobotBase.isReal() else 0.125
 
     _canCoderConfig: CANcoderConfiguration
     """
@@ -173,6 +173,7 @@ class Turret(Subsystem):
 
         self._motor = SparkMax(24, SparkMax.MotorType.kBrushless)
         self._motorClosedLoop = self._motor.getClosedLoopController()
+        absEncoder = self._motor.getAbsoluteEncoder()
         self._encoder = self._motor.getEncoder()
 
         motorConfig = SparkBaseConfig()
@@ -188,21 +189,19 @@ class Turret(Subsystem):
         )
         motorConfig.closedLoop.pid(self._motorP, self._motorI, self._motorD).maxOutput(
             1.0
-        ).minOutput(-1.0).setFeedbackSensor(FeedbackSensor.kAbsoluteEncoder)
+        ).minOutput(-1.0).setFeedbackSensor(FeedbackSensor.kPrimaryEncoder)
         motorConfig.encoder.positionConversionFactor(
             1 / self._gearRatio
         ).velocityConversionFactor(1 / self._gearRatio)
-        motorConfig.absoluteEncoder.inverted(False).zeroOffset(
+        motorConfig.absoluteEncoder.inverted(self._encoderInverted).zeroOffset(
             self._zeroOffset
-        ).zeroCentered(True)
-
-        motorConfig.IdleMode(SparkMax.IdleMode.kBrake)
+        ).zeroCentered(True).positionConversionFactor(1.0)
 
         self._motor.configure(
             motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters
         )
 
-        self._encoder.setPosition(0.0)
+        self._encoder.setPosition(absEncoder.getPosition() / self._gearRatio * 2)
 
         self._data = TurretData(0, 0, 0, 0)
 
@@ -241,7 +240,9 @@ class Turret(Subsystem):
         angle = Rotation2d.fromRotations(self._encoder.getPosition())
         # with self._lock:
         self._data._rotationDegrees = angle.degrees()
-        self._data._rotationSetpointDegrees = self._rotationSetpoint.degrees()
+        self._data._rotationSetpointDegrees = (
+            self._rotationSetpoint.degrees() + self._manualSetpointOffset.degrees()
+        )
         self._data._motorCurrent = self._motor.getOutputCurrent()
         self._data._motorDutyCycle = self._motor.getAppliedOutput()
 
@@ -312,8 +313,7 @@ class Turret(Subsystem):
         """
         Resets the turret encoder to zero. This should only be used for testing, as in normal operation the encoder should be reset by the CANCoder when the magnet is detected.
         """
-        if not RobotState.isEnabled():
-            self._encoder.setPosition(0.0)
+        return
 
     def _tmpResetCommand(self) -> Command:
         """
@@ -323,6 +323,11 @@ class Turret(Subsystem):
         :rtype: Command
         """
         return cmd.runOnce(self.resetEncoder).ignoringDisable(True)
+
+    def atSetpoint(self) -> bool:
+        return (
+            abs(self._data._rotationDegrees - self._data._rotationSetpointDegrees) < 7
+        )
 
     def getData(self) -> TurretData:
         """
@@ -348,3 +353,6 @@ class Turret(Subsystem):
 
     def dumpManualOffsetCommand(self, dumpValueDegrees: degrees = 5) -> Command:
         return cmd.runOnce(lambda: self.dumpManualOffset(dumpValueDegrees))
+
+    def resetManualOffset(self) -> None:
+        self._manualSetpointOffset = Rotation2d()

@@ -162,7 +162,7 @@ class Shooter(Subsystem):
     The minimum angle of the hood. This is where the hood is fully retracted
     """
 
-    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(62)
+    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(68)
     """
     The max angle of the hood. This is where the hood is fully extended 
     """
@@ -182,7 +182,7 @@ class Shooter(Subsystem):
     """
 
     # _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 0.975)
-    _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 1.0)
+    _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 1.05)
     """
     The number to multiply the flywheel setpoint by for changing system conditions
     """
@@ -324,10 +324,6 @@ class Shooter(Subsystem):
 
         self._data = ShooterData(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
-        self._data.actualHoodAngleDegrees = Rotation2d.fromRotations(
-            self._hoodEncoder.getPosition()
-        ).degrees()
-
         hoodMech = Mechanism2d(100, 100)
         self._hoodMech = hoodMech.getRoot("hood", 50, 50).appendLigament(
             "hoodPointer", 40, 0
@@ -362,6 +358,10 @@ class Shooter(Subsystem):
         self._lock = Lock()
 
         self._hoodAngleSetpoint = self.getHoodAngle()
+
+        self._data.desiredHoodAngleDegrees = Rotation2d.fromRotations(
+            self._hoodEncoder.getPosition()
+        ).degrees()
 
     def periodic(self) -> None:
         StatusSignal.refresh_all(
@@ -398,7 +398,6 @@ class Shooter(Subsystem):
                 self._flywheelSetpoint
                 / kSECONDS_PER_MINUTE
                 / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
-                * self._flywheelFudgeFactor
             )
             self._flywheelMotor.set_control(self._velocityVoltageRequest)
 
@@ -441,7 +440,7 @@ class Shooter(Subsystem):
         :param setpoint: The target speed in RPM
         :type setpoint: revolutions_per_minute
         """
-        setpoint = max(min(setpoint, 6000), 0)
+        setpoint = max(min(setpoint, 6000), 0) * self._flywheelFudgeFactor
         self._flywheelSetpoint = setpoint
 
     def setHoodAngleSetpoint(self, setpoint: Rotation2d) -> None:
@@ -566,6 +565,18 @@ class Shooter(Subsystem):
     @property
     def maxHoodAngle(self) -> Rotation2d:
         return self._hoodMaxAngle
+
+    def atFlywheelSetpoint(self) -> bool:
+        return (
+            abs(self._data.actualFlywheelSpeedRpm - self._data.desiredFlywheelSpeedRpm)
+            < 50
+        )
+
+    def atHoodSetpoint(self) -> bool:
+        return (
+            abs(self._data.actualHoodAngleDegrees - self._data.desiredHoodAngleDegrees)
+            < 3
+        )
 
     def getData(self) -> ShooterData:
         """

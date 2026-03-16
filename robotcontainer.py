@@ -13,6 +13,7 @@ from commands2 import (
     Subsystem,
 )
 from commands2.button import CommandXboxController, Trigger
+from commands2.sysid import SysIdRoutine
 
 from wpimath.geometry import (
     Transform2d,
@@ -82,12 +83,15 @@ from commands.baseCommands.woahvalStop import WoahvalStop
 from commands.baseCommands.indexerScore import IndexerScore
 from commands.baseCommands.indexerStop import IndexerStop
 from commands.baseCommands.turretSetAngle import TurretSetAngle
-from commands.baseCommands.shootOnMove import ShootOnMove
+from commands.baseCommands.shooterShootOnMove import ShooterShootOnMove
+from commands.baseCommands.turretShootOnMove import TurretShootOnMove
 from commands.baseCommands.shootStatic import ShootStatic
 from commands.baseCommands.intakeSetRollerSpeed import IntakeSetRollerSpeed
 from commands.baseCommands.indexerDejam import IndexerDejam
 from commands.baseCommands.indexerShoot import IndexerShoot
 from commands.baseCommands.turretManual import TurretManual
+from commands.baseCommands.turretResetManualOffset import TurretResetManualOffset
+from commands.baseCommands.shooterSetFlywheelVelocity import ShooterSetFlywheelVelocity
 
 from commands import ShooterTuneDistance
 
@@ -130,7 +134,7 @@ class RobotContainer:
         self.climber = Climber()
         self.indexer = Indexer()
         self.woahval = Woahval()
-        self.passiveHooks = PassiveHooks()
+        # self.passiveHooks = PassiveHooks()
 
         self.visualizer3d = Visualizer3D(
             lambda: Transform3d(
@@ -166,6 +170,8 @@ class RobotContainer:
         )
 
         self.zoneManager = ZoneManager(self.drivetrain)
+
+        self.timerManager = TimeManager()
 
         self.braveLogger = BraveLogger()
 
@@ -211,13 +217,14 @@ class RobotContainer:
         self.drivetrain.setDefaultCommand(
             DrivetrainDriveFieldOriented(
                 self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
+                lambda: self.driver_controller.getFRCLX(),
+                lambda: self.driver_controller.getFRCLY(),
                 lambda: -self.driver_controller.getFRCRY(),
                 self.drivetrain.getMaxSpeed,
                 self.drivetrain.getMaxAngularRateDeg,
             )
         )
+
         # self.zoneManager.getMustStowTrigger(1.25).whileTrue(
         #     DrivetrainAutoAlignTrench(
         #         self.drivetrain,
@@ -226,14 +233,17 @@ class RobotContainer:
         #     )
         # )
 
-        # self.turret.setDefaultCommand(
-        #     ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
+        self.timerManager.startTeleop()
+
+        # self.shooter.setDefaultCommand(
+        #     ShooterShootOnMove(
+        #         self.shooter, self.shootOnMoveCalculator
+        #     ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
         # )
-        self.shooter.setDefaultCommand(
-            ShootOnMove(
-                self.shooter, self.turret, self.shootOnMoveCalculator
-            ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
-        )
+
+        # self.turret.setDefaultCommand(
+        #     TurretShootOnMove(self.turret, self.shootOnMoveCalculator)
+        # )
 
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(
@@ -290,9 +300,13 @@ class RobotContainer:
             IntakeSetAngle(self.intake, 0).andThen(IntakeSetRollerSpeed(self.intake, 0))
         )
 
-        # self.operator_controller.leftStick().whileTrue(
-        #     TurretManual(self.turret, self.operator_controller.getFRCLY)
-        # )
+        self.operator_controller.leftStick().toggleOnTrue(
+            TurretManual(self.turret, self.operator_controller.getFRCLY)
+        )
+
+        self.operator_controller.leftBumper().onTrue(
+            TurretResetManualOffset(self.turret)
+        )
 
         # self.operator_controller.rightTrigger().onTrue(
         self.driver_controller.leftTrigger().onTrue(
@@ -347,26 +361,56 @@ class RobotContainer:
         Insert code here for the pathplanner named commands
         That will be scheduled during path following
         """
-        EventTrigger("IntakeDeploy").onTrue(IntakeDeploy(self.intake))
-        EventTrigger("ShootOnMove").onTrue(
-            ShootOnMove(self.shooter, self.turret, self.shootOnMoveCalculator)
+        NamedCommands.registerCommand(
+            "Flywheel4000rpm", ShooterSetFlywheelVelocity(self.shooter, 4000)
         )
-        EventTrigger("FeedShooter").onTrue(
-            ParallelCommandGroup(
-                IndexerShoot(self.indexer),
-                WoahvalScore(self.woahval),
-            )
+        NamedCommands.registerCommand("IntakeDeploy", IntakeDeploy(self.intake))
+        NamedCommands.registerCommand(
+            "ShootOnMove",
+            ShooterShootOnMove(self.shooter, self.shootOnMoveCalculator).alongWith(
+                TurretShootOnMove(self.turret, self.shootOnMoveCalculator)
+            ),
         )
-        EventTrigger("StopFeedingShooter").onTrue(
+        NamedCommands.registerCommand(
+            "FeedShooter10s",
+            SequentialCommandGroup(
+                WaitCommand(0.1),
+                WaitCommand(7).until(
+                    lambda: self.shooter.atFlywheelSetpoint()
+                    and self.shooter.atHoodSetpoint()
+                    and self.turret.atSetpoint()
+                ),
+                RepeatCommand(
+                    ParallelCommandGroup(
+                        IndexerShoot(self.indexer),
+                        WoahvalScore(self.woahval),
+                    )
+                ).withTimeout(5),
+            ),
+        )
+        NamedCommands.registerCommand(
+            "StopFeedingShooter",
             ParallelCommandGroup(
                 IndexerStop(self.indexer),
                 WoahvalStop(self.woahval),
+            ),
+        )
+
+        NamedCommands.registerCommand(
+            "IntakeClearance", IntakeSetAngle(self.intake, 70)
+        )
+        NamedCommands.registerCommand("IntakeRetract", IntakeSetAngle(self.intake, 90))
+        EventTrigger("IntakeDeploy").onTrue(
+            SequentialCommandGroup(
+                IntakeSetRollerSpeed(self.intake, 0.6),
+                IntakeSetAngle(self.intake, 60),
+                WaitCommand(0.375),
+                IntakeSetAngle(self.intake, 0),
             )
         )
 
-        # EventTrigger("IgnoreTrenchZone3s").onTrue(
-        #     self.zoneManager.getIgnoreTrenchCommand(3.0)
-        # )
+    def timerPeriodic(self) -> None:
+        self.timerManager.periodic()
 
     def getAutoCommand(self) -> Command:
         return self.auto_chooser.getSelected()

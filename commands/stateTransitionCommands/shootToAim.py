@@ -3,7 +3,7 @@ from commands2 import ParallelCommandGroup, SequentialCommandGroup
 from commands.baseCommands.kickerDeploy import KickerDeploy
 from commands.baseCommands.indexerIdle import IndexerIdle
 from commands.baseCommands.woahvalIdle import WoahvalIdle
-from commands.baseCommands.shootOnMove import ShootOnMove
+from commands.baseCommands.shooterShootOnMove import ShootOnMove
 from subsystems import Kicker, Indexer, Woahval, Shooter, Turret, ShootOnMoveCalculator
 
 

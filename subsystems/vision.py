@@ -36,29 +36,37 @@ class Vision(Subsystem):
 
     # these names and their associated positions are fake
     _turretCamera: VisionCamera
-    _backRightCamera: VisionCamera
+    _backRightReverseCamera: VisionCamera
     _backLeftReverseCamera: VisionCamera
     _backLeftForwardCamera: VisionCamera
 
     # TODO: The below offsets are all garbage from copilot
     _backLeftForwardCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-10.5), inchesToMeters(13.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 30, 60),
+        Translation3d(
+            inchesToMeters(-10.5), inchesToMeters(13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30 + 8.4, 60),
     )
 
     _backLeftReverseCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 30, 120),
+        Translation3d(
+            inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30 + 5.6, 120),
     )
 
     _backRightForwardCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-11), inchesToMeters(-12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 30, -60),
+        Translation3d(
+            inchesToMeters(-10.5), inchesToMeters(-13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30 + 2.04, -60),
     )
 
     _backRightReverseCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-12), inchesToMeters(-12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(0, 30, 150),
+        Translation3d(
+            inchesToMeters(-12.5), inchesToMeters(-13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30, 120),
     )
 
     _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
@@ -100,13 +108,21 @@ class Vision(Subsystem):
         """
         self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
 
-        # self._backRightCamera = VisionCamera(
-        #     "ArducamOV9281-BR",
-        #     self._tagLayout,
-        #     self._backRightForwardCameraToRobot,
-        #     logVisionMeasurement,
-        #     getRobotVelocity,
-        # )
+        self._backRightReverseCamera = VisionCamera(
+            "Arducam-BR-R",
+            self._tagLayout,
+            self._backRightForwardCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
+
+        self._backRightForwardCamera = VisionCamera(
+            "ArducamOV9281-BR-F",
+            self._tagLayout,
+            self._backRightForwardCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
 
         self._backLeftReverseCamera = VisionCamera(
             "ArducamOV9281-BL-R",
@@ -153,13 +169,14 @@ class Vision(Subsystem):
             self._simNotifier.startPeriodic(0.06)
 
     def periodic(self) -> None:
+        return
         # turret camera does not do pose estimation
         if not self._enabled:
             return
         estBLR, tagsBLR = self._backLeftReverseCamera.update()
         estBLF, tagsBLF = self._backLeftForwardCamera.update()
-        # estR, tagsR = self._rearCamera.update()
-        # _estTu, tagsTu = self._turretCamera.update()
+        estBRR, tagsBRR = self._backRightReverseCamera.update()
+        estBRF, tagsBRF = self._backRightForwardCamera.update()
 
         # Build pose list without repeated concatenation
         poses = []
@@ -167,15 +184,17 @@ class Vision(Subsystem):
             poses.append(self._pose3dToPose2d(estBLR))
         if estBLF is not None:
             poses.append(self._pose3dToPose2d(estBLF))
-        # if estR is not None:
-        #     poses.append(self._pose3dToPose2d(estR))
+        if estBRR is not None:
+            poses.append(self._pose3dToPose2d(estBRR))
+        if estBRF is not None:
+            poses.append(self._pose3dToPose2d(estBRF))
         self._poseEstPub.set(poses)
 
         allTags = []
         allTags.extend(tagsBLR)
         allTags.extend(tagsBLF)
-        # allTags.extend(tagsR)
-        # allTags.extend(tagsTu)
+        allTags.extend(tagsBRR)
+        allTags.extend(tagsBRF)
         self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in allTags])
 
     def _simulationPeriodic(self) -> None:

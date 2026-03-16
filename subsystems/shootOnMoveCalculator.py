@@ -22,7 +22,7 @@ from wpimath.units import (
     degreesToRadians,
     radians_per_second,
 )
-from wpilib import SmartDashboard
+from wpilib import SmartDashboard, RobotController
 
 
 @dataclass
@@ -74,11 +74,14 @@ class ShootOnMoveCalculator:
     A function that converts flywheel RPM to muzzle velocity. 
     """
 
+    _setpoints: tuple[StateSetpoint, int]
+
     _distanceInterpArray = array(
         [
             3.9031262397766113,
             4.55928897857666,
             5.402111530303955,
+            5.43321084976196,
             6.06634521484375,
             7.002396583557129,
             7.488589763641357,
@@ -90,6 +93,7 @@ class ShootOnMoveCalculator:
             62.0,
             46.94731903076172,
             46.94731903076172,
+            62.0,
             46.94731903076172,
             46.94731903076172,
             47.114784240722656,
@@ -101,6 +105,7 @@ class ShootOnMoveCalculator:
             3441.86962890625,
             3477.87646484375,
             3706.87158203125,
+            4077.8178710937,
             3937.236083984375,
             4170.0302734375,
             4594.1455078125,
@@ -137,6 +142,8 @@ class ShootOnMoveCalculator:
         self._getRobotVelocity = getRobotVelocity
         self._launcherTransform = launcherTransform
         self._flywheelRpmToMuzzleVelocity = flywheelRpmToMuzzleVelocity
+
+        self._setpoints = (StateSetpoint(0, Rotation2d(), Rotation2d()), -500)
 
         self._nettable = NetworkTableInstance.getDefault().getTable(
             "ShootOnMoveCalculator"
@@ -199,7 +206,7 @@ class ShootOnMoveCalculator:
             t,
         )
 
-    def getSetpoints(self, target: Pose3d, maxIterations: int = 10) -> StateSetpoint:
+    def _getSetpoints(self, target: Pose3d, maxIterations: int = 10) -> StateSetpoint:
         """
         Get the setpoints for the shooter, hood, and turret
         Uses a Recursive LuT method with a moving virtual target to account for the moving robot
@@ -231,6 +238,7 @@ class ShootOnMoveCalculator:
             pass
             # self._nettable.putNumber("Iterations", )
         self._virtualTargetPub.set(virtualTarget)
+        self._setpoints = (setpoints, RobotController.getFPGATime())
         return setpoints
 
     def _ChassisSpeedsToTranslation3d(
@@ -250,3 +258,11 @@ class ShootOnMoveCalculator:
             0.0,
             Rotation3d(0.0, 0.0, speeds.omega * time),
         )
+
+    def getSetpoints(
+        self, target: Pose3d, maxIterations: int = 10, maxTime: seconds = 0.02
+    ) -> StateSetpoint:
+        if RobotController.getFPGATime() - self._setpoints[1] / (10**6) > maxTime:
+            self._getSetpoints(target, maxIterations)
+
+        return self._setpoints[0]

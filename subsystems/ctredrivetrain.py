@@ -9,6 +9,8 @@ from wpilib import DriverStation, Notifier, RobotController
 from wpilib.sysid import SysIdRoutineLog
 from wpimath.geometry import Pose2d, Rotation2d
 from wpimath.units import radiansToDegrees, degreesToRadians
+from wpimath.kinematics import ChassisSpeeds
+from phoenix6.swerve.swerve_module import SwerveModule
 
 
 class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
@@ -22,7 +24,7 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     _nom_max_angular_rate: units.radians_per_second = degreesToRadians(360)
     """Nominal maximum angular rate of the robot in radians per second"""
 
-    _curr_max_speed: units.meters_per_second = 2.5
+    _curr_max_speed: units.meters_per_second = 3.0
     """Current maximum speed of the robot in meters per second"""
     _curr_max_angular_rate: units.radians_per_second = degreesToRadians(180)
     """Current maximum angular rate of the robot in radians per second"""
@@ -263,22 +265,27 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
         AutoBuilder.configure(
             lambda: self.get_state().pose,  # Supplier of current robot pose
             self.reset_pose,  # Consumer for seeding pose against auto
-            lambda: self.get_state().speeds,  # Supplier of current robot speeds
+            lambda: ChassisSpeeds(
+                (speeds := self.get_state().speeds).vx, speeds.vy, -speeds.omega
+            ),  # Supplier of current robot speeds
             # Consumer of ChassisSpeeds and feedforwards to drive the robot
             lambda speeds, feedforwards: self.set_control(
-                self._apply_robot_speeds.with_speeds(speeds)
+                self._apply_robot_speeds.with_speeds(
+                    ChassisSpeeds(speeds.vx, speeds.vy, -speeds.omega)
+                )
                 .with_wheel_force_feedforwards_x(
                     feedforwards.robotRelativeForcesXNewtons
                 )
                 .with_wheel_force_feedforwards_y(
                     feedforwards.robotRelativeForcesYNewtons
                 )
+                .with_drive_request_type(SwerveModule.DriveRequestType.VELOCITY)
             ),
             PPHolonomicDriveController(
                 # PID constants for translation
-                PIDConstants(3, 0.0, 0),
+                PIDConstants(10.000, 0.0, 0),
                 # PID constants for rotation
-                PIDConstants(3, 0.0, 0),
+                PIDConstants(0.00250, 0.0, 0),
             ),
             config,
             # Assume the path needs to be flipped for Red vs Blue, this is normally the case

@@ -1,4 +1,4 @@
-from commands2 import Command, CommandScheduler, TimedCommandRobot
+from commands2 import Command, CommandScheduler, TimedCommandRobot, cmd
 
 from ntcore import NetworkTableInstance
 
@@ -36,7 +36,9 @@ class Robot(TimedCommandRobot):
         self._timePub = self._nettable.getDoubleTopic("time").publish()
         self._timer = Timer()
         self._timer.start()
-        self.setNetworkTablesFlushEnabled(False)
+        # self.setNetworkTablesFlushEnabled(False)
+        self.addPeriodic(self.m_robotContainer.timerPeriodic, 0.1, 0.05)
+        self.m_autonomousCommand = cmd.none()
 
     def robotPeriodic(self) -> None:
         self._timePub.set(self._timer.get())
@@ -61,6 +63,8 @@ class Robot(TimedCommandRobot):
     def teleopInit(self):
         if self.m_robotContainer is not None:
             self.m_robotContainer.set_teleop_bindings()
+        if self.m_autonomousCommand and self.m_autonomousCommand.isScheduled():
+            self.m_autonomousCommand.cancel()
 
     def teleopPeriodic(self):
         pass
