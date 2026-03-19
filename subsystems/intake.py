@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from threading import Lock
 
 from commands2 import Subsystem

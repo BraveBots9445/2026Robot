@@ -33,7 +33,7 @@ class TurretPass(Command):
             target = Rebuilt.getPosition(
                 Pose3d(
                     inchesToMeters(32),
-                    inchesToMeters(300),
+                    inchesToMeters(270),
                     inchesToMeters(20),
                     Rotation3d(),
                 )
@@ -41,8 +41,8 @@ class TurretPass(Command):
         else:
             target = Rebuilt.getPosition(
                 Pose3d(
-                    inchesToMeters(32),
-                    inchesToMeters(12),
+                    inchesToMeters(48),
+                    inchesToMeters(48),
                     inchesToMeters(20),
                     Rotation3d(),
                 )
@@ -50,7 +50,6 @@ class TurretPass(Command):
 
         setpoints = self.shootOnMoveCalculator.getSetpoints(target, passing=True)
         self.turret.setSetpoint(setpoints.turretAngle)
-        print("asdl;kfjasklfdja;lkfsj")
 
     def isFinished(self) -> bool:
         return self.zoneManager.getInAllianceZoneBool()

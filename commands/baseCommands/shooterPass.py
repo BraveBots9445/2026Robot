@@ -32,8 +32,8 @@ class ShooterPass(Command):
         if self.zoneManager.getOnLeftBool():
             target = Rebuilt.getPosition(
                 Pose3d(
-                    inchesToMeters(32),
-                    inchesToMeters(300),
+                    inchesToMeters(48),
+                    inchesToMeters(270),
                     inchesToMeters(20),
                     Rotation3d(),
                 )
@@ -41,8 +41,8 @@ class ShooterPass(Command):
         else:
             target = Rebuilt.getPosition(
                 Pose3d(
-                    inchesToMeters(32),
-                    inchesToMeters(12),
+                    inchesToMeters(48),
+                    inchesToMeters(48),
                     inchesToMeters(20),
                     Rotation3d(),
                 )

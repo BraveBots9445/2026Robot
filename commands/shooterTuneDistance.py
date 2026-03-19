@@ -106,9 +106,8 @@ class ShooterTuneDistance(Command):
             newSetpoints = ShooterSetpointsStruct(
                 distanceM=self.getDistance(),
                 flywheelVelocityRPM=self.shooter.getFlywheelSetpoint(),
-                hoodAngledeg=self.shooter.getHoodAngleSetpoint().degrees(),
+                hoodAngledeg=self.shooter.getHoodAngle().degrees(),  # because the hood does not always reach its setpoint, we want to record what it actually does
             )
-            # if newSetpoints not in self.setpoints:
             self.setpoints.append(newSetpoints)
             self.setpointsPub.set(self.setpoints)
         self.prevLogged = storeSetpoints

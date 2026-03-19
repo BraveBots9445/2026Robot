@@ -144,9 +144,9 @@ class BraveLogger:
 
     _data: BraveData
 
-    _statusSignals: list[StatusSignal] = []
+    _statusSignals: dict[str, list[StatusSignal]] = {"": []}
     _statusSignalIndex: int = 0
-    _statusSignalBatchSize: int = 12
+    _statusSignalBatchSize: int = 1
 
     def __init__(
         self,
@@ -193,18 +193,9 @@ class BraveLogger:
         Refreshes the status signals for the BraveLogger subsystem.
         This method is called periodically to update the status signals.
         """
-        signals = BraveLogger._statusSignals
-        total = len(signals)
-        if total == 0:
-            return
 
-        start = BraveLogger._statusSignalIndex
-        end = min(start + BraveLogger._statusSignalBatchSize, total)
-        batch = signals[start:end]
-        if batch:
-            StatusSignal.refresh_all(batch)  # type: ignore
-
-        BraveLogger._statusSignalIndex = 0 if end >= total else end
+        for _bus, signals in BraveLogger._statusSignals.items():
+            StatusSignal.refresh_all(signals)  # type: ignore
 
     @staticmethod
     def pushSubsystemData(data: Any) -> None:
@@ -232,14 +223,18 @@ class BraveLogger:
             BraveLogger._data.timerData = data
 
     @staticmethod
-    def registerStatusSignal(signal: StatusSignal | list[StatusSignal]) -> None:
+    def registerStatusSignal(
+        signal: StatusSignal | list[StatusSignal], bus: str = ""
+    ) -> None:
         """
         Registers a status signal to be refreshed periodically.
 
         :param signal: The status signal to register.
         :type signal: StatusSignal
         """
+        if bus not in BraveLogger._statusSignals.keys():
+            BraveLogger._statusSignals[bus] = []
         if isinstance(signal, list):
-            BraveLogger._statusSignals.extend(signal)
+            BraveLogger._statusSignals[bus].extend(signal)
         else:
-            BraveLogger._statusSignals.append(signal)
+            BraveLogger._statusSignals[bus].append(signal)

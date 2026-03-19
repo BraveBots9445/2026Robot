@@ -115,7 +115,6 @@ class RobotContainer:
     _max_speed_percent = ntproperty("MaxVelocityPercent", 1.0)
     _max_angular_rate_percent = ntproperty("MaxOmegaPercent", 1.0)
     _localizationAutonomyEnabled = ntproperty("LocalizationAutonomyEnabled", True)
-    _otherAutonomyEnabled = ntproperty("OtherAutonomyEnabled", True)
 
     def __init__(self) -> None:
         self.driver_controller = CommandController9445(0)
@@ -150,7 +149,7 @@ class RobotContainer:
 
         self.visualizer3d = Visualizer3D(
             lambda: Transform3d(
-                Translation3d(0, 0, inchesToMeters(self.climber.getPositionInches())),
+                Translation3d(0, 0, 0),
                 Rotation3d(0, 0, 0),
             ),
             lambda: Transform3d(
@@ -165,7 +164,7 @@ class RobotContainer:
             lambda: Pose3d(self.drivetrain.get_state().pose),
             lambda: self.drivetrain.get_state().speeds,
             self.turret.getRotation,
-            self.shooter.getHoodAngle,
+            self.shooter.getHoodAngleSetpoint,
             self.shooter.getFlywheelVelocity,
             inchesToMeters(2),
             self.visualizer3d.transform3dToTurret,
@@ -195,14 +194,14 @@ class RobotContainer:
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
-        self.drivetrain.reset_pose(
-            Rebuilt.getPosition(
-                RebuiltPositions.Hub
-                + Transform3d(
-                    Translation3d(-1, 0, 0), Rotation3d.fromDegrees(0, 0, -90)
-                )
-            ).toPose2d()
-        )
+        # self.drivetrain.reset_pose(
+        #     Rebuilt.getPosition(
+        #         RebuiltPositions.Hub
+        #         + Transform3d(
+        #             Translation3d(-1, 0, 0), Rotation3d.fromDegrees(0, 0, -90)
+        #         )
+        #     ).toPose2d()
+        # )
         RepeatCommand(
             SequentialCommandGroup(
                 self.fuelShootingVisualizer.launchCommand(), WaitCommand(0.1)
@@ -216,6 +215,12 @@ class RobotContainer:
         SmartDashboard.putData(self.drivetrain)
 
         self.test_remote.back().onTrue(self.turret._tmpResetCommand())
+
+    def toggleLocalizationAutonomyCommand(self) -> Command:
+        def update():
+            self._localizationAutonomyEnabled = not self._localizationAutonomyEnabled
+
+        return InstantCommand(update)
 
     def set_teleop_bindings(self) -> None:
         """driver"""
@@ -236,13 +241,13 @@ class RobotContainer:
             )
         )
 
-        # self.zoneManager.getMustStowTrigger(1.25).whileTrue(
-        #     DrivetrainAutoAlignTrench(
-        #         self.drivetrain,
-        #         self.driver_controller.getFRCLX,
-        #         self.driver_controller.getFRCLY,
-        #     )
-        # )
+        self.zoneManager.getMustStowTrigger(1.25).whileTrue(
+            DrivetrainAutoAlignTrench(
+                self.drivetrain,
+                self.driver_controller.getFRCLX,
+                self.driver_controller.getFRCLY,
+            )
+        )
 
         self.timerManager.startTeleop()
 
@@ -323,15 +328,22 @@ class RobotContainer:
             self.turret.bumpManualOffsetCommand()
         )
 
-        self.operator_controller.y().onTrue(TurretResetManualOffset(self.turret))
+        self.operator_controller.povUp().onTrue(self.shooter.bumpFlywheelFudgeCommand())
+        self.operator_controller.povDown().onTrue(
+            self.shooter.dumpFlywheelFudgeCommand()
+        )
 
-        self.operator_controller.rightTrigger().onTrue(
-            # self.button_board.getButton(4, 0).onTrue(
+        self.operator_controller.a().onTrue(self.shooter.bumpHoodFudgeCommand())
+        self.operator_controller.y().onTrue(self.shooter.dumpHoodFudgeCommand())
+
+        # self.operator_controller.rightTrigger().onTrue(
+        self.button_board.getButton(4, 0).onTrue(
             WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
         ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
 
         self.operator_controller.y().and_(
-            lambda: not self.zoneManager.getInAllianceZoneBool()
+            lambda: (not self.zoneManager.getInAllianceZoneBool())
+            or (not self._localizationAutonomyEnabled)
         ).onTrue(
             WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
         ).onFalse(
@@ -339,34 +351,35 @@ class RobotContainer:
         )  # pass
 
         self.zoneManager.getInAllianceZoneTrigger().and_(
-            lambda: self.timerManager.isHubActive()
-            and self.turret.atSetpoint()
-            and self.shooter.atFlywheelSetpoint()
-            and (self.shooter.atHoodSetpoint() or RobotBase.isSimulation())
-            and not self.button_board.getButton(4, 1).getAsBoolean()
+            lambda: (
+                self.timerManager.isHubActive()
+                and self.turret.atSetpoint()
+                and self.shooter.atFlywheelSetpoint()
+                and self.shooter.atHoodSetpoint()
+                and self.zoneManager.getInAllianceZoneBool()
+                and not self.button_board.getButton(4, 1).getAsBoolean()
+            )
+            and self._localizationAutonomyEnabled
         ).whileTrue(
             WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
         ).onFalse(
             WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
         )
 
-        self.operator_controller.povUp().onTrue(self.shooter.bumpFudgeCommand())
-        self.operator_controller.povDown().onTrue(self.shooter.dumpFudgeCommand())
-
-        self.operator_controller.povRight().onTrue(
-            self.turret.bumpManualOffsetCommand()
+        self.button_board.getButton(2, 0).onTrue(
+            self.toggleLocalizationAutonomyCommand()
         )
-        self.operator_controller.povLeft().onTrue(self.turret.dumpManualOffsetCommand())
+
 
     def set_test_bindings(self) -> None:
-        self.drivetrain.reset_pose(
-            Rebuilt.getPosition(
-                RebuiltPositions.Hub
-                + Transform3d(
-                    Translation3d(-1, 0, 0), Rotation3d.fromDegrees(0, 0, -90)
-                )
-            ).toPose2d()
-        )
+        # self.drivetrain.reset_pose(
+        #     Rebuilt.getPosition(
+        #         RebuiltPositions.Hub
+        #         + Transform3d(
+        #             Translation3d(-1, 0, 0), Rotation3d.fromDegrees(0, 0, -90)
+        #         )
+        #     ).toPose2d()
+        # )
 
         self.test_remote.rightBumper().onTrue(self.turret.dumpManualOffsetCommand())
         self.test_remote.leftBumper().onTrue(self.turret.bumpManualOffsetCommand())
@@ -441,9 +454,12 @@ class RobotContainer:
             SequentialCommandGroup(
                 WaitCommand(0.1),
                 WaitCommand(7).until(
-                    lambda: self.shooter.atFlywheelSetpoint()
-                    and self.shooter.atHoodSetpoint()
-                    and self.turret.atSetpoint()
+                    lambda: (
+                        self.shooter.atFlywheelSetpoint()
+                        and self.shooter.atHoodSetpoint()
+                        and self.turret.atSetpoint()
+                    )
+                    or RobotBase.isSimulation()
                 ),
                 RepeatCommand(
                     ParallelCommandGroup(
@@ -466,9 +482,12 @@ class RobotContainer:
             SequentialCommandGroup(
                 WaitCommand(0.1),
                 WaitCommand(3).until(
-                    lambda: self.shooter.atFlywheelSetpoint()
-                    and self.shooter.atHoodSetpoint()
-                    and self.turret.atSetpoint()
+                    lambda: (
+                        self.shooter.atFlywheelSetpoint()
+                        and self.shooter.atHoodSetpoint()
+                        and self.turret.atSetpoint()
+                    )
+                    or RobotBase.isSimulation()
                 ),
                 RepeatCommand(
                     ParallelCommandGroup(

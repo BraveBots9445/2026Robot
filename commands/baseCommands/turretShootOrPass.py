@@ -16,9 +16,13 @@ class TurretShootOrPass(RepeatCommand):
         super().__init__(
             SelectCommand(
                 {
-                    True: TurretShootOnMove(turret, shootOnMoveCalculator),
-                    False: TurretPass(zoneManager, shootOnMoveCalculator, turret),
+                    True: TurretShootOnMove(turret, shootOnMoveCalculator).withTimeout(
+                        0.1
+                    ),
+                    False: TurretPass(
+                        zoneManager, shootOnMoveCalculator, turret
+                    ).withTimeout(0.1),
                 },
                 zoneManager.getInAllianceZoneBool,
-            )
+            ).withInterruptBehavior(SelectCommand.InterruptionBehavior.kCancelSelf)
         )

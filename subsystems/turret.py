@@ -109,9 +109,9 @@ class Turret(Subsystem):
     _zeroOffset: float = 0.7301714
 
     # motor PID gains
-    _motorP: float = 5.5 if RobotBase.isReal() else 1.5
+    _motorP: float = 5.5 if RobotBase.isReal() else 0.2
     _motorI: float = 0.0 if RobotBase.isReal() else 0.0
-    _motorD: float = 0.0 if RobotBase.isReal() else 0.125
+    _motorD: float = 0.0 if RobotBase.isReal() else 0.0
 
     _canCoderConfig: CANcoderConfiguration
     """
@@ -157,7 +157,7 @@ class Turret(Subsystem):
     The simulation model for the turret motor.
     """
 
-    _turretMOI: kilogram_square_meters = 0.30
+    _turretMOI: kilogram_square_meters = 0.030
     """
     The moment of inertia of the turret.
     This should come from CAD
@@ -203,7 +203,7 @@ class Turret(Subsystem):
 
         self._data = TurretData(0, 0, 0, 0)
 
-        self._motorSim = SparkMaxSim(self._motor, DCMotor.NEO550())
+        self._motorSim = SparkMaxSim(self._motor, DCMotor.NEO())
         self._encoderSim = SparkRelativeEncoderSim(self._motor)
 
         turretMech = Mechanism2d(100, 100)

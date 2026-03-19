@@ -10,7 +10,7 @@ class ShooterStowHood(Command):
         self.addRequirements(shooter)
 
     def initialize(self):
-        self.shooter.setHoodAngleSetpoint(self.shooter.maxHoodAngle)
+        self.shooter.setHoodAngleSetpoint(self.shooter.maxHoodAngle, ignoreManual=True)
 
     def isFinished(self) -> bool:
         return self.shooter.getHoodAngle().degrees() > 50

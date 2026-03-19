@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from enum import Enum
 
 from math import pi
@@ -177,7 +175,8 @@ class Climber(Subsystem):
                 self._dutyCycleSignal,
                 self._rawPositionSignal,
                 self._rawVelocitySignal,
-            ]
+            ],
+            bus=self._canbus,
         )
 
         self._positionVoltageRequest = PositionVoltage(0)

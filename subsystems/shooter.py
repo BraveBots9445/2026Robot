@@ -133,7 +133,7 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (flywheel rotations) 
     """
 
-    _hoodGearRatio: float = 9 / 1
+    _hoodGearRatio: float = 1 / 1
     """
     The gear ratio between the hood motor and the hood output. 
     This is calculated as (motor rotations) / (hood rotations)
@@ -186,6 +186,11 @@ class Shooter(Subsystem):
     _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 1.0)
     """
     The number to multiply the flywheel setpoint by for changing system conditions
+    """
+
+    _hoodFudgeFactor = ntproperty("hoodFudgeFactor", 0.0)
+    """
+    The number to add the hood angle setpoint by for changing system conditions, in degrees
     """
 
     _hoodAngleSetpoint: Rotation2d = Rotation2d()
@@ -351,7 +356,7 @@ class Shooter(Subsystem):
         )
 
         self._hoodSim = SingleJointedArmSim(
-            DCMotor.NEO550(),
+            DCMotor.NEO(),
             self._hoodGearRatio,
             self._hoodMOI,
             self._hoodArmLength,
@@ -364,8 +369,6 @@ class Shooter(Subsystem):
         SmartDashboard.putData("Shooter/Hood Mech", hoodMech)
         SmartDashboard.putData("Shooter/Subsystem", self)
 
-        self._lock = Lock()
-
         self._data.actualHoodAngleDegrees = Rotation2d.fromRotations(
             self._hoodEncoder.getPosition()
         ).degrees()
@@ -375,12 +378,15 @@ class Shooter(Subsystem):
 
     def periodic(self) -> None:
         # log data
-        flywheelVelocity = self.getFlywheelVelocity()
+        flywheelVelocity = (
+            self._getVelocitySignal.value_as_double
+            * kSECONDS_PER_MINUTE
+            * self._flywheelGearRatio
+        )
         desiredFlywheelVelocity = self.getFlywheelSetpoint()
         hoodAngleSetpoint = self.getHoodAngleSetpoint()
         hoodAngle = Rotation2d.fromRotations(self._hoodEncoder.getPosition())
 
-        # with self._lock:
         self._data.actualFlywheelSpeedRpm = flywheelVelocity
         self._data.desiredFlywheelSpeedRpm = desiredFlywheelVelocity
         self._data.actualHoodAngleDegrees = hoodAngle.degrees()
@@ -414,18 +420,25 @@ class Shooter(Subsystem):
         )
 
     def simulationPeriodic(self) -> None:
+
         self._flywheelSim.setInputVoltage(
             self._flywheelMotor.get_motor_voltage().value_as_double
         )
 
+        self._flywheelSim.update(0.02)
+
         self._flywheelMotorSimState.set_rotor_velocity(
-            radiansToRotations(self._flywheelSim.getAngularVelocity())
-            / self._flywheelGearRatio
+            # radiansToRotations(self._flywheelSim.getAngularVelocity())
+            # / self._flywheelGearRatio
+            self._flywheelSetpoint
+            / kSECONDS_PER_MINUTE
         )
 
         self._hoodSim.setInputVoltage(
             self._hoodMotor.getAppliedOutput() * self._hoodMotor.getBusVoltage()
         )
+
+        self._hoodSim.update(0.02)
 
         hoodVelocity = (
             radiansToRotations(self._hoodSim.getVelocity()) * self._hoodGearRatio
@@ -438,9 +451,6 @@ class Shooter(Subsystem):
         )
         self._hoodEncoderSim.iterate(hoodVelocity, 0.02)
 
-        self._hoodSim.update(0.02)
-        self._flywheelSim.update(0.02)
-
     def setFlywheelSetpoint(self, setpoint: revolutions_per_minute) -> None:
         """
         Sets the target speed for the flywheel
@@ -450,26 +460,34 @@ class Shooter(Subsystem):
         setpoint = max(min(setpoint, 6000), 0) * self._flywheelFudgeFactor
         self._flywheelSetpoint = setpoint
 
-    def setHoodAngleSetpoint(self, setpoint: Rotation2d) -> None:
+    def setHoodAngleSetpoint(
+        self, setpoint: Rotation2d, ignoreManual: bool = False
+    ) -> None:
         """
         Sets the target hood angle for launching fuel
         :param setpoint: The target hood angle
         :type setpoint: Rotation2d
         """
+        if not ignoreManual:
+            setpoint += Rotation2d.fromDegrees(self._hoodFudgeFactor)
         if setpoint.radians() < self._hoodMinAngle.radians():
             setpoint = self._hoodMinAngle
         elif setpoint.radians() > self._hoodMaxAngle.radians():
             setpoint = self._hoodMaxAngle
         self._hoodAngleSetpoint = setpoint
 
-    def setHoodAngleSetpointDegrees(self, setpoint: degrees) -> None:
+    def setHoodAngleSetpointDegrees(
+        self, setpoint: degrees, ignoreManual: bool = False
+    ) -> None:
         """
         Sets the target hood angle in degrees for launching fuel
 
         :param setpoint: The target hood angle in degrees
         :type setpoint: degrees
         """
-        self.setHoodAngleSetpoint(Rotation2d.fromDegrees(setpoint))
+        self.setHoodAngleSetpoint(
+            Rotation2d.fromDegrees(setpoint), ignoreManual=ignoreManual
+        )
 
     def getFlywheelSetpoint(self) -> revolutions_per_minute:
         """
@@ -510,27 +528,7 @@ class Shooter(Subsystem):
         :rtype: revolutions_per_minute
         """
         # refreshes in periodic
-        return (
-            self._getVelocitySignal.value_as_double
-            * kSECONDS_PER_MINUTE
-            * self._flywheelGearRatio
-        )
-
-    def _tmpSetVelocityCommand(self, velocity: revolutions_per_minute) -> Command:
-        """
-        Temporary method to set the flywheel velocity for testing purposes
-        :param velocity: The target speed in RPM
-        :type velocity: revolutions_per_minute
-        """
-        return self.run(lambda: self.setFlywheelSetpoint(velocity))
-
-    def _tmpSetHoodAngleCommand(self, angle: Rotation2d) -> Command:
-        """
-        Temporary method to set the hood angle for testing purposes
-        :param angle: The target hood angle
-        :type angle: Rotation2d
-        """
-        return self.run(lambda: self.setHoodAngleSetpoint(angle))
+        return self._data.actualFlywheelSpeedRpm
 
     def getEstimatedShotCharacteristics(
         self, launchHeight: meters, impactHeight: meters = 0
@@ -592,17 +590,28 @@ class Shooter(Subsystem):
         :return: The current data for the shooter subsystem
         :rtype: ShooterData
         """
-        # with self._lock:
         return self._data
 
-    def bumpFudge(self, bumpVal: float = 0.025) -> None:
+    def bumpFlywheelFudge(self, bumpVal: float = 0.025) -> None:
         self._flywheelFudgeFactor += bumpVal
 
-    def dumpFudge(self, dumpVal: float = 0.025) -> None:
+    def dumpFlywheelFudge(self, dumpVal: float = 0.025) -> None:
         self._flywheelFudgeFactor -= dumpVal
 
-    def bumpFudgeCommand(self, bumpVal: float = 0.025) -> Command:
-        return cmd.runOnce(lambda: self.bumpFudge(bumpVal))
+    def bumpFlywheelFudgeCommand(self, bumpVal: float = 0.025) -> Command:
+        return cmd.runOnce(lambda: self.bumpFlywheelFudge(bumpVal))
 
-    def dumpFudgeCommand(self, dumpVal: float = 0.025) -> Command:
-        return cmd.runOnce(lambda: self.dumpFudge(dumpVal))
+    def dumpFlywheelFudgeCommand(self, dumpVal: float = 0.025) -> Command:
+        return cmd.runOnce(lambda: self.dumpFlywheelFudge(dumpVal))
+
+    def bumpHoodFudge(self, bumpVal: float = 1.0) -> None:
+        self._hoodFudgeFactor += bumpVal
+
+    def dumpHoodFudge(self, dumpVal: float = 1.0) -> None:
+        self._hoodFudgeFactor -= dumpVal
+
+    def bumpHoodFudgeCommand(self, bumpVal: float = 1.0) -> Command:
+        return cmd.runOnce(lambda: self.bumpHoodFudge(bumpVal))
+
+    def dumpHoodFudgeCommand(self, dumpVal: float = 1.0) -> Command:
+        return cmd.runOnce(lambda: self.dumpHoodFudge(dumpVal))

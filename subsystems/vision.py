@@ -205,17 +205,17 @@ class Vision:
         if hypot(vel.vx, vel.vy) > 2.0 or abs(vel.omega) > degreesToRadians(90):
             return
 
-        cameras = [
-            self._backLeftReverseCamera,
-            self._backLeftForwardCamera,
-            self._backRightForwardCamera,
-            self._backRightReverseCamera,
-        ]
-        camera = cameras[self._visionCameraIndex]
-        self._visionCameraIndex = (self._visionCameraIndex + 1) % len(cameras)
+        _, BLRTags = self._backLeftReverseCamera.update()
+        _, BLFTags = self._backLeftForwardCamera.update()
+        _, BRFTags = self._backRightForwardCamera.update()
+        _, BRRTags = self._backRightReverseCamera.update()
 
-        _, tags = camera.update()
-        self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in tags])
+        self._detectedTagsPub.set(
+            [
+                self._tagLayout.getTagPose(tag)
+                for tag in BLRTags + BLFTags + BRFTags + BRRTags
+            ]
+        )
 
     def _simulationPeriodic(self) -> None:
         """

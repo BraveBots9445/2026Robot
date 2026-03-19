@@ -16,8 +16,12 @@ class ShooterShootOrPass(RepeatCommand):
         super().__init__(
             SelectCommand(
                 {
-                    True: ShooterShootOnMove(shooter, shootOnMoveCalculator),
-                    False: ShooterPass(zoneManager, shootOnMoveCalculator, shooter),
+                    True: ShooterShootOnMove(
+                        shooter, shootOnMoveCalculator
+                    ).withTimeout(0.1),
+                    False: ShooterPass(
+                        zoneManager, shootOnMoveCalculator, shooter
+                    ).withTimeout(0.1),
                 },
                 zoneManager.getInAllianceZoneBool,
             )

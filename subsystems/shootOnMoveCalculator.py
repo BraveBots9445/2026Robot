@@ -22,7 +22,7 @@ from wpimath.units import (
     degreesToRadians,
     radians_per_second,
 )
-from wpilib import SmartDashboard
+from wpilib import DriverStation
 
 
 @dataclass
@@ -128,7 +128,7 @@ class ShootOnMoveCalculator:
 
     _passFlywheelVelInterpArray = array([4000, 4500, 4500])
 
-    _tofFudgeFactor = ntproperty("/ShootOnMoveCalculator/tofFudgeFactor", 0.16)
+    _tofFudgeFactor = ntproperty("/ShootOnMoveCalculator/tofFudgeFactor", 0.17)
 
     def __init__(
         self,
@@ -205,18 +205,26 @@ class ShootOnMoveCalculator:
                 dist, self._passDistanceInterpArray, self._passFlywheelVelInterpArray
             )
         else:
-            # angleDeg = interp(
-            #     dist, self._shootDistanceInterpArray, self._shootHoodAngleInterpArray
-            # )
-            # flywheelRpm = interp(
-            #     dist, self._shootDistanceInterpArray, self._shootFlywheelVelInterpArray
-            # )
-            angleDeg = self._backupHoodLookupClosedForm(dist).degrees()
-            flywheelRpm = self._backupFlywheelLookupClosedForm(dist)
+            if (
+                dist < self._shootDistanceInterpArray[0]
+                or dist > self._shootDistanceInterpArray[-1]
+            ):
+                angleDeg = self._backupHoodLookupClosedForm(dist).degrees()
+                flywheelRpm = self._backupFlywheelLookupClosedForm(dist)
+            else:
+                angleDeg = interp(
+                    dist,
+                    self._shootDistanceInterpArray,
+                    self._shootHoodAngleInterpArray,
+                )
+                flywheelRpm = interp(
+                    dist,
+                    self._shootDistanceInterpArray,
+                    self._shootFlywheelVelInterpArray,
+                )
         v0 = self._flywheelRpmToMuzzleVelocity(flywheelRpm)
 
         t = dist / (v0 * cos(degreesToRadians(angleDeg))) * self._tofFudgeFactor
-        # print(dist, flywheelRpm, v0, cos(degreesToRadians(angleDeg)), t)
 
         return (
             StateSetpoint(
@@ -257,15 +265,15 @@ class ShootOnMoveCalculator:
                 virtualTarget, passing=passing
             )
             virtualTarget = target.transformBy(
-                self._ChassisSpeedsToTranslation3d(robotVel, timeToShot)  # .inverse()
+                self._ChassisSpeedsToTranslation3d(robotVel, timeToShot).inverse()
             )
             if timeToShot - prevTimeOfFlight <= 0.05:
-                self._tofEstPub.set(timeToShot)
                 break
             prevTimeOfFlight = timeToShot
         else:
             pass
             # self._nettable.putNumber("Iterations", )
+        self._tofEstPub.set(timeToShot)
         self._virtualTargetPub.set(virtualTarget)
         return setpoints
 
@@ -279,10 +287,11 @@ class ShootOnMoveCalculator:
         :type speeds: ChassisSpeeds
         :return: The translation 3d.
         """
+        mult = -1 if DriverStation.getAlliance() == DriverStation.Alliance.kRed else 1
 
         return Transform3d(
-            speeds.vx * time,
-            speeds.vy * time,
+            speeds.vx * time * mult,
+            speeds.vy * time * mult,
             0.0,
             Rotation3d(0.0, 0.0, speeds.omega * time),
         )
@@ -294,11 +303,13 @@ class ShootOnMoveCalculator:
 
     def _backupHoodLookupClosedForm(self, dist: meters) -> Rotation2d:
         # based on a linear regression of already taken data
-        return Rotation2d.fromDegrees(-9.04769 * dist + 84.75677)
+        # 84.* is the original b, but I bumped it to 80 because we were undershooting but also too high
+        return Rotation2d.fromDegrees(-9.04769 * dist + 80.75677)
 
     def _backupFlywheelLookupClosedForm(self, dist: meters) -> revolutions_per_minute:
         # based on a linear regression of already taken data
-        return 258.44584 * dist + 2336.55292
+        # 258.* is the original a, but I bumped it to 278.
+        return 278.44584 * dist + 2336.55292
 
     def getSetpoints(self, target: Pose3d, passing: bool = False) -> StateSetpoint:
         return self._getSetpoints(target, maxIterations=3, passing=passing)

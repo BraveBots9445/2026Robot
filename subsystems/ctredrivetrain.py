@@ -5,7 +5,7 @@ from pathplannerlib.auto import AutoBuilder, RobotConfig
 from pathplannerlib.controller import PIDConstants, PPHolonomicDriveController
 from phoenix6 import SignalLogger, swerve, units, utils
 from typing import Callable, overload
-from wpilib import DriverStation, Notifier, RobotController
+from wpilib import DriverStation, Notifier, RobotController, RobotBase
 from wpilib.sysid import SysIdRoutineLog
 from wpimath.geometry import Pose2d, Rotation2d
 from wpimath.units import radiansToDegrees, degreesToRadians
@@ -271,7 +271,11 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
             # Consumer of ChassisSpeeds and feedforwards to drive the robot
             lambda speeds, feedforwards: self.set_control(
                 self._apply_robot_speeds.with_speeds(
-                    ChassisSpeeds(speeds.vx, speeds.vy, -speeds.omega)
+                    ChassisSpeeds(
+                        speeds.vx,
+                        speeds.vy,
+                        (-speeds.omega) if RobotBase.isReal() else speeds.omega,
+                    )
                 )
                 .with_wheel_force_feedforwards_x(
                     feedforwards.robotRelativeForcesXNewtons

@@ -4,8 +4,10 @@ from typing import Callable
 
 from commands2 import Command
 
+from wpilib import Timer
+
 from wpimath.controller import PIDController
-from wpimath.geometry import Rotation2d, Translation2d
+from wpimath.geometry import Rotation2d
 from wpimath.kinematics import SwerveModuleState
 from wpimath.units import inchesToMeters, degreesToRadians
 
@@ -32,19 +34,25 @@ class DrivetrainAutoAlignTrench(Command):
 
         self.addRequirements(drivetrain)
 
+        self.endTimer = Timer()
+
         self.yPID = (
             PIDController(9.0, 0, 0)
             if RobotBase.isSimulation()
             else PIDController(3.0, 0, 0)
         )
         self.tPID = (
-            PIDController(7.0, 0, 0)
+            PIDController(5.0, 0, 0)
             if RobotBase.isSimulation()
             else PIDController(3.0, 0, 0)
         )
         self.tPID.enableContinuousInput(-degreesToRadians(180), degreesToRadians(180))
 
         self.request = FieldCentric()
+
+    def initialize(self):
+        self.endTimer.stop()
+        self.endTimer.reset()
 
     def execute(self):
         yMult = 1
@@ -64,9 +72,9 @@ class DrivetrainAutoAlignTrench(Command):
         if abs(currPose.Y() - inchesToMeters(49.84 / 2)) < abs(
             currPose.Y() - (Rebuilt.Width - inchesToMeters(49.84 / 2))
         ):
-            ySetpoint = inchesToMeters(49.84 / 2)
+            ySetpoint = inchesToMeters(22)
         else:
-            ySetpoint = Rebuilt.Width - inchesToMeters(26)
+            ySetpoint = Rebuilt.Width - inchesToMeters(22)
         # ySetpoint = inchesToMeters(49.84 / 2)
 
         vy = (
@@ -92,5 +100,13 @@ class DrivetrainAutoAlignTrench(Command):
                 # TODO: See what Shane thinks
             )
             .with_velocity_y(-vy)
-            .with_rotational_rate(-vt)
+            .with_rotational_rate((-vt) if RobotBase.isReal() else vt)
         )
+
+    def isFinished(self) -> bool:
+        if abs(self.getY()) >= 0.75:
+            self.endTimer.start()
+        else:
+            self.endTimer.stop()
+
+        return self.endTimer.hasElapsed(0.25)

@@ -1,3 +1,5 @@
+import time
+
 from typing import Callable
 
 from threading import Thread
@@ -152,10 +154,17 @@ class Visualizer3D:
         self._mechPosePub = self._nettable.getStructArrayTopic(
             "MechPoses", Pose3d
         ).publish()
-        self._publish_period = 0.05 if RobotBase.isSimulation() else 0.10
+        self._publish_period = 0.05 if RobotBase.isSimulation() else 0.20
         self._last_publish_time = float("-inf")
 
-        Thread(target=self.update, daemon=True, name="Visualizer3D")
+        def updateLoop():
+            while True:
+                try:
+                    self.update()
+                finally:
+                    time.sleep(self._publish_period)
+
+        Thread(target=updateLoop, daemon=True, name="Visualizer3D").start()
 
     def update(self) -> None:
         """
