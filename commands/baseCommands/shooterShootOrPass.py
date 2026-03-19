@@ -26,3 +26,6 @@ class ShooterShootOrPass(RepeatCommand):
                 zoneManager.getInAllianceZoneBool,
             )
         )
+
+    def isFinished(self) -> bool:
+        return True

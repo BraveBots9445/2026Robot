@@ -33,7 +33,7 @@ class ShooterPass(Command):
             target = Rebuilt.getPosition(
                 Pose3d(
                     inchesToMeters(48),
-                    inchesToMeters(270),
+                    inchesToMeters(230),
                     inchesToMeters(20),
                     Rotation3d(),
                 )
@@ -42,7 +42,7 @@ class ShooterPass(Command):
             target = Rebuilt.getPosition(
                 Pose3d(
                     inchesToMeters(48),
-                    inchesToMeters(48),
+                    inchesToMeters(76),
                     inchesToMeters(20),
                     Rotation3d(),
                 )

@@ -15,11 +15,11 @@ class WoahvalDejam(Command):
         self.time = time
 
     def initialize(self):
-        self.timer.start()
+        self.timer.restart()
         self.woahval.setSetpoint(-0.1)
 
     def execute(self):
-        if self.timer.hasElapsed(self.time / 2):
+        if self.timer.hasElapsed(self.time):
             self.woahval.setSetpoint(0.1)
 
     def isFinished(self) -> bool:
@@ -27,3 +27,4 @@ class WoahvalDejam(Command):
 
     def end(self, interrupted: bool):
         self.woahval.setSetpoint(0.0)
+        self.timer.stop()

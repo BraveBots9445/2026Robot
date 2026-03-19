@@ -13,4 +13,4 @@ class ShooterStowHood(Command):
         self.shooter.setHoodAngleSetpoint(self.shooter.maxHoodAngle, ignoreManual=True)
 
     def isFinished(self) -> bool:
-        return self.shooter.getHoodAngle().degrees() > 50
+        return False

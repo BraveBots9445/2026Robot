@@ -8,14 +8,14 @@ from wpilib import Timer
 
 from wpimath.controller import PIDController
 from wpimath.geometry import Rotation2d
-from wpimath.kinematics import SwerveModuleState
+from wpimath.kinematics import SwerveModuleState, ChassisSpeeds
 from wpimath.units import inchesToMeters, degreesToRadians
 
 from wpilib import RobotBase, DriverStation
 
 from phoenix6.swerve.requests import FieldCentric
 
-from subsystems import CommandSwerveDrivetrain
+from subsystems import CommandSwerveDrivetrain, Turret
 
 from tools.rebuilt import Rebuilt
 
@@ -24,15 +24,17 @@ class DrivetrainAutoAlignTrench(Command):
     def __init__(
         self,
         drivetrain: CommandSwerveDrivetrain,
+        turret: Turret,
         getX: Callable[[], float],
         getY: Callable[[], float],
     ):
         super().__init__()
         self.drivetrain = drivetrain
+        self.turret = turret
         self.getX = getX
         self.getY = getY
 
-        self.addRequirements(drivetrain)
+        self.addRequirements(drivetrain, turret)
 
         self.endTimer = Timer()
 
@@ -64,10 +66,14 @@ class DrivetrainAutoAlignTrench(Command):
         optimizationState.optimize(currPose.rotation())
         targetDirectionRadians = optimizationState.angle.radians()
 
-        # if abs((currPose.rotation() - Rotation2d.fromDegrees(180)).degrees()) < abs(
-        #     currPose.rotation().degrees()
-        # ):
-        #     targetDirectionRadians = degreesToRadians(180)
+        robotVelRelative = ChassisSpeeds.fromFieldRelativeSpeeds(
+            self.drivetrain.get_state().speeds, currPose.rotation()
+        )
+
+        if robotVelRelative.vx > 0:
+            turretAngle = Rotation2d.fromDegrees(0)
+        else:
+            turretAngle = Rotation2d.fromDegrees(180)
 
         if abs(currPose.Y() - inchesToMeters(49.84 / 2)) < abs(
             currPose.Y() - (Rebuilt.Width - inchesToMeters(49.84 / 2))
@@ -75,7 +81,6 @@ class DrivetrainAutoAlignTrench(Command):
             ySetpoint = inchesToMeters(22)
         else:
             ySetpoint = Rebuilt.Width - inchesToMeters(22)
-        # ySetpoint = inchesToMeters(49.84 / 2)
 
         vy = (
             self.yPID.calculate(
@@ -89,6 +94,7 @@ class DrivetrainAutoAlignTrench(Command):
             targetDirectionRadians,
         )
         x = self.getX()
+        self.turret.setSetpoint(turretAngle + Rotation2d(targetDirectionRadians))
         self.drivetrain.set_control(
             self.request.with_velocity_x(
                 x

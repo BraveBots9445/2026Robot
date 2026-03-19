@@ -99,6 +99,9 @@ from commands.baseCommands.climberClimb import ClimberClimb
 from commands.baseCommands.climberDeploy import ClimberDeploy
 from commands.baseCommands.climberIdle import ClimberIdle
 from commands.baseCommands.shooterStowHood import ShooterStowHood
+from commands.baseCommands.woahvalDejam import WoahvalDejam
+from commands.baseCommands.indexerDejam import IndexerDejam
+from commands.baseCommands.shooterStowHood import ShooterStowHood
 
 
 from commands import ShooterTuneDistance
@@ -241,12 +244,13 @@ class RobotContainer:
         self.zoneManager.getMustStowTrigger().whileTrue(
             ShooterStowHood(
                 self.shooter,
-            )
+            ).withInterruptBehavior(Command.InterruptionBehavior.kCancelIncoming)
         )
 
         self.zoneManager.getMustStowTrigger(1.25).whileTrue(
             DrivetrainAutoAlignTrench(
                 self.drivetrain,
+                self.turret,
                 self.driver_controller.getFRCLX,
                 self.driver_controller.getFRCLY,
             )
@@ -376,6 +380,22 @@ class RobotContainer:
         ).onFalse(
             WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
         )  # pass
+
+        self.operator_controller.povRight().whileTrue(
+            RepeatCommand(
+                ParallelCommandGroup(
+                    WoahvalDejam(self.woahval, 0.1), IndexerDejam(self.indexer, 0.1)
+                )
+            )
+        ).onFalse(
+            SequentialCommandGroup(WoahvalStop(self.woahval), IndexerStop(self.indexer))
+        )
+
+        self.operator_controller.x().whileTrue(
+            ShooterStowHood(self.shooter).withInterruptBehavior(
+                Command.InterruptionBehavior.kCancelIncoming
+            )
+        )
 
         # self.zoneManager.getInAllianceZoneTrigger().and_(
         #     lambda: (
