@@ -364,7 +364,7 @@ class RobotContainer:
         self.operator_controller.povUp().onTrue(self.turret._tmpResetCommand())
 
         # self.operator_controller.rightTrigger().onTrue(
-        self.button_board.getButton(4, 0).onTrue(
+        self.operator_controller.rightTrigger().onTrue(
             WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
         ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
 
@@ -377,21 +377,21 @@ class RobotContainer:
             WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
         )  # pass
 
-        self.zoneManager.getInAllianceZoneTrigger().and_(
-            lambda: (
-                self.timerManager.isHubActive()
-                and self.turret.atSetpoint()
-                and self.shooter.atFlywheelSetpoint()
-                and self.shooter.atHoodSetpoint()
-                and self.zoneManager.getInAllianceZoneBool()
-                and not self.button_board.getButton(4, 1).getAsBoolean()
-            )
-            and self._localizationAutonomyEnabled
-        ).whileTrue(
-            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
-        ).onFalse(
-            WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
-        )
+        # self.zoneManager.getInAllianceZoneTrigger().and_(
+        #     lambda: (
+        #         self.timerManager.isHubActive()
+        #         and self.turret.atSetpoint()
+        #         and self.shooter.atFlywheelSetpoint()
+        #         and self.shooter.atHoodSetpoint()
+        #         and self.zoneManager.getInAllianceZoneBool()
+        #         and not self.button_board.getButton(4, 1).getAsBoolean()
+        #     )
+        #     and self._localizationAutonomyEnabled
+        # ).whileTrue(
+        #     WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        # ).onFalse(
+        #     WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
+        # )
 
         self.button_board.getButton(2, 1).onTrue(
             self.toggleLocalizationAutonomyCommand()

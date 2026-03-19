@@ -304,7 +304,12 @@ class ShootOnMoveCalculator:
     def _backupHoodLookupClosedForm(self, dist: meters) -> Rotation2d:
         # based on a linear regression of already taken data
         # 84.* is the original b, but I bumped it to 80 because we were undershooting but also too high
-        return Rotation2d.fromDegrees(-9.04769 * dist + 80.75677)
+        degs = -9.04769 * dist + 80.75677
+        if degs < 0:
+            degs = 0
+        elif degs > 70:
+            degs = 70
+        return Rotation2d.fromDegrees(degs)
 
     def _backupFlywheelLookupClosedForm(self, dist: meters) -> revolutions_per_minute:
         # based on a linear regression of already taken data

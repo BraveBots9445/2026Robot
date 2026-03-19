@@ -139,7 +139,7 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (hood rotations)
     """
 
-    _hoodZeroOffset: float = 0.1716237
+    _hoodZeroOffset: float = 0.58921677
     """
     The offset in rotations for the hood's absolute encoder to be considered the zero position of the hood (zero launch angle)
     """
@@ -169,8 +169,8 @@ class Shooter(Subsystem):
     """
 
     # hood PIDs
-    _hoodP: float = 10.0 if RobotBase.isReal() else 0.25
-    _hoodI: float = 0.00001 if RobotBase.isReal() else 0.0
+    _hoodP: float = 9.0 if RobotBase.isReal() else 0.25
+    _hoodI: float = 0.0 if RobotBase.isReal() else 0.0
     _hoodD: float = 0.0 if RobotBase.isReal() else 0.0
 
     _hoodkG: float = 0.0
