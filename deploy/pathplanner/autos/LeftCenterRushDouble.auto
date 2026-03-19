@@ -1,0 +1,93 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "Flywheel4000rpm"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "StowHood"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "LeftToCenter"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "CenterToLeft"
+          }
+        },
+        {
+          "type": "race",
+          "data": {
+            "commands": [
+              {
+                "type": "named",
+                "data": {
+                  "name": "ShootOnMove"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "FeedShooter5s"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "StowHood"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "LeftToCenterClose"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "LeftCenterClosetoLeft"
+          }
+        },
+        {
+          "type": "race",
+          "data": {
+            "commands": [
+              {
+                "type": "named",
+                "data": {
+                  "name": "ShootOnMove"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "FeedShooter10s"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

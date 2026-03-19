@@ -50,7 +50,7 @@ class TunerConstants:
 
     # The remote sensor feedback type to use for the steer motors;
     # When not Pro-licensed, Fused*/Sync* automatically fall back to Remote*
-    _steer_feedback_type = swerve.SteerFeedbackType.FUSED_CANCODER
+    _steer_feedback_type = swerve.SteerFeedbackType.REMOTE_CANCODER
 
     # The stator current at which the wheels start to slip;
     # This needs to be tuned to your individual robot
@@ -142,7 +142,7 @@ class TunerConstants:
     _front_left_steer_motor_inverted = True
     _front_left_encoder_inverted = False
 
-    _front_left_x_pos: units.meter = inchesToMeters(11.5)
+    _front_left_x_pos: units.meter = inchesToMeters(11)
     _front_left_y_pos: units.meter = inchesToMeters(11.5)
 
     # Front Right
@@ -153,7 +153,7 @@ class TunerConstants:
     _front_right_steer_motor_inverted = True
     _front_right_encoder_inverted = False
 
-    _front_right_x_pos: units.meter = inchesToMeters(11.5)
+    _front_right_x_pos: units.meter = inchesToMeters(11)
     _front_right_y_pos: units.meter = inchesToMeters(-11.5)
 
     # Back Left
@@ -164,7 +164,7 @@ class TunerConstants:
     _back_left_steer_motor_inverted = True
     _back_left_encoder_inverted = False
 
-    _back_left_x_pos: units.meter = inchesToMeters(-11.5)
+    _back_left_x_pos: units.meter = inchesToMeters(-11)
     _back_left_y_pos: units.meter = inchesToMeters(11.5)
 
     # Back Right
@@ -175,7 +175,7 @@ class TunerConstants:
     _back_right_steer_motor_inverted = True
     _back_right_encoder_inverted = False
 
-    _back_right_x_pos: units.meter = inchesToMeters(-11.5)
+    _back_right_x_pos: units.meter = inchesToMeters(-11)
     _back_right_y_pos: units.meter = inchesToMeters(-11.5)
 
     front_left = _constants_creator.create_module_constants(
@@ -234,6 +234,7 @@ class TunerConstants:
             hardware.TalonFX,
             hardware.CANcoder,
             cls.drivetrain_constants,
+            20.0,
             [
                 cls.front_left,
                 cls.front_right,

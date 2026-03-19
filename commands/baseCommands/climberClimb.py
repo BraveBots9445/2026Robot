@@ -3,14 +3,16 @@ from commands2 import Command
 from subsystems import Climber
 
 
-class ClimberDeployHooks(Command):
+class ClimberClimb(Command):
     def __init__(self, climber: Climber):
-        super().__init__()
         self.climber = climber
         self.addRequirements(climber)
 
     def initialize(self):
-        self.climber.deployHook()
+        self.climber.climb()
 
     def isFinished(self) -> bool:
-        return True
+        return False
+
+    def end(self, interrupted: bool):
+        self.climber.idleMode()

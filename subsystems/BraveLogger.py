@@ -1,9 +1,9 @@
+import threading
+import time
 from dataclasses import dataclass
 from typing import Any
 
 from ntcore import NetworkTableInstance, NetworkTable, StructPublisher
-
-from wpilib import Notifier
 
 from wpimath.geometry import Rotation2d
 
@@ -23,18 +23,11 @@ from phoenix6.status_signal import StatusSignal
 @make_wpistruct
 @dataclass
 class ClimberData:
-    # TODO: Refactor the motor raw stuff to be an external util
-    positionIn: inches
-    velocityInPerSec: inches
-    positionSetpointIn: inches
-    # hookAngleSetpoint: Rotation2d
-    hookAngleDegrees: degrees
-
-    hookDutyCycle: float
     motorCurrent: amperes
     motorOutputPercent: float
     motorPositionRaw: rotation
     motorVelocityRaw: rotations_per_second
+    state: int
 
 
 @make_wpistruct
@@ -152,6 +145,8 @@ class BraveLogger:
     _data: BraveData
 
     _statusSignals: list[StatusSignal] = []
+    _statusSignalIndex: int = 0
+    _statusSignalBatchSize: int = 12
 
     def __init__(
         self,
@@ -164,7 +159,7 @@ class BraveLogger:
         ).publish()
         BraveLogger._data = BraveData(
             TurretData(0, 0, 0, 0),
-            ClimberData(0, 0, 0, 0, 0, 0, 0, 0, 0),
+            ClimberData(0, 0, 0, 0, 0),
             IndexerData(0, 0, False),
             WoahvalData(0, 0, False),
             PassiveHooksData(0, False),
@@ -172,10 +167,21 @@ class BraveLogger:
             ShooterData(0, 0, 0, 0, 0, 0, 0),
             TimerData(0, 0, 0, 0, 0, 0, False, False),
         )
-        BraveLogger._logNotifier = Notifier(BraveLogger.log)
-        BraveLogger._logNotifier.startPeriodic(0.02)
-        BraveLogger._statusSignalNotifier = Notifier(BraveLogger.refreshStatusSignals)
-        BraveLogger._statusSignalNotifier.startPeriodic(0.02)
+
+        def _log_loop():
+            while True:
+                BraveLogger.log()
+                time.sleep(0.10)
+
+        def _refresh_loop():
+            while True:
+                BraveLogger.refreshStatusSignals()
+                time.sleep(0.04)
+
+        threading.Thread(target=_log_loop, daemon=True, name="BraveLogger-log").start()
+        threading.Thread(
+            target=_refresh_loop, daemon=True, name="BraveLogger-refresh"
+        ).start()
 
     @staticmethod
     def log() -> None:
@@ -187,7 +193,18 @@ class BraveLogger:
         Refreshes the status signals for the BraveLogger subsystem.
         This method is called periodically to update the status signals.
         """
-        StatusSignal.refresh_all(BraveLogger._statusSignals)  # type: ignore
+        signals = BraveLogger._statusSignals
+        total = len(signals)
+        if total == 0:
+            return
+
+        start = BraveLogger._statusSignalIndex
+        end = min(start + BraveLogger._statusSignalBatchSize, total)
+        batch = signals[start:end]
+        if batch:
+            StatusSignal.refresh_all(batch)  # type: ignore
+
+        BraveLogger._statusSignalIndex = 0 if end >= total else end
 
     @staticmethod
     def pushSubsystemData(data: Any) -> None:

@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+from enum import Enum
+
 from math import pi
 
 from threading import Lock
@@ -24,6 +26,8 @@ from wpimath.units import (
 )
 from wpimath.geometry import Rotation2d
 from wpimath.system.plant import DCMotor
+
+from wpilib import SmartDashboard
 
 from phoenix6.configs import (
     TalonFXConfiguration,
@@ -61,7 +65,9 @@ class Climber(Subsystem):
     ########## CONFIGURATION ##########
     _canbus: str = "canivore1"
 
-    _servoPort: int = 0
+    _climbDutyCycle: float = 0.5
+
+    _deployDutyCycle: float = -0.3
 
     _gearRatio: float = 16.0 / 1.0
     """
@@ -85,27 +91,10 @@ class Climber(Subsystem):
     The inversion of the motor such that positive is up. 
     """
 
-    _raisePidConfigs: Slot0Configs = (
-        Slot0Configs()
-        .with_k_p(0.7)
-        .with_k_i(0.0)
-        .with_k_d(0.0)
-        .with_k_g(0.0)
-        .with_k_s(0.0)
-        # omit kv, ka
-        .with_gravity_type(GravityTypeValue.ELEVATOR_STATIC)
-    )
-
-    _climbPidConfigs: Slot1Configs = (
-        Slot1Configs()
-        .with_k_p(1.00)
-        .with_k_i(0.0)
-        .with_k_d(0.0)
-        .with_k_g(0.0)
-        .with_k_s(0.0)
-        # omit kv, ka
-        .with_gravity_type(GravityTypeValue.ELEVATOR_STATIC)
-    )
+    class State(Enum):
+        IDLE = 0
+        CLIMBING = 1
+        DEPLOY = 2
 
     ########## LOGGING ##########
     _nettable: NetworkTable
@@ -114,8 +103,6 @@ class Climber(Subsystem):
     """
     The cached struct to write the current climber data to for publishing. This is used to avoid the overhead of creating a new struct every cycle.
     """
-
-    _lock: Lock
 
     _elevatorMech: MechanismLigament2d
     _elevatorSetpointMech: MechanismLigament2d
@@ -138,17 +125,10 @@ class Climber(Subsystem):
     _robotMass: kilograms = lbsToKilograms(120.0)
 
     def __init__(self) -> None:
-        return
-        self._lock = Lock()
-        self._nettable = NetworkTableInstance.getDefault().getTable("000Climber")
-
         self._motor = TalonFX(27, self._canbus)
-        self._servo = Servo(self._servoPort)
 
         self._motorConfig = (
             TalonFXConfiguration()
-            .with_slot0(self._raisePidConfigs)
-            .with_slot1(self._climbPidConfigs)
             .with_current_limits(
                 CurrentLimitsConfigs()
                 .with_stator_current_limit(80)
@@ -161,7 +141,7 @@ class Climber(Subsystem):
             )
         )
 
-        self._mechState = ClimberData(0, 0, 0, Rotation2d(), 0, 0, 0, 0, 0, 0)
+        self._mechState = ClimberData(0, 0, 0, 0, 0)
 
         self._motor.configurator.apply(self._motorConfig)
 
@@ -226,121 +206,51 @@ class Climber(Subsystem):
 
         self._motorSim = TalonFXSimState(self._motor)
 
-        self._positionSetpoint = self.getPositionInches()
         SmartDashboard.putData("Climber", self)
         SmartDashboard.putData("Climber Mech", mech)
 
     def periodic(self) -> None:
-        return
-        slot = 0
-        with self._lock:
-            self._mechState.positionIn = self.getPositionInches()
-            self._mechState.velocityInPerSec = self.getVelocityInchesPerSec()
-            self._mechState.positionSetpointIn = self._positionSetpoint
-            self._mechState.hookAngleSetpoint = self._hookAngleSetpoint
-            self._mechState.hookAngleDegrees = self._servo.getAngle()
 
-            if self._mechState.positionSetpointIn <= self._mechState.positionIn:
-                slot = 1  # lower slot
-
-            BraveLogger.pushSubsystemData(deepcopy(self._mechState))
-
-        setpointRaw = self._getInchesToRotations(self._positionSetpoint)
-        self._positionVoltageRequest.position = setpointRaw
-        self._positionVoltageRequest.slot = slot
         self._motor.set_control(self._positionVoltageRequest)
-        self._servo.setAngle(self._hookAngleSetpoint.degrees())
 
         self._mechState.motorOutputPercent = self._dutyCycleSignal.value_as_double
         self._mechState.motorCurrent = self._currentSignal.value_as_double
         self._mechState.motorPositionRaw = self._rawPositionSignal.value_as_double
         self._mechState.motorVelocityRaw = self._rawVelocitySignal.value_as_double
 
-        self._elevatorMech.setLength(self._mechState.positionIn)
-        self._elevatorSetpointMech.setLength(self._mechState.positionSetpointIn)
-        self._hookMech.setAngle(self._mechState.hookAngleDegrees)
-        self._setpointHookMech.setAngle(
-            self._mechState.hookAngleSetpoint.degrees()
-        )  # both hook angles should be the same
+        if (
+            abs(self._mechState.motorVelocityRaw) < 5
+            and self._mechState.motorCurrent > 60
+        ):
+            self._mechState.state = Climber.State.IDLE.value
+
+        if self._mechState.state == self.State.IDLE.value:
+            self._motor.set(0)
+        elif self._mechState.state == self.State.CLIMBING.value:
+            self._motor.set(self._climbDutyCycle)
+        elif self._mechState.state == self.State.DEPLOY.value:
+            self._motor.set(self._deployDutyCycle)
+
+        BraveLogger.pushSubsystemData(self._mechState)
 
     def simulationPeriodic(self) -> None:
-        return
-        if self._positionSetpoint > self._mechState.positionIn:
-            # raise
-            self._elevatorSim.setInputVoltage(self._motor.get() * 12)
-            self._elevatorSim.update(0.02)
-            self._climbElevatorSim.setState(
-                self._elevatorSim.getPosition(), self._elevatorSim.getVelocity()
-            )
-            rotorVel = self._getFeetToRotations(self._elevatorSim.getVelocityFps())
-        else:
-            self._climbElevatorSim.setInputVoltage(self._motor.get() * 12)
-            self._climbElevatorSim.update(0.02)
-            self._elevatorSim.setState(
-                self._climbElevatorSim.getPosition(),
-                self._climbElevatorSim.getVelocity(),
-            )
-            rotorVel = self._getFeetToRotations(self._climbElevatorSim.getVelocityFps())
+        self._elevatorSim.setInputVoltage(
+            self._motor.get_motor_voltage().value_as_double
+        )
+
+        rotorVel = self._elevatorSim.getVelocity()
 
         self._motorSim.add_rotor_position(rotorVel * 0.02)
         self._motorSim.set_rotor_velocity(rotorVel)
 
-    def getPositionInches(self) -> inches:
-        return self.getData().positionIn
-        return self._getRotationsToInches(self._rawPositionSignal.value_as_double)
-
-    def getVelocityInchesPerSec(self) -> inches:
-        return
-        return self._getRotationsToInches(self._rawVelocitySignal.value_as_double)
-
-    def atSetpoint(self) -> bool:
-        return True
-        return (
-            abs(self._mechState.positionSetpointIn - self._mechState.positionIn)
-            < self._tolerance
-        )
-
-    def setHeightSetpoint(self, height: inches) -> None:
-        return
-        self._positionSetpoint = max(min(self._maxHeight, height), self._minHeight)
-
-    def setHookSetpointDegrees(self, angle: degrees) -> None:
-        return
-        self._hookAngleSetpoint = Rotation2d.fromDegrees(angle)
-
-    def deployHook(self) -> None:
-        return
-        self.setHookSetpointDegrees(0)
-
-    def retractHook(self) -> None:
-        return
-        self.setHookSetpointDegrees(90)
-
-    def getHookDeployed(self) -> bool:
-        return False
-        return self._hookAngleSetpoint.degrees() < 85
-
-    def _getRotationsToInches(self, rotations: rotation) -> inches:
-        return
-        return rotations * self._pulleyDiameter * pi / self._gearRatio
-
-    def _getInchesToRotations(self, inches: inches) -> rotation:
-        return
-        return inches * self._gearRatio / (self._pulleyDiameter * pi)
-
-    def _getFeetToRotations(self, feet: feet) -> rotation:
-        return
-        return self._getInchesToRotations(feet * kINCHES_PER_FOOT)
-
-    @property
-    def minHeight(self) -> inches:
-        return
-        return self._minHeight
-
-    @property
-    def maxHeight(self) -> inches:
-        return
-        return self._maxHeight
-
     def getData(self) -> ClimberData:
-        return ClimberData(0, 0, 0, 0, 0, 0, 0, 0, 0)
+        return self._mechState
+
+    def climb(self) -> None:
+        self._mechState.state = Climber.State.CLIMBING.value
+
+    def idleMode(self) -> None:
+        self._mechState.state = Climber.State.IDLE.value
+
+    def deploy(self) -> None:
+        self._mechState.state = Climber.State.DEPLOY.value

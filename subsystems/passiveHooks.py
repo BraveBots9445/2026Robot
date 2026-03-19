@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from dataclasses import dataclass
 
 from threading import Lock
@@ -61,7 +59,7 @@ class PassiveHooks(Subsystem):
         self._data.setpointDegrees = self._setpoint.degrees()
         # self._data.setpoint = self._setpoint
         self._data.deployed = self._setpoint.degrees() < 85
-        BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(self._data)
 
         self._servoLeft.setAngle(self._setpoint.degrees())
         self._servoRight.setAngle(self._setpoint.degrees())

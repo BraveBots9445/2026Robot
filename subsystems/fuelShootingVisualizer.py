@@ -73,7 +73,7 @@ class FuelShootingVisualizer(Subsystem):
     It publishes in [Pose3d]
     """
 
-    _kEnergyTransferEfficiency: float = 0.7
+    _kEnergyTransferEfficiency: float = 0.9
     """
     A unitless value for how much energy is transferred from the flywheel to the fuel.
     """
@@ -115,9 +115,9 @@ class FuelShootingVisualizer(Subsystem):
         ).publish()
         self._updateNotifier = Notifier(self.update)
         self._dt = 0.10
-        # self._updateNotifier.startPeriodic(
-        #     self._dt
-        # )  # sim-only visualizer, 250ms is plenty
+        self._updateNotifier.startPeriodic(
+            self._dt
+        )  # sim-only visualizer, 250ms is plenty
 
     def update(self) -> None:
         """
@@ -173,11 +173,15 @@ class FuelShootingVisualizer(Subsystem):
                     robotVelocity.vx
                     + muzzleVelocity
                     * self._getHoodAngle().sin()
-                    * self._getTurretAngle().cos(),
+                    * (
+                        self._getTurretAngle() + robotPose.rotation().toRotation2d()
+                    ).cos(),
                     robotVelocity.vy
                     + muzzleVelocity
                     * self._getHoodAngle().sin()
-                    * self._getTurretAngle().sin(),
+                    * (
+                        self._getTurretAngle() + robotPose.rotation().toRotation2d()
+                    ).sin(),
                     muzzleVelocity * self._getHoodAngle().cos(),
                 ),
             )

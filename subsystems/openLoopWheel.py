@@ -2,8 +2,6 @@
 This is the parent class for both the woahval and the indexer, since they are both just open loop motors that feed into each other.
 """
 
-from copy import deepcopy
-
 from threading import Lock
 
 from commands2 import Subsystem
@@ -128,10 +126,10 @@ class OpenLoopWheel(Subsystem):
         self._data.current = self._getCurrentSignal.value_as_double
         self._data.velocity = self._getVelocitySignal.value_as_double
         self._data.dutyCycle = self._getDutyCycleSignal.value_as_double
-        BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(self._data)
 
-        self._motor.set(
-            self._dutyCycleSetpoint * (1 if not self._motorInverted else -1)
+        self._motor.setVoltage(
+            self._dutyCycleSetpoint * (1 if not self._motorInverted else -1) * 12
         )
 
     def simulationPeriodic(self) -> None:

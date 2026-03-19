@@ -36,15 +36,19 @@ class Robot(TimedCommandRobot):
         self._timePub = self._nettable.getDoubleTopic("time").publish()
         self._timer = Timer()
         self._timer.start()
+        self._loop_publish_period = 0.10
+        self._last_loop_publish_time = float("-inf")
         # self.setNetworkTablesFlushEnabled(False)
         self.addPeriodic(self.m_robotContainer.timerPeriodic, 0.1, 0.05)
         self.m_autonomousCommand = cmd.none()
 
     def robotPeriodic(self) -> None:
-        self._timePub.set(self._timer.get())
+        loop_time = self._timer.get()
         self._timer.restart()
-        # Update 3D visualizer on main thread (avoids Notifier threading issues)
-        self.m_robotContainer.visualizer3d.update()
+        now = Timer.getFPGATimestamp()
+        if now - self._last_loop_publish_time >= self._loop_publish_period:
+            self._timePub.set(loop_time)
+            self._last_loop_publish_time = now
         # wpilib.reportError(f"Got Error from Command Scheduler: {e}", True)
 
     def autonomousInit(self):

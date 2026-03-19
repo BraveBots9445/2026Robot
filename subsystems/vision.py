@@ -1,8 +1,8 @@
 from typing import Callable
 
-from commands2 import Command, InstantCommand, Subsystem
+from commands2 import Command, InstantCommand
 from wpilib import RobotBase, SmartDashboard
-from math import e, pi
+from math import e, pi, hypot
 from ntcore import NetworkTableInstance, StructArrayPublisher
 from ntcore.util import ntproperty
 
@@ -25,19 +25,22 @@ from wpimath.units import (
 )
 from wpimath.kinematics import ChassisSpeeds
 
+import threading
+import time
+
 from wpilib import RobotBase, Notifier
 
 
 from .visionCamera import VisionCamera
 
 
-class Vision(Subsystem):
+class Vision:
     _enabled = ntproperty("000Vision/Enabled", True)
 
     # these names and their associated positions are fake
     _turretCamera: VisionCamera
     _backRightReverseCamera: VisionCamera
-    _backLeftReverseCamera: VisionCamera
+    # _backLeftReverseCamera: VisionCamera
     _backLeftForwardCamera: VisionCamera
 
     # TODO: The below offsets are all garbage from copilot
@@ -66,7 +69,7 @@ class Vision(Subsystem):
         Translation3d(
             inchesToMeters(-12.5), inchesToMeters(-13.5), inchesToMeters(7.75)
         ),
-        Rotation3d.fromDegrees(0, 30, 120),
+        Rotation3d.fromDegrees(0, 30, -120),
     )
 
     _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
@@ -108,10 +111,12 @@ class Vision(Subsystem):
         """
         self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
 
+        self._getRobotVelocity = getRobotVelocity
+
         self._backRightReverseCamera = VisionCamera(
-            "Arducam-BR-R",
+            "ArducamOV9281-BR-R",
             self._tagLayout,
-            self._backRightForwardCameraToRobot,
+            self._backRightReverseCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
@@ -163,39 +168,54 @@ class Vision(Subsystem):
             self._visionSim.addCamera(
                 self._backLeftForwardCamera.getCameraSim(), self._backLeftReverseCameraToRobot  # type: ignore
             )
+            self._visionSim.addCamera(
+                self._backRightForwardCamera.getCameraSim(), self._backRightForwardCameraToRobot  # type: ignore
+            )
+            self._visionSim.addCamera(
+                self._backRightReverseCamera.getCameraSim(), self._backRightReverseCameraToRobot  # type: ignore
+            )
             # self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
             # SmartDashboard.putData(self._visionSim.getDebugField())
             self._simNotifier = Notifier(self._simulationPeriodic)
             self._simNotifier.startPeriodic(0.06)
+        self._periodicRunning = False
+        self._visionUpdatePeriod = 0.05
+        self._visionCameraIndex = 0
+        threading.Thread(
+            target=self._visionLoop, daemon=True, name="Vision-periodic"
+        ).start()
 
-    def periodic(self) -> None:
-        return
+    def _visionLoop(self) -> None:
+        """Daemon thread loop: runs _periodic, skipping if a previous run is still active."""
+        while True:
+            time.sleep(self._visionUpdatePeriod)
+            if not self._periodicRunning:
+                self._periodicRunning = True
+                try:
+                    self._periodic()
+                finally:
+                    self._periodicRunning = False
+
+    def _periodic(self) -> None:
         # turret camera does not do pose estimation
         if not self._enabled:
             return
-        estBLR, tagsBLR = self._backLeftReverseCamera.update()
-        estBLF, tagsBLF = self._backLeftForwardCamera.update()
-        estBRR, tagsBRR = self._backRightReverseCamera.update()
-        estBRF, tagsBRF = self._backRightForwardCamera.update()
 
-        # Build pose list without repeated concatenation
-        poses = []
-        if estBLR is not None:
-            poses.append(self._pose3dToPose2d(estBLR))
-        if estBLF is not None:
-            poses.append(self._pose3dToPose2d(estBLF))
-        if estBRR is not None:
-            poses.append(self._pose3dToPose2d(estBRR))
-        if estBRF is not None:
-            poses.append(self._pose3dToPose2d(estBRF))
-        self._poseEstPub.set(poses)
+        vel = self._getRobotVelocity()
+        if hypot(vel.vx, vel.vy) > 2.0 or abs(vel.omega) > degreesToRadians(90):
+            return
 
-        allTags = []
-        allTags.extend(tagsBLR)
-        allTags.extend(tagsBLF)
-        allTags.extend(tagsBRR)
-        allTags.extend(tagsBRF)
-        self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in allTags])
+        cameras = [
+            self._backLeftReverseCamera,
+            self._backLeftForwardCamera,
+            self._backRightForwardCamera,
+            self._backRightReverseCamera,
+        ]
+        camera = cameras[self._visionCameraIndex]
+        self._visionCameraIndex = (self._visionCameraIndex + 1) % len(cameras)
+
+        _, tags = camera.update()
+        self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in tags])
 
     def _simulationPeriodic(self) -> None:
         """
@@ -233,7 +253,7 @@ class Vision(Subsystem):
         :return: A command that toggles vision processing
         :rtype: Command
         """
-        return InstantCommand(self.toggleEnabled, self)
+        return InstantCommand(self.toggleEnabled)
 
     def enableCommand(self) -> Command:
         """
@@ -242,7 +262,7 @@ class Vision(Subsystem):
         :return: A command that enables vision processing
         :rtype: Command
         """
-        return InstantCommand(lambda: self.setEnabled(True), self)
+        return InstantCommand(lambda: self.setEnabled(True))
 
     def disableCommand(self) -> Command:
         """
@@ -251,7 +271,7 @@ class Vision(Subsystem):
         :return: A command that disables vision processing
         :rtype: Command
         """
-        return InstantCommand(lambda: self.setEnabled(False), self)
+        return InstantCommand(lambda: self.setEnabled(False))
 
     def _pose3dToPose2d(self, pose3d: Pose3d) -> Pose2d:
         """

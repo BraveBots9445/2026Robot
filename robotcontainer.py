@@ -11,6 +11,7 @@ from commands2 import (
     DeferredCommand,
     ParallelCommandGroup,
     Subsystem,
+    cmd,
 )
 from commands2.button import CommandXboxController, Trigger
 from commands2.sysid import SysIdRoutine
@@ -26,7 +27,7 @@ from wpimath.geometry import (
 from wpimath.units import inchesToMeters
 from wpimath.kinematics import ChassisSpeeds
 
-from wpilib import RobotState
+from wpilib import RobotState, RobotBase
 
 from subsystems.vision import Vision
 from subsystems.visualizer3d import Visualizer3D
@@ -92,10 +93,18 @@ from commands.baseCommands.indexerShoot import IndexerShoot
 from commands.baseCommands.turretManual import TurretManual
 from commands.baseCommands.turretResetManualOffset import TurretResetManualOffset
 from commands.baseCommands.shooterSetFlywheelVelocity import ShooterSetFlywheelVelocity
+from commands.baseCommands.shooterShootOrPass import ShooterShootOrPass
+from commands.baseCommands.turretShootOrPass import TurretShootOrPass
+from commands.baseCommands.climberClimb import ClimberClimb
+from commands.baseCommands.climberDeploy import ClimberDeploy
+from commands.baseCommands.climberIdle import ClimberIdle
+from commands.baseCommands.shooterStowHood import ShooterStowHood
+
 
 from commands import ShooterTuneDistance
 
 ########## TEAM IMPORTS ##########
+from tools.ButtonBoard import ButtonBoard
 from tools.CommandXboxController9445 import CommandController9445
 from tools.rebuilt import Rebuilt, RebuiltPositions
 
@@ -105,11 +114,14 @@ from subsystems.zoneManager import ZoneManager
 class RobotContainer:
     _max_speed_percent = ntproperty("MaxVelocityPercent", 1.0)
     _max_angular_rate_percent = ntproperty("MaxOmegaPercent", 1.0)
+    _localizationAutonomyEnabled = ntproperty("LocalizationAutonomyEnabled", True)
+    _otherAutonomyEnabled = ntproperty("OtherAutonomyEnabled", True)
 
     def __init__(self) -> None:
         self.driver_controller = CommandController9445(0)
         self.operator_controller = CommandController9445(1)
-        self.test_remote = CommandController9445(2)
+        self.button_board = ButtonBoard(2)
+        self.test_remote = CommandController9445(3)
 
         self.pdh = PowerDistribution()
         self.pdh.setSwitchableChannel(True)
@@ -154,7 +166,7 @@ class RobotContainer:
             lambda: self.drivetrain.get_state().speeds,
             self.turret.getRotation,
             self.shooter.getHoodAngle,
-            lambda: self.shooter.getFlywheelVelocity(),
+            self.shooter.getFlywheelVelocity,
             inchesToMeters(2),
             self.visualizer3d.transform3dToTurret,
         )
@@ -186,7 +198,9 @@ class RobotContainer:
         self.drivetrain.reset_pose(
             Rebuilt.getPosition(
                 RebuiltPositions.Hub
-                + Transform3d(Translation3d(-1, 0, 0), Rotation3d())
+                + Transform3d(
+                    Translation3d(-1, 0, 0), Rotation3d.fromDegrees(0, 0, -90)
+                )
             ).toPose2d()
         )
         RepeatCommand(
@@ -203,15 +217,6 @@ class RobotContainer:
 
         self.test_remote.back().onTrue(self.turret._tmpResetCommand())
 
-        self.zoneManager.getMustStowTrigger().whileTrue(
-            ToStow(
-                self.climber,
-                self.shooter,
-                self.turret,
-                self.zoneManager.getMustStowBool,
-            )
-        )
-
     def set_teleop_bindings(self) -> None:
         """driver"""
         self.drivetrain.setDefaultCommand(
@@ -222,6 +227,12 @@ class RobotContainer:
                 lambda: -self.driver_controller.getFRCRY(),
                 self.drivetrain.getMaxSpeed,
                 self.drivetrain.getMaxAngularRateDeg,
+            )
+        )
+
+        self.zoneManager.getMustStowTrigger().whileTrue(
+            ShooterStowHood(
+                self.shooter,
             )
         )
 
@@ -236,14 +247,16 @@ class RobotContainer:
         self.timerManager.startTeleop()
 
         self.shooter.setDefaultCommand(
-            ShooterShootOnMove(
-                self.shooter, self.shootOnMoveCalculator
+            ShooterShootOrPass(
+                self.shooter, self.shootOnMoveCalculator, self.zoneManager
             ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
         )
 
         self.turret.setDefaultCommand(
-            TurretShootOnMove(self.turret, self.shootOnMoveCalculator)
+            TurretShootOrPass(self.turret, self.shootOnMoveCalculator, self.zoneManager)
         )
+
+        self.climber.setDefaultCommand(ClimberIdle(self.climber))
 
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(
@@ -269,6 +282,9 @@ class RobotContainer:
 
         # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
+        self.button_board.getForward().whileTrue(ClimberDeploy(self.climber))
+        self.button_board.getReverse().whileTrue(ClimberClimb(self.climber))
+
         self.driver_controller.rightTrigger().whileTrue(
             IntakeDeploy(self.intake)
         ).onFalse(IntakeSetRollerSpeed(self.intake, 0))
@@ -286,7 +302,7 @@ class RobotContainer:
         #     WoahvalStop(self.woahval)
         # )
         # self.operator_controller.a().onTrue(
-        self.driver_controller.y().onTrue(
+        self.operator_controller.a().onTrue(
             IntakeSetRollerSpeed(self.intake, 0.4).andThen(
                 RepeatCommand(
                     IntakeSetAngle(self.intake, 40)
@@ -300,18 +316,39 @@ class RobotContainer:
             IntakeSetAngle(self.intake, 0).andThen(IntakeSetRollerSpeed(self.intake, 0))
         )
 
-        self.operator_controller.leftStick().toggleOnTrue(
-            TurretManual(self.turret, self.operator_controller.getFRCLY)
+        self.operator_controller.rightBumper().onTrue(
+            self.turret.dumpManualOffsetCommand()
         )
-
         self.operator_controller.leftBumper().onTrue(
-            TurretResetManualOffset(self.turret)
+            self.turret.bumpManualOffsetCommand()
         )
 
-        # self.operator_controller.rightTrigger().onTrue(
-        self.driver_controller.leftTrigger().onTrue(
+        self.operator_controller.y().onTrue(TurretResetManualOffset(self.turret))
+
+        self.operator_controller.rightTrigger().onTrue(
+            # self.button_board.getButton(4, 0).onTrue(
             WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
         ).onFalse(WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer)))
+
+        self.operator_controller.y().and_(
+            lambda: not self.zoneManager.getInAllianceZoneBool()
+        ).onTrue(
+            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        ).onFalse(
+            WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
+        )  # pass
+
+        self.zoneManager.getInAllianceZoneTrigger().and_(
+            lambda: self.timerManager.isHubActive()
+            and self.turret.atSetpoint()
+            and self.shooter.atFlywheelSetpoint()
+            and (self.shooter.atHoodSetpoint() or RobotBase.isSimulation())
+            and not self.button_board.getButton(4, 1).getAsBoolean()
+        ).whileTrue(
+            WoahvalScore(self.woahval).andThen(IndexerShoot(self.indexer))
+        ).onFalse(
+            WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
+        )
 
         self.operator_controller.povUp().onTrue(self.shooter.bumpFudgeCommand())
         self.operator_controller.povDown().onTrue(self.shooter.dumpFudgeCommand())
@@ -322,6 +359,30 @@ class RobotContainer:
         self.operator_controller.povLeft().onTrue(self.turret.dumpManualOffsetCommand())
 
     def set_test_bindings(self) -> None:
+        self.drivetrain.reset_pose(
+            Rebuilt.getPosition(
+                RebuiltPositions.Hub
+                + Transform3d(
+                    Translation3d(-1, 0, 0), Rotation3d.fromDegrees(0, 0, -90)
+                )
+            ).toPose2d()
+        )
+
+        self.test_remote.rightBumper().onTrue(self.turret.dumpManualOffsetCommand())
+        self.test_remote.leftBumper().onTrue(self.turret.bumpManualOffsetCommand())
+
+        self.drivetrain.setDefaultCommand(
+            DrivetrainDriveFieldOriented(
+                self.drivetrain,
+                lambda: self.driver_controller.getFRCLX(),
+                lambda: self.driver_controller.getFRCLY(),
+                lambda: -self.driver_controller.getFRCRY(),
+                self.drivetrain.getMaxSpeed,
+                self.drivetrain.getMaxAngularRateDeg,
+            )
+        )
+
+        self.shooter.removeDefaultCommand()
         self.shooter.setDefaultCommand(
             ShooterTuneDistance(
                 self.shooter,
@@ -334,6 +395,9 @@ class RobotContainer:
             )
         )
 
+        self.driver_controller.rightTrigger().whileTrue(
+            IntakeDeploy(self.intake)
+        ).onFalse(IntakeSetRollerSpeed(self.intake, 0))
         # self.test_remote.rightTrigger().onTrue(
         #     WaitCommand(2.0).andThen(
         #         DrivetrainMoveOffset(
@@ -371,6 +435,7 @@ class RobotContainer:
                 TurretShootOnMove(self.turret, self.shootOnMoveCalculator)
             ),
         )
+
         NamedCommands.registerCommand(
             "FeedShooter10s",
             SequentialCommandGroup(
@@ -385,9 +450,35 @@ class RobotContainer:
                         IndexerShoot(self.indexer),
                         WoahvalScore(self.woahval),
                     )
+                ).withTimeout(10),
+            ),
+        )
+
+        NamedCommands.registerCommand(
+            "StowHood",
+            ShooterStowHood(
+                self.shooter,
+            ),
+        )
+
+        NamedCommands.registerCommand(
+            "FeedShooter5s",
+            SequentialCommandGroup(
+                WaitCommand(0.1),
+                WaitCommand(3).until(
+                    lambda: self.shooter.atFlywheelSetpoint()
+                    and self.shooter.atHoodSetpoint()
+                    and self.turret.atSetpoint()
+                ),
+                RepeatCommand(
+                    ParallelCommandGroup(
+                        IndexerShoot(self.indexer),
+                        WoahvalScore(self.woahval),
+                    )
                 ).withTimeout(5),
             ),
         )
+
         NamedCommands.registerCommand(
             "StopFeedingShooter",
             ParallelCommandGroup(

@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from enum import Enum
 
 from wpimath.units import seconds
@@ -70,10 +68,15 @@ class TimeManager:
             if self._shiftCounter == 0:
                 self._shiftCounter += 1
 
-        if self._shiftTimer.advanceIfElapsed(25):
-            self._shiftCounter += 1
-
         self._data.ourActivePeriod = self._isHubActive()
+
+        if self._data.ourActivePeriod:
+            if self._shiftTimer.advanceIfElapsed(25.25):
+                self._shiftCounter += 1
+        else:
+            if self._shiftTimer.advanceIfElapsed(25 - self._earlyTime):
+                self._shiftCounter += 1
+
         self._data.rawOurActivePeriod = (
             self._shiftCounter == 0
             or self._shiftCounter % 2
@@ -86,17 +89,14 @@ class TimeManager:
         self._data.shiftTime = self._shiftTimer.get()
         if not self._teleopTimer.hasElapsed(10):
             self._data.timeLeftInShift = 10 - self._teleopTimer.get()
+        elif self._data.matchTimeDown < 30:
+            self._data.timeLeftInShift = self._data.matchTimeDown
         elif self._data.ourActivePeriod:
-            if self._data.rawOurActivePeriod:
-                self._data.timeLeftInShift = 25 - self._shiftTimer.get()
-            else:
-                self._data.timeLeftInShift = (
-                    25 + self._earlyTime - self._shiftTimer.get()
-                )
+            self._data.timeLeftInShift = 25 - self._shiftTimer.get()
         else:
-            self._data.timeLeftInShift = 25 - self._shiftTimer.get() - self._earlyTime
+            self._data.timeLeftInShift = 25 - self._shiftTimer.get()
 
-        BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(self._data)
 
     def startTeleop(self) -> None:
         self._teleopTimer.start()

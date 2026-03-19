@@ -9,6 +9,6 @@ from commands.baseCommands.indexerScore import IndexerScore
 class IndexerShoot(SequentialCommandGroup):
     def __init__(self, indexer: Indexer):
         super().__init__(
-            IndexerDejam(indexer, 0.125),
+            IndexerDejam(indexer, 0.25),
             IndexerScore(indexer),
         )

@@ -22,7 +22,7 @@ from wpimath.units import (
     degreesToRadians,
     radians_per_second,
 )
-from wpilib import SmartDashboard, RobotController
+from wpilib import SmartDashboard
 
 
 @dataclass
@@ -74,46 +74,61 @@ class ShootOnMoveCalculator:
     A function that converts flywheel RPM to muzzle velocity. 
     """
 
-    _setpoints: tuple[StateSetpoint, int]
-
-    _distanceInterpArray = array(
+    _shootDistanceInterpArray = array(
         [
-            3.9031262397766113,
-            4.55928897857666,
-            5.402111530303955,
-            5.43321084976196,
-            6.06634521484375,
-            7.002396583557129,
-            7.488589763641357,
-            8.346280097961426,
-        ]
-    )
-    _hoodAngleInterpArray = array(
-        [
-            62.0,
-            46.94731903076172,
-            46.94731903076172,
-            62.0,
-            46.94731903076172,
-            46.94731903076172,
-            47.114784240722656,
-            45.0670280456543,
-        ]
-    )
-    _flywheelVelInterpArray = array(
-        [
-            3441.86962890625,
-            3477.87646484375,
-            3706.87158203125,
-            4077.8178710937,
-            3937.236083984375,
-            4170.0302734375,
-            4594.1455078125,
-            4802.18603515625,
+            2.080439567565918,
+            2.5823168754577637,
+            2.833693742752075,
+            3.051513671875,
+            3.7620387077331543,
+            3.7790729999542236,
+            4.707864284515381,
+            4.945676803588867,
+            5.61357307434082,
+            5.885664463043213,
+            6.203237533569336,
         ]
     )
 
-    _tofFudgeFactor = ntproperty("/ShootOnMoveCalculator/tofFudgeFactor", 0.5)
+    _shootHoodAngleInterpArray = array(
+        [
+            68.0,
+            61.45344543457031,
+            58.81499481201172,
+            57.92197799682617,
+            46.533504486083984,
+            52.69411087036133,
+            45.7725715637207,
+            27.69704818725586,
+            42.33541488647461,
+            31.657405853271484,
+            28.270965576171875,
+        ]
+    )
+
+    _shootFlywheelVelInterpArray = array(
+        [
+            2684.827880859375,
+            2962.234619140625,
+            3493.436279296875,
+            3123.27880859375,
+            3252.91845703125,
+            3263.772705078125,
+            3566.302001953125,
+            3460.345947265625,
+            3679.562255859375,
+            3941.315673828125,
+            4034.179443359375,
+        ]
+    )
+
+    _passDistanceInterpArray = array([0, 10, 20])
+
+    _passHoodAngleInterpArray = array([40, 20, 20])
+
+    _passFlywheelVelInterpArray = array([4000, 4500, 4500])
+
+    _tofFudgeFactor = ntproperty("/ShootOnMoveCalculator/tofFudgeFactor", 0.16)
 
     def __init__(
         self,
@@ -143,8 +158,6 @@ class ShootOnMoveCalculator:
         self._launcherTransform = launcherTransform
         self._flywheelRpmToMuzzleVelocity = flywheelRpmToMuzzleVelocity
 
-        self._setpoints = (StateSetpoint(0, Rotation2d(), Rotation2d()), -500)
-
         self._nettable = NetworkTableInstance.getDefault().getTable(
             "ShootOnMoveCalculator"
         )
@@ -160,7 +173,7 @@ class ShootOnMoveCalculator:
         ).publish()
 
     def _getSetpointsStep(
-        self, target: Pose3d, robotOmega: radians_per_second = 0
+        self, target: Pose3d, robotOmega: radians_per_second = 0, passing: bool = False
     ) -> tuple[StateSetpoint, seconds]:
         """
         Calculates the setpoints for the current robot state and a target pose.
@@ -184,10 +197,22 @@ class ShootOnMoveCalculator:
         targetTranslation = target.translation()
         angleOff = (targetTranslation - poseTranslation).toTranslation2d().angle()
 
-        angleDeg = interp(dist, self._distanceInterpArray, self._hoodAngleInterpArray)
-        flywheelRpm = interp(
-            dist, self._distanceInterpArray, self._flywheelVelInterpArray
-        )
+        if passing and len(self._passDistanceInterpArray) > 0:
+            angleDeg = interp(
+                dist, self._passDistanceInterpArray, self._passHoodAngleInterpArray
+            )
+            flywheelRpm = interp(
+                dist, self._passDistanceInterpArray, self._passFlywheelVelInterpArray
+            )
+        else:
+            # angleDeg = interp(
+            #     dist, self._shootDistanceInterpArray, self._shootHoodAngleInterpArray
+            # )
+            # flywheelRpm = interp(
+            #     dist, self._shootDistanceInterpArray, self._shootFlywheelVelInterpArray
+            # )
+            angleDeg = self._backupHoodLookupClosedForm(dist).degrees()
+            flywheelRpm = self._backupFlywheelLookupClosedForm(dist)
         v0 = self._flywheelRpmToMuzzleVelocity(flywheelRpm)
 
         t = dist / (v0 * cos(degreesToRadians(angleDeg))) * self._tofFudgeFactor
@@ -206,7 +231,9 @@ class ShootOnMoveCalculator:
             t,
         )
 
-    def _getSetpoints(self, target: Pose3d, maxIterations: int = 10) -> StateSetpoint:
+    def _getSetpoints(
+        self, target: Pose3d, maxIterations: int = 3, passing: bool = False
+    ) -> StateSetpoint:
         """
         Get the setpoints for the shooter, hood, and turret
         Uses a Recursive LuT method with a moving virtual target to account for the moving robot
@@ -217,16 +244,18 @@ class ShootOnMoveCalculator:
         :type iterations: int, optional
         """
         self._targetPub.set(target)
-        setpoints, timeToShot = self._getSetpointsStep(target)
         if maxIterations < 1:
             maxIterations = 1
         # virtualTarget = target.transformBy(self._launcherTransform)
         virtualTarget = target
         setpoints = StateSetpoint(0, Rotation2d(), Rotation2d())
+        timeToShot = 0.0
         robotVel = self._getRobotVelocity()
         prevTimeOfFlight = float("inf")
         for _ in range(maxIterations):
-            setpoints, timeToShot = self._getSetpointsStep(virtualTarget)
+            setpoints, timeToShot = self._getSetpointsStep(
+                virtualTarget, passing=passing
+            )
             virtualTarget = target.transformBy(
                 self._ChassisSpeedsToTranslation3d(robotVel, timeToShot)  # .inverse()
             )
@@ -238,7 +267,6 @@ class ShootOnMoveCalculator:
             pass
             # self._nettable.putNumber("Iterations", )
         self._virtualTargetPub.set(virtualTarget)
-        self._setpoints = (setpoints, RobotController.getFPGATime())
         return setpoints
 
     def _ChassisSpeedsToTranslation3d(
@@ -259,10 +287,18 @@ class ShootOnMoveCalculator:
             Rotation3d(0.0, 0.0, speeds.omega * time),
         )
 
-    def getSetpoints(
-        self, target: Pose3d, maxIterations: int = 10, maxTime: seconds = 0.02
-    ) -> StateSetpoint:
-        if RobotController.getFPGATime() - self._setpoints[1] / (10**6) > maxTime:
-            self._getSetpoints(target, maxIterations)
+    """
+    https://www.desmos.com/calculator/yh6givh54x
+    desmos for linreg below
+    """
 
-        return self._setpoints[0]
+    def _backupHoodLookupClosedForm(self, dist: meters) -> Rotation2d:
+        # based on a linear regression of already taken data
+        return Rotation2d.fromDegrees(-9.04769 * dist + 84.75677)
+
+    def _backupFlywheelLookupClosedForm(self, dist: meters) -> revolutions_per_minute:
+        # based on a linear regression of already taken data
+        return 258.44584 * dist + 2336.55292
+
+    def getSetpoints(self, target: Pose3d, passing: bool = False) -> StateSetpoint:
+        return self._getSetpoints(target, maxIterations=3, passing=passing)

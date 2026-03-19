@@ -1,12 +1,14 @@
 from typing import Callable
 
+from threading import Thread
+
 from ntcore import (
     NetworkTable,
     NetworkTableInstance,
     StructArrayPublisher,
 )
 
-from wpilib import Notifier
+from wpilib import Notifier, RobotBase, Timer
 
 from wpimath.geometry import Pose3d, Transform3d, Rotation2d, Translation3d, Rotation3d
 from wpimath.units import seconds, degreesToRadians, inchesToMeters
@@ -24,11 +26,6 @@ class Visualizer3D:
     """
     A publisher for the mechanism poses struct.
     Publishes in array[Pose3d] 
-    """
-
-    _notifier: Notifier
-    """
-    A notifier to periodically call the update method.
     """
 
     ########## POSES ##########
@@ -155,11 +152,10 @@ class Visualizer3D:
         self._mechPosePub = self._nettable.getStructArrayTopic(
             "MechPoses", Pose3d
         ).publish()
+        self._publish_period = 0.05 if RobotBase.isSimulation() else 0.10
+        self._last_publish_time = float("-inf")
 
-        # NOTE: Do NOT use Notifier for visualization - it causes threading issues
-        # with Python/C++ boundary. Call update() from the main robot thread instead.
-        # self._notifier = Notifier(self._update)
-        # self._notifier.startPeriodic(period)
+        Thread(target=self.update, daemon=True, name="Visualizer3D")
 
     def update(self) -> None:
         """
@@ -168,6 +164,11 @@ class Visualizer3D:
 
         :return: None
         """
+        now = Timer.getFPGATimestamp()
+        if now - self._last_publish_time < self._publish_period:
+            return
+        self._last_publish_time = now
+
         turretTransform = self._getTurretTransform()
         hoodTransformation = self._hoodInitialPose.relativeTo(
             self._turretInitialPose

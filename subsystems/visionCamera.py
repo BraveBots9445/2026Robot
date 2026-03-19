@@ -2,7 +2,7 @@ from math import hypot, pi
 
 from typing import Callable
 
-from wpilib import RobotController, RobotBase, RobotState
+from wpilib import RobotController, RobotBase, RobotState, Notifier
 
 from wpimath.geometry import Transform3d, Pose3d
 from wpimath.kinematics import ChassisSpeeds
@@ -155,7 +155,10 @@ class VisionCamera:
             estPose.estimatedPose,
             estPose.timestampSeconds,
             self._calculateStdDevs(
-                distance, bestTarget.poseAmbiguity, estPose.estimatedPose
+                distance,
+                bestTarget.poseAmbiguity,
+                estPose.estimatedPose,
+                bestTarget.fiducialId,
             ),
         )
         self._prevEst = estPose.estimatedPose
@@ -206,7 +209,11 @@ class VisionCamera:
         return self._simCamera
 
     def _calculateStdDevs(
-        self, distance: Transform3d, ambiguity: float, estPose: Pose3d | None = None
+        self,
+        distance: Transform3d,
+        ambiguity: float,
+        estPose: Pose3d | None = None,
+        tagID: int | None = None,
     ) -> tuple[float, float, float]:
         """
         Calculate standard deviations for the pose estimator based on target distance and robot velocity
@@ -242,7 +249,7 @@ class VisionCamera:
 
         ambiguityFactor = (10 * ambiguity) ** 2
 
-        return (
+        stDevs = (
             (distanceFactor + velocityFactor + jerkFactor + ambiguityFactor)
             * self._baseStdDevs[0],
             (distanceFactor + velocityFactor + jerkFactor + ambiguityFactor)
@@ -250,3 +257,7 @@ class VisionCamera:
             (distanceFactor + velocityFactor + jerkFactor + ambiguityFactor)
             * self._baseStdDevs[2],
         )
+
+        if tagID not in [2, 11, 8, 5, 9, 10]:
+            return (stDevs[0] * 3, stDevs[1] * 3, stDevs[2] * 3)
+        return stDevs

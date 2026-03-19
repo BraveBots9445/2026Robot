@@ -5,7 +5,6 @@ from commands2.command import InterruptionBehavior
 
 from commands.baseCommands.intakeRetract import IntakeRetract
 from commands.baseCommands.shooterStowHood import ShooterStowHood
-from commands.baseCommands.climberStow import ClimberStow
 
 from subsystems import Climber, Shooter, Turret
 

@@ -37,7 +37,7 @@ class ZoneManager(Subsystem):
 
     _nettable: NetworkTable
 
-    _trenchLength: meters = inchesToMeters(67.0)
+    _trenchLength: meters = inchesToMeters(87.0)
     _trenchWidth: meters = inchesToMeters(59.84)
 
     _trenchZones = [
@@ -219,27 +219,25 @@ class ZoneManager(Subsystem):
         self._allianceZone = Rectangle2d(
             Rebuilt.getPosition(
                 Pose3d(
-                    Pose2d(
-                        inchesToMeters(91.055), inchesToMeters(158.845), Rotation2d(0)
-                    )
+                    Pose2d(inchesToMeters(90.78), inchesToMeters(158.32), Rotation2d(0))
                 )
             ).toPose2d(),
-            inchesToMeters(182.11),
-            inchesToMeters(317.69),
+            inchesToMeters(181.56),
+            inchesToMeters(316.64),
         )
 
         self._leftZone = Rectangle2d(
             Rebuilt.getPosition(
                 Pose3d(
                     Pose2d(
-                        inchesToMeters(651.22 / 2),
-                        inchesToMeters(3 * 317.69 / 4),
+                        inchesToMeters(650.12 / 2),
+                        inchesToMeters(3 * 316.64 / 4),
                         Rotation2d(),
                     )
                 )
             ).toPose2d(),
-            inchesToMeters(1000),  # 651.22 is the actual length, but this is a buffer
-            inchesToMeters(317.69 / 2),
+            inchesToMeters(1000),  # 650.12 is the actual length, but this is a buffer
+            inchesToMeters(316.64 / 2),
         )
 
         self._zonesCenterPub.set(

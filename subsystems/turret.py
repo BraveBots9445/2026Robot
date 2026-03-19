@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from math import pi
 
 from threading import Lock
@@ -100,7 +98,7 @@ class Turret(Subsystem):
 
     _motorInverted: bool = True
 
-    _gearRatio: float = 4 * 200 / 20
+    _gearRatio: float = 200 / 20
     """
     The gear ratio of the turret mechanism.
     This is measured as motor rotations / turret rotations.
@@ -108,10 +106,10 @@ class Turret(Subsystem):
 
     _encoderInverted: bool = False
 
-    _zeroOffset: float = 0.040008545
+    _zeroOffset: float = 0.7301714
 
     # motor PID gains
-    _motorP: float = 5.0 if RobotBase.isReal() else 1.5
+    _motorP: float = 5.5 if RobotBase.isReal() else 1.5
     _motorI: float = 0.0 if RobotBase.isReal() else 0.0
     _motorD: float = 0.0 if RobotBase.isReal() else 0.125
 
@@ -177,13 +175,13 @@ class Turret(Subsystem):
         self._encoder = self._motor.getEncoder()
 
         motorConfig = SparkBaseConfig()
-        motorConfig.smartCurrentLimit(30).secondaryCurrentLimit(35).setIdleMode(
+        motorConfig.smartCurrentLimit(55).setIdleMode(
             SparkBaseConfig.IdleMode.kCoast
         ).inverted(self._motorInverted)
         motorConfig.softLimit.forwardSoftLimit(
-            degreesToRotations(170)
+            degreesToRotations(175)
         ).forwardSoftLimitEnabled(True).reverseSoftLimit(
-            degreesToRotations(-170)
+            degreesToRotations(-175)
         ).reverseSoftLimitEnabled(
             True
         )
@@ -201,7 +199,7 @@ class Turret(Subsystem):
             motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters
         )
 
-        self._encoder.setPosition(absEncoder.getPosition() / self._gearRatio * 2)
+        self._encoder.setPosition(absEncoder.getPosition() / self._gearRatio)
 
         self._data = TurretData(0, 0, 0, 0)
 
@@ -246,7 +244,7 @@ class Turret(Subsystem):
         self._data._motorCurrent = self._motor.getOutputCurrent()
         self._data._motorDutyCycle = self._motor.getAppliedOutput()
 
-        BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(self._data)
 
         self._turretMech.setAngle(angle.degrees())
         self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())

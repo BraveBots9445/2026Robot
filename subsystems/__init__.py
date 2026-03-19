@@ -7,8 +7,7 @@ from .turret import Turret
 from .vision import Vision
 from .woahval import Woahval
 from .timeManager import TimeManager
-
-# not stateManager here because it causes a circular import
+from .zoneManager import ZoneManager
 
 from .fuelShootingVisualizer import FuelShootingVisualizer
 from .shootOnMoveCalculator import ShootOnMoveCalculator
@@ -26,4 +25,5 @@ __all__ = [
     "Woahval",
     # "PassiveHooks",
     "TimeManager",
+    "ZoneManager",
 ]

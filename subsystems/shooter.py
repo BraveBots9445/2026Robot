@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from math import pi
 
 from threading import Lock
@@ -29,10 +27,11 @@ from wpimath.units import (
     amperes,
     radiansToRotations,
     degrees,
+    degreesToRadians,
 )
 from wpimath.geometry import Rotation2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
-from wpimath.controller import BangBangController
+from wpimath.controller import BangBangController, ArmFeedforward
 
 from phoenix6.hardware import TalonFX
 from phoenix6.sim import TalonFXSimState
@@ -126,6 +125,8 @@ class Shooter(Subsystem):
         .with_k_a(0)
     )
 
+    _hoodFeedForward: ArmFeedforward
+
     _flywheelGearRatio: float = 1 / 1
     """
     The ratio between rotations of the motor and rotations of the flywheel
@@ -138,7 +139,7 @@ class Shooter(Subsystem):
     This is calculated as (motor rotations) / (hood rotations)
     """
 
-    _hoodZeroOffset: float = 0.27508187
+    _hoodZeroOffset: float = 0.1716237
     """
     The offset in rotations for the hood's absolute encoder to be considered the zero position of the hood (zero launch angle)
     """
@@ -162,17 +163,17 @@ class Shooter(Subsystem):
     The minimum angle of the hood. This is where the hood is fully retracted
     """
 
-    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(68)
+    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(63)
     """
     The max angle of the hood. This is where the hood is fully extended 
     """
 
     # hood PIDs
-    _hoodP: float = 9.0 if RobotBase.isReal() else 0.25
-    _hoodI: float = 0.0 if RobotBase.isReal() else 0.0
+    _hoodP: float = 10.0 if RobotBase.isReal() else 0.25
+    _hoodI: float = 0.00001 if RobotBase.isReal() else 0.0
     _hoodD: float = 0.0 if RobotBase.isReal() else 0.0
 
-    _hoodkG: float = 0.2
+    _hoodkG: float = 0.0
 
     ########################## SETPOINTS ##########################
 
@@ -182,7 +183,7 @@ class Shooter(Subsystem):
     """
 
     # _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 0.975)
-    _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 1.05)
+    _flywheelFudgeFactor = ntproperty("flywheelFudgeFactor", 1.0)
     """
     The number to multiply the flywheel setpoint by for changing system conditions
     """
@@ -286,9 +287,8 @@ class Shooter(Subsystem):
 
         hoodConfig = (
             SparkBaseConfig()
-            .smartCurrentLimit(20)
-            .setIdleMode(SparkBaseConfig.IdleMode.kBrake)
-            .secondaryCurrentLimit(27)
+            .smartCurrentLimit(65)
+            .setIdleMode(SparkBaseConfig.IdleMode.kCoast)
             .inverted(True)
         )
         hoodConfig.absoluteEncoder.zeroOffset(self._hoodZeroOffset).inverted(
@@ -298,13 +298,12 @@ class Shooter(Subsystem):
             self._hoodD
         ).positionWrappingEnabled(True).positionWrappingInputRange(
             0, 1
-        ).allowedClosedLoopError(
-            0.005
         ).setFeedbackSensor(
             FeedbackSensor.kAbsoluteEncoder
-        ).feedForward.kCos(
-            self._hoodkG
         )
+        # ).feedForward.kCos(
+        #     self._hoodkG
+        # )
 
         self._flywheelMotor.configurator.apply(self._flywheelConfig)
         self._hoodMotor.configure(
@@ -324,6 +323,8 @@ class Shooter(Subsystem):
         )
 
         self._velocityVoltageRequest = VelocityVoltage(0)
+
+        self._hoodFeedForward = ArmFeedforward(0, 0.5, 0, 0)
 
         self._flywheelMotorSimState = self._flywheelMotor.sim_state
 
@@ -365,11 +366,12 @@ class Shooter(Subsystem):
 
         self._lock = Lock()
 
-        self._hoodAngleSetpoint = self.getHoodAngle()
-
-        self._data.desiredHoodAngleDegrees = Rotation2d.fromRotations(
+        self._data.actualHoodAngleDegrees = Rotation2d.fromRotations(
             self._hoodEncoder.getPosition()
         ).degrees()
+        self._data.desiredHoodAngleDegrees = self._data.actualHoodAngleDegrees
+
+        self._hoodAngleSetpoint = self.getHoodAngle()
 
     def periodic(self) -> None:
         # log data
@@ -387,7 +389,7 @@ class Shooter(Subsystem):
         self._data.motorCurrent = self._getFlywheelCurrentSignal.value_as_double
         self._data.hoodMotorCurrent = self._hoodMotor.getOutputCurrent()
 
-        BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(self._data)
 
         # update mech2d
         self._hoodMech.setAngle(hoodAngle.degrees())
@@ -404,8 +406,11 @@ class Shooter(Subsystem):
             self._flywheelMotor.set_control(self._velocityVoltageRequest)
 
         self._hoodMotorClosedLoop.setSetpoint(
-            self._hoodAngleSetpoint.degrees() / 360,
+            (self._hoodAngleSetpoint.degrees() + 4) / 360,
             SparkMax.ControlType.kPosition,
+            arbFeedforward=self._hoodFeedForward.calculate(
+                degreesToRadians(90 - self._data.actualHoodAngleDegrees), 0
+            ),
         )
 
     def simulationPeriodic(self) -> None:

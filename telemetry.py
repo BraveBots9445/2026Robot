@@ -1,6 +1,15 @@
+from typing import SupportsFloat, SupportsIndex, cast
+
 from ntcore import NetworkTableInstance
 from phoenix6 import SignalLogger, swerve, units
-from wpilib import Color, Color8Bit, Mechanism2d, MechanismLigament2d, SmartDashboard
+from wpilib import (
+    Color,
+    Color8Bit,
+    Mechanism2d,
+    MechanismLigament2d,
+    RobotBase,
+    SmartDashboard,
+)
 from wpimath.geometry import Pose2d
 from wpimath.kinematics import ChassisSpeeds, SwerveModulePosition, SwerveModuleState
 
@@ -14,7 +23,15 @@ class Telemetry:
         :type max_speed: units.meters_per_second
         """
         self._max_speed = max_speed
-        SignalLogger.start()
+        self._is_simulation = RobotBase.isSimulation()
+        self._signal_logging_enabled = self._is_simulation
+        if self._signal_logging_enabled:
+            SignalLogger.start()
+
+        self._fast_publish_period = 0.05 if self._is_simulation else 0.10
+        self._slow_publish_period = 0.10 if self._is_simulation else 0.25
+        self._last_fast_publish = float("-inf")
+        self._last_slow_publish = float("-inf")
 
         # What to publish over networktables for telemetry
         self._inst = NetworkTableInstance.getDefault()
@@ -47,44 +64,50 @@ class Telemetry:
         self._table = self._inst.getTable("Pose")
         self._field_pub = self._table.getDoubleArrayTopic("robotPose").publish()
         self._field_type_pub = self._table.getStringTopic(".type").publish()
+        self._field_type_pub.set("Field2d")
 
-        # Mechanisms to represent the swerve module states
-        self._module_mechanisms: list[Mechanism2d] = [
-            Mechanism2d(1, 1),
-            Mechanism2d(1, 1),
-            Mechanism2d(1, 1),
-            Mechanism2d(1, 1),
-        ]
-        # A direction and length changing ligament for speed representation
-        self._module_speeds: list[MechanismLigament2d] = [
-            self._module_mechanisms[0]
-            .getRoot("RootSpeed", 0.5, 0.5)
-            .appendLigament("Speed", 0.5, 0),
-            self._module_mechanisms[1]
-            .getRoot("RootSpeed", 0.5, 0.5)
-            .appendLigament("Speed", 0.5, 0),
-            self._module_mechanisms[2]
-            .getRoot("RootSpeed", 0.5, 0.5)
-            .appendLigament("Speed", 0.5, 0),
-            self._module_mechanisms[3]
-            .getRoot("RootSpeed", 0.5, 0.5)
-            .appendLigament("Speed", 0.5, 0),
-        ]
-        # A direction changing and length constant ligament for module direction
-        self._module_directions: list[MechanismLigament2d] = [
-            self._module_mechanisms[0]
-            .getRoot("RootDirection", 0.5, 0.5)
-            .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
-            self._module_mechanisms[1]
-            .getRoot("RootDirection", 0.5, 0.5)
-            .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
-            self._module_mechanisms[2]
-            .getRoot("RootDirection", 0.5, 0.5)
-            .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
-            self._module_mechanisms[3]
-            .getRoot("RootDirection", 0.5, 0.5)
-            .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
-        ]
+        # Mechanisms to represent the swerve module states (simulation only)
+        if self._is_simulation:
+            self._module_mechanisms: list[Mechanism2d] = [
+                Mechanism2d(1, 1),
+                Mechanism2d(1, 1),
+                Mechanism2d(1, 1),
+                Mechanism2d(1, 1),
+            ]
+            # A direction and length changing ligament for speed representation
+            self._module_speeds: list[MechanismLigament2d] = [
+                self._module_mechanisms[0]
+                .getRoot("RootSpeed", 0.5, 0.5)
+                .appendLigament("Speed", 0.5, 0),
+                self._module_mechanisms[1]
+                .getRoot("RootSpeed", 0.5, 0.5)
+                .appendLigament("Speed", 0.5, 0),
+                self._module_mechanisms[2]
+                .getRoot("RootSpeed", 0.5, 0.5)
+                .appendLigament("Speed", 0.5, 0),
+                self._module_mechanisms[3]
+                .getRoot("RootSpeed", 0.5, 0.5)
+                .appendLigament("Speed", 0.5, 0),
+            ]
+            # A direction changing and length constant ligament for module direction
+            self._module_directions: list[MechanismLigament2d] = [
+                self._module_mechanisms[0]
+                .getRoot("RootDirection", 0.5, 0.5)
+                .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
+                self._module_mechanisms[1]
+                .getRoot("RootDirection", 0.5, 0.5)
+                .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
+                self._module_mechanisms[2]
+                .getRoot("RootDirection", 0.5, 0.5)
+                .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
+                self._module_mechanisms[3]
+                .getRoot("RootDirection", 0.5, 0.5)
+                .appendLigament("Direction", 0.1, 0, 0, Color8Bit(Color.kWhite)),
+            ]
+        else:
+            self._module_mechanisms = []
+            self._module_speeds = []
+            self._module_directions = []
 
         # Set up the module state Mechanism2d telemetry
         # for i, module_mechanism in enumerate(self._module_mechanisms):
@@ -105,14 +128,16 @@ class Telemetry:
         if not hasattr(self, "_pose_array"):
             self.__init_telemetry_buffers()
 
+        state_time = state.timestamp
+        if state_time - self._last_fast_publish < self._fast_publish_period:
+            return
+
+        self._last_fast_publish = state_time
+
         # Telemeterize the swerve drive state
         self._drive_pose.set(state.pose)
         self._drive_speeds.set(state.speeds)
-        self._drive_module_states.set(state.module_states)
-        self._drive_module_targets.set(state.module_targets)
-        self._drive_module_positions.set(state.module_positions)
         self._drive_timestamp.set(state.timestamp)
-        self._drive_odometry_frequency.set(1.0 / state.odometry_period)
 
         # Reuse pre-allocated arrays instead of creating new ones every cycle
         self._pose_array[0] = state.pose.x
@@ -126,24 +151,36 @@ class Telemetry:
             self._module_targets_array[idx] = state.module_targets[i].angle.radians()
             self._module_targets_array[idx + 1] = state.module_targets[i].speed
 
-        SignalLogger.write_double_array("DriveState/Pose", self._pose_array)
-        SignalLogger.write_double_array(
-            "DriveState/ModuleStates", self._module_states_array
-        )
-        SignalLogger.write_double_array(
-            "DriveState/ModuleTargets", self._module_targets_array
-        )
-        SignalLogger.write_double(
-            "DriveState/OdometryPeriod", state.odometry_period, "seconds"
-        )
+        if self._signal_logging_enabled:
+            SignalLogger.write_double_array("DriveState/Pose", self._pose_array)
 
         # Telemeterize the pose to a Field2d
-        self._field_type_pub.set("Field2d")
-        self._field_pub.set(self._pose_array)
+        self._field_pub.set(cast(list[SupportsFloat | SupportsIndex], self._pose_array))
+
+        if state_time - self._last_slow_publish < self._slow_publish_period:
+            return
+
+        self._last_slow_publish = state_time
+
+        self._drive_odometry_frequency.set(1.0 / state.odometry_period)
+        self._drive_module_states.set(state.module_states)
+        self._drive_module_targets.set(state.module_targets)
+        self._drive_module_positions.set(state.module_positions)
+
+        if self._signal_logging_enabled:
+            SignalLogger.write_double_array(
+                "DriveState/ModuleStates", self._module_states_array
+            )
+            SignalLogger.write_double_array(
+                "DriveState/ModuleTargets", self._module_targets_array
+            )
+            SignalLogger.write_double(
+                "DriveState/OdometryPeriod", state.odometry_period, "seconds"
+            )
 
         # Telemeterize module states to Mechanism2d — skip every other cycle to save time
         self._telem_cycle += 1
-        if self._telem_cycle % 2 == 0:
+        if self._is_simulation and self._telem_cycle % 2 == 0:
             for i, module_state in enumerate(state.module_states):
                 angle_deg = module_state.angle.degrees()
                 self._module_speeds[i].setAngle(angle_deg)

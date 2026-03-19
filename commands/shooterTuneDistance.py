@@ -27,7 +27,7 @@ class ShooterTuneDistance(Command):
     _ntableName: str = "00ShooterTuneDistance"
 
     flywheelAdjustmentFactor = ntproperty(
-        f"{_ntableName}/flywheelAdjustmentFactor", 50.0
+        f"{_ntableName}/flywheelAdjustmentFactor", 30.0
     )
     hoodAngleAdjustmentFactor = ntproperty(
         f"{_ntableName}/hoodAngleAdjustmentFactor", 1.0
@@ -77,11 +77,12 @@ class ShooterTuneDistance(Command):
 
         self.prevLogged = False
 
-        self.hoodAngleSetpointDeg = self.shooter._hoodMinAngle.degrees()
+        self.hoodAngleSetpointDeg = self.shooter._hoodMaxAngle.degrees()
+        self.flywheelVelocitySetpoint = 0
 
     def initialize(self):
         self.hoodAngleSetpointDeg = self.shooter.getHoodAngle().degrees()
-        self.flywheelVelocitySetpoint = self.shooter.getFlywheelVelocity()
+        self.flywheelVelocitySetpoint = 0
 
     def execute(self):
         self.flywheelVelocitySetpoint += (
@@ -97,15 +98,15 @@ class ShooterTuneDistance(Command):
         )
 
         # the subsytems do limiting, we want to apply it here so that the setpoints we store are the actual setpoints being used, not the potentially limited ones from the subsystems
-        self.flywheelVelocitySetpoint = self.shooter.getFlywheelSetpoint()
+        # self.flywheelVelocitySetpoint = self.shooter.getFlywheelSetpoint()
         self.hoodAngleSetpointDeg = self.shooter.getHoodAngleSetpoint().degrees()
 
         storeSetpoints = self.getStoreSetpoints()
         if not self.prevLogged and storeSetpoints:
             newSetpoints = ShooterSetpointsStruct(
                 distanceM=self.getDistance(),
-                flywheelVelocityRPM=self.flywheelVelocitySetpoint,
-                hoodAngledeg=self.hoodAngleSetpointDeg,
+                flywheelVelocityRPM=self.shooter.getFlywheelSetpoint(),
+                hoodAngledeg=self.shooter.getHoodAngleSetpoint().degrees(),
             )
             # if newSetpoints not in self.setpoints:
             self.setpoints.append(newSetpoints)

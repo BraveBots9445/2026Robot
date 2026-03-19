@@ -231,6 +231,8 @@ class Intake(Subsystem):
                 MotorOutputConfigs()
                 .with_inverted(self._pivotMotorDirection)
                 .with_neutral_mode(NeutralModeValue.COAST)
+                .with_peak_forward_duty_cycle(1.0)
+                .with_peak_reverse_duty_cycle(-0.75)
             )
         )
 
@@ -329,13 +331,6 @@ class Intake(Subsystem):
         pivotPosition = Rotation2d.fromRotations(
             self._pivotPositionSignal.value_as_double
         )
-        slot = 0
-        if self._pivotSetpoint.degrees() < 45:
-            slot = 1
-        self._pivotClosedLoopSlot = slot
-        # with self._lock:
-        # self._data.pivotPosition = pivotPosition
-        # self._data.pivotSetpoint = self._pivotSetpoint
         self._data.pivotPositionDegrees = pivotPosition.degrees()
         self._data.pivotSetpointDegrees = self._pivotSetpoint.degrees()
         self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
@@ -349,62 +344,16 @@ class Intake(Subsystem):
         self._data.rollerCurrent = current
         self._data.rollerVelocity = velocity
 
-        # if self._reverseTimer.hasElapsed(0.125):
-        #     self._reverseTimer.stop()
-        #     self._reverseTimer.reset()
-        #     self._stallTimer.stop()
-        #     self._stallTimer.reset()
-        # elif self._stallTimer.isRunning() and self._stallTimer.hasElapsed(0.25):
-        #     self._reverseTimer.start()
-        # elif (
-        #     velocity >= 0
-        #     and velocity < 0.1
-        #     and current > 30
-        #     and not self._reverseTimer.isRunning()
-        # ):
-        #     self._stallTimer.start()
-
-        # if not self._stallTimer.hasElapsed(0.25) or not self._stallTimer.isRunning():
-        #     self._rollerMotor.set(self._rollerSetpoint)
-        # else:
-        #     self._rollerMotor.set(-1.0)
-
-        # if self._stallTimer.hasElapsed(0.25):
-        #     self._reverseTimer.start()
-        # else:
-        #     if not (
-        #         abs(velocity) < 0.1
-        #         or abs(current) > 30
-        #         or not self._reverseTimer.isRunning()
-        #     ):
-        #         self._stallTimer.stop()
-        #         self._stallTimer.reset()
-        #         self._reverseTimer.stop()
-        #         self._reverseTimer.reset()
-
-        # if not self._reverseTimer.isRunning():
         self._rollerMotor.set(self._rollerSetpoint)
-        # else:
-        #     self._rollerMotor.set(-0.1)
-
-        # if self._reverseTimer.hasElapsed(1.0):
-        #     self._reverseTimer.stop()
-        #     self._stallTimer.stop()
-        #     self._reverseTimer.reset()
-        #     self._stallTimer.reset()
-
-        BraveLogger.pushSubsystemData(deepcopy(self._data))
+        BraveLogger.pushSubsystemData(self._data)
 
         self._pivotAngleMech.setAngle(pivotPosition.degrees())
         self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
-        # if self._pivotSetpoint.degrees() > 10:
         self._positionDutyCycleRequest.position = radiansToRotations(
             self._pivotSetpoint.radians()
         )
         self._pivotMotor.set_control(self._positionDutyCycleRequest)
-        # else:
-        #     self._pivotMotor.set(-0.25)
 
     def simulationPeriodic(self) -> None:
         self._pivotSim.setInputVoltage(self._pivotMotor.get() * 12)
