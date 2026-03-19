@@ -219,6 +219,9 @@ class RobotContainer:
     def toggleLocalizationAutonomyCommand(self) -> Command:
         def update():
             self._localizationAutonomyEnabled = not self._localizationAutonomyEnabled
+            SmartDashboard.putBoolean(
+                "LocalizationAutonomyEnabled", self._localizationAutonomyEnabled
+            )
 
         return InstantCommand(update)
 
@@ -328,13 +331,37 @@ class RobotContainer:
             self.turret.bumpManualOffsetCommand()
         )
 
-        self.operator_controller.povUp().onTrue(self.shooter.bumpFlywheelFudgeCommand())
-        self.operator_controller.povDown().onTrue(
-            self.shooter.dumpFlywheelFudgeCommand()
+        Trigger(lambda: self.operator_controller.getFRCRX() > 0.25).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.bumpFlywheelFudgeCommand(), WaitCommand(0.1)
+                )
+            )
+        )
+        Trigger(lambda: self.operator_controller.getFRCRX() < -0.25).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.dumpFlywheelFudgeCommand(), WaitCommand(0.1)
+                )
+            )
         )
 
-        self.operator_controller.a().onTrue(self.shooter.bumpHoodFudgeCommand())
-        self.operator_controller.y().onTrue(self.shooter.dumpHoodFudgeCommand())
+        Trigger(lambda: self.operator_controller.getFRCLX() > 0.25).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.dumpHoodFudgeCommand(), WaitCommand(0.1)
+                )
+            )
+        )
+        Trigger(lambda: self.operator_controller.getFRCLX() < -0.25).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.bumpHoodFudgeCommand(), WaitCommand(0.1)
+                )
+            )
+        )
+
+        self.operator_controller.povUp().onTrue(self.turret._tmpResetCommand())
 
         # self.operator_controller.rightTrigger().onTrue(
         self.button_board.getButton(4, 0).onTrue(
@@ -366,10 +393,9 @@ class RobotContainer:
             WoahvalStop(self.woahval).andThen(IndexerStop(self.indexer))
         )
 
-        self.button_board.getButton(2, 0).onTrue(
+        self.button_board.getButton(2, 1).onTrue(
             self.toggleLocalizationAutonomyCommand()
         )
-
 
     def set_test_bindings(self) -> None:
         # self.drivetrain.reset_pose(
