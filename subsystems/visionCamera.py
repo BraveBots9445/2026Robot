@@ -258,6 +258,7 @@ class VisionCamera:
             * self._baseStdDevs[2],
         )
 
-        if tagID not in [2, 11, 8, 5, 9, 10]:
-            return (stDevs[0] * 3, stDevs[1] * 3, stDevs[2] * 3)
+        if RobotState.isAutonomous() and RobotState.isEnabled():
+            return (stDevs[0] * 5, stDevs[1] * 5, stDevs[2] * 5)
+
         return stDevs
