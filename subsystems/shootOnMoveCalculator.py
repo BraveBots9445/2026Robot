@@ -124,9 +124,9 @@ class ShootOnMoveCalculator:
 
     _passDistanceInterpArray = array([0, 10, 20])
 
-    _passHoodAngleInterpArray = array([40, 20, 20])
+    _passHoodAngleInterpArray = array([40, 30, 30])
 
-    _passFlywheelVelInterpArray = array([4000, 4500, 4500])
+    _passFlywheelVelInterpArray = array([3000, 3500, 4500])
 
     _tofFudgeFactor = ntproperty("/ShootOnMoveCalculator/tofFudgeFactor", 0.17)
 

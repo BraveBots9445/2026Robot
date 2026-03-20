@@ -73,7 +73,7 @@ class FuelShootingVisualizer(Subsystem):
     It publishes in [Pose3d]
     """
 
-    _kEnergyTransferEfficiency: float = 0.5
+    _kEnergyTransferEfficiency: float = 0.6
     """
     A unitless value for how much energy is transferred from the flywheel to the fuel.
     """

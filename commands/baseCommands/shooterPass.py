@@ -4,7 +4,7 @@ from wpimath.geometry import Pose3d, Rotation3d
 from wpimath.units import inchesToMeters
 
 from subsystems import Shooter, ZoneManager, ShootOnMoveCalculator
-from tools.rebuilt import Rebuilt
+from tools.rebuilt import Rebuilt, RebuiltPositions
 
 
 class ShooterPass(Command):
@@ -30,23 +30,9 @@ class ShooterPass(Command):
     def execute(self):
         target = Pose3d()
         if self.zoneManager.getOnLeftBool():
-            target = Rebuilt.getPosition(
-                Pose3d(
-                    inchesToMeters(48),
-                    inchesToMeters(230),
-                    inchesToMeters(20),
-                    Rotation3d(),
-                )
-            )
+            target = Rebuilt.getPosition(RebuiltPositions.PassLeft)
         else:
-            target = Rebuilt.getPosition(
-                Pose3d(
-                    inchesToMeters(48),
-                    inchesToMeters(76),
-                    inchesToMeters(20),
-                    Rotation3d(),
-                )
-            )
+            target = Rebuilt.getPosition(RebuiltPositions.PassRight)
 
         setpoints = self.shootOnMoveCalculator.getSetpoints(target, passing=True)
         self.shooter.setFlywheelSetpoint(setpoints.flywheelRpm)

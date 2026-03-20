@@ -45,9 +45,12 @@ class RebuiltPositions:
         Rotation3d(),
     )
     PassLeft: Final[RebuiltPositions] = Pose3d(
-        Translation3d(inchesToMeters(18), inchesToMeters(18), 0.0), Rotation3d()
+        Translation3d(
+            inchesToMeters(48), Rebuilt.Width - inchesToMeters(78), inchesToMeters(20.0)
+        ),
+        Rotation3d(),
     )
     PassRight: Final[RebuiltPositions] = Pose3d(
-        Translation3d(inchesToMeters(18), Rebuilt.Width - inchesToMeters(18), 0.0),
+        Translation3d(inchesToMeters(48), inchesToMeters(78), inchesToMeters(20.0)),
         Rotation3d(),
     )

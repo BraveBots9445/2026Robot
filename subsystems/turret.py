@@ -249,6 +249,7 @@ class Turret(Subsystem):
         self._turretMech.setAngle(angle.degrees())
         self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
 
+        return
         self._motorClosedLoop.setSetpoint(
             radiansToRotations(
                 self._rotationSetpoint.radians() + self._manualSetpointOffset.radians()

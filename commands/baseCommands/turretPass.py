@@ -4,7 +4,7 @@ from wpimath.geometry import Pose3d, Rotation3d
 from wpimath.units import inchesToMeters
 
 from subsystems import Turret, ZoneManager, ShootOnMoveCalculator
-from tools.rebuilt import Rebuilt
+from tools.rebuilt import Rebuilt, RebuiltPositions
 
 
 class TurretPass(Command):
@@ -30,23 +30,9 @@ class TurretPass(Command):
     def execute(self):
         target = Pose3d()
         if self.zoneManager.getOnLeftBool():
-            target = Rebuilt.getPosition(
-                Pose3d(
-                    inchesToMeters(32),
-                    inchesToMeters(270),
-                    inchesToMeters(20),
-                    Rotation3d(),
-                )
-            )
+            target = Rebuilt.getPosition(RebuiltPositions.PassLeft)
         else:
-            target = Rebuilt.getPosition(
-                Pose3d(
-                    inchesToMeters(48),
-                    inchesToMeters(48),
-                    inchesToMeters(20),
-                    Rotation3d(),
-                )
-            )
+            target = Rebuilt.getPosition(RebuiltPositions.PassRight)
 
         setpoints = self.shootOnMoveCalculator.getSetpoints(target, passing=True)
         self.turret.setSetpoint(setpoints.turretAngle)

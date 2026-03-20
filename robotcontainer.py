@@ -75,6 +75,7 @@ from commands.baseCommands.drivetrainSpeedHalf import DrivetrainHalfSpeed
 from commands.baseCommands.drivetrainSpeedDouble import DrivetrainDoubleSpeed
 from commands.baseCommands.drivetrainMoveOffset import DrivetrainMoveOffset
 from commands.baseCommands.drivetrainAutoAlignTrench import DrivetrainAutoAlignTrench
+from commands.baseCommands.drivetrainAutoAlignShoot import DrivetrainAutoAlignShoot
 
 from commands.baseCommands.intakeSetAngle import IntakeSetAngle
 from commands.baseCommands.intakeDeploy import IntakeDeploy
@@ -230,6 +231,16 @@ class RobotContainer:
 
     def set_teleop_bindings(self) -> None:
         """driver"""
+        self.driver_controller.leftTrigger().whileTrue(
+            DrivetrainAutoAlignShoot(
+                self.shootOnMoveCalculator,
+                self.drivetrain,
+                Rebuilt.getPosition(RebuiltPositions.Hub),
+                self.driver_controller.getFRCLX,
+                self.driver_controller.getFRCLY,
+            )
+        )
+
         self.drivetrain.setDefaultCommand(
             DrivetrainDriveFieldOriented(
                 self.drivetrain,
