@@ -12,6 +12,7 @@ from robotpy_apriltag import AprilTagFieldLayout
 
 from photonlibpy.photonCamera import PhotonCamera
 from photonlibpy.photonPoseEstimator import PhotonPoseEstimator
+from photonlibpy.targeting import PhotonTrackedTarget
 
 if RobotBase.isSimulation():
     from photonlibpy.simulation.photonCameraSim import PhotonCameraSim
@@ -39,7 +40,7 @@ class VisionCamera:
     The pose estimator object from photonvision
     """
 
-    _baseStdDevs: tuple[float, float, float] = (0.1, 0.1, 0.1)
+    _baseStdDevs: tuple[float, float, float] = (0.05, 0.05, 0.05)
     """
     The default standard deviations in meters and radians to modify based on measurement factors
     """
@@ -125,7 +126,7 @@ class VisionCamera:
             # that makes them potentially unbound, but always safe to use.
             simCameraProperties = SimCameraProperties.OV9281_1280_720()  # type: ignore
             self._simCamera = PhotonCameraSim(self._camera, simCameraProperties)  # type: ignore
-            self._simCamera.setMaxSightRange(5)
+            # self._simCamera.setMaxSightRange(5)
             # Wireframe is not implemented in python photonvision yet
             # self._simCamera.enableDrawWireframe(True)
 
@@ -140,6 +141,7 @@ class VisionCamera:
         targets: list[int] = []
         result = self._camera.getLatestResult()
         bestTarget = result.getBestTarget()
+
         if bestTarget is None:
             return (None, targets)
         distance = bestTarget.getBestCameraToTarget()
@@ -158,7 +160,7 @@ class VisionCamera:
                 distance,
                 bestTarget.poseAmbiguity,
                 estPose.estimatedPose,
-                bestTarget.fiducialId,
+                estPose.targetsUsed,
             ),
         )
         self._prevEst = estPose.estimatedPose
@@ -212,8 +214,8 @@ class VisionCamera:
         self,
         distance: Transform3d,
         ambiguity: float,
-        estPose: Pose3d | None = None,
-        tagID: int | None = None,
+        estPose: Pose3d,
+        tagsUsed: list[PhotonTrackedTarget],
     ) -> tuple[float, float, float]:
         """
         Calculate standard deviations for the pose estimator based on target distance and robot velocity
@@ -227,13 +229,16 @@ class VisionCamera:
         :return: The standard deviations for x, y, and theta
         :rtype: tuple[float, float, float]
         """
+        if len(tagsUsed) == 1 and tagsUsed[0] in [1, 12, 7, 6, 17, 28, 22, 23]:
+            return (float("inf"), float("inf"), float("inf"))
+
         robotSpeed = self._getRobotVelocity()
         speed = hypot(robotSpeed.vx, robotSpeed.vy)
         if speed > 4.0 or abs(robotSpeed.omega) > 3 * pi / 2:
             return (float("inf"), float("inf"), float("inf"))
-        velocityFactor = 0.5 * (speed**1.5) + 0.5 * (abs(robotSpeed.omega) ** 1.5)
+        velocityFactor = 0.05 * (speed**1.5) + 0.5 * (abs(robotSpeed.omega) ** 1.5)
 
-        distanceFactor = distance.translation().norm() ** 1.4
+        distanceFactor = 0.005 * distance.translation().norm() ** 1.4
 
         jerkFactor = 0
         if RobotState.isEnabled():
@@ -247,7 +252,7 @@ class VisionCamera:
                     * self._jerkStdDevFactor
                 )
 
-        ambiguityFactor = (10 * ambiguity) ** 2
+        ambiguityFactor = 0.01 * ((10 * ambiguity) ** 2)
 
         stDevs = (
             (distanceFactor + velocityFactor + jerkFactor + ambiguityFactor)
@@ -258,7 +263,23 @@ class VisionCamera:
             * self._baseStdDevs[2],
         )
 
+        mult = 1
         if RobotState.isAutonomous() and RobotState.isEnabled():
-            return (stDevs[0] * 5, stDevs[1] * 5, stDevs[2] * 5)
+            mult *= 5
 
-        return stDevs
+        if (
+            12 in tagsUsed
+            or 1 in tagsUsed
+            or 7 in tagsUsed
+            or 6 in tagsUsed
+            or 17 in tagsUsed
+            or 28 in tagsUsed
+            or 22 in tagsUsed
+            or 23 in tagsUsed
+        ):
+            mult *= 4
+
+        if 16 in tagsUsed or 15 in tagsUsed or 31 in tagsUsed or 32 in tagsUsed:
+            mult *= 2
+
+        return (stDevs[0] * mult, stDevs[1] * mult, stDevs[2] * mult)

@@ -161,12 +161,11 @@ class Vision:
             self._getRobotPose = getRobotPose
             self._visionSim = visionSystemSim.VisionSystemSim("photonvisionSim")
             self._visionSim.addAprilTags(self._tagLayout)
-            # self._visionSim.addCamera(self._turretCamera.getCameraSim(), self._turretCameraToRobot)  # type: ignore
             self._visionSim.addCamera(
                 self._backLeftForwardCamera.getCameraSim(), self._backLeftForwardCameraToRobot  # type: ignore
             )
             self._visionSim.addCamera(
-                self._backLeftForwardCamera.getCameraSim(), self._backLeftReverseCameraToRobot  # type: ignore
+                self._backLeftReverseCamera.getCameraSim(), self._backLeftReverseCameraToRobot  # type: ignore
             )
             self._visionSim.addCamera(
                 self._backRightForwardCamera.getCameraSim(), self._backRightForwardCameraToRobot  # type: ignore
@@ -174,13 +173,11 @@ class Vision:
             self._visionSim.addCamera(
                 self._backRightReverseCamera.getCameraSim(), self._backRightReverseCameraToRobot  # type: ignore
             )
-            # self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
             # SmartDashboard.putData(self._visionSim.getDebugField())
             self._simNotifier = Notifier(self._simulationPeriodic)
-            self._simNotifier.startPeriodic(0.06)
+            self._simNotifier.startPeriodic(0.02)
         self._periodicRunning = False
         self._visionUpdatePeriod = 0.05
-        self._visionCameraIndex = 0
         threading.Thread(
             target=self._visionLoop, daemon=True, name="Vision-periodic"
         ).start()
@@ -202,7 +199,7 @@ class Vision:
             return
 
         vel = self._getRobotVelocity()
-        if hypot(vel.vx, vel.vy) > 2.0 or abs(vel.omega) > degreesToRadians(90):
+        if hypot(vel.vx, vel.vy) > 2.5 or abs(vel.omega) > degreesToRadians(90):
             return
 
         _, BLRTags = self._backLeftReverseCamera.update()

@@ -258,7 +258,9 @@ class RobotContainer:
             ).withInterruptBehavior(Command.InterruptionBehavior.kCancelIncoming)
         )
 
-        self.zoneManager.getMustStowTrigger(1.25).whileTrue(
+        self.driver_controller.b().and_(
+            lambda: self.zoneManager.getMustStowBool(1.25)
+        ).whileTrue(
             DrivetrainAutoAlignTrench(
                 self.drivetrain,
                 self.turret,
@@ -312,7 +314,7 @@ class RobotContainer:
             IntakeDeploy(self.intake)
         ).onFalse(IntakeSetRollerSpeed(self.intake, 0))
 
-        self.driver_controller.b().onTrue(
+        self.driver_controller.povUp().onTrue(
             InstantCommand(self.drivetrain.seed_field_centric)
         )
 

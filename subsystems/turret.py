@@ -106,7 +106,7 @@ class Turret(Subsystem):
 
     _encoderInverted: bool = False
 
-    _zeroOffset: float = 0.7301714
+    _zeroOffset: float = 0.757604
 
     # motor PID gains
     _motorP: float = 5.5 if RobotBase.isReal() else 0.2
@@ -249,7 +249,6 @@ class Turret(Subsystem):
         self._turretMech.setAngle(angle.degrees())
         self._turretSetpointMech.setAngle(self._rotationSetpoint.degrees())
 
-        return
         self._motorClosedLoop.setSetpoint(
             radiansToRotations(
                 self._rotationSetpoint.radians() + self._manualSetpointOffset.radians()
