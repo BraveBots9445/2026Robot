@@ -4,7 +4,7 @@ from typing import Callable
 
 from wpilib import RobotController, RobotBase, RobotState, Notifier
 
-from wpimath.geometry import Transform3d, Pose3d
+from wpimath.geometry import Rotation2d, Transform3d, Pose3d, Rotation3d
 from wpimath.kinematics import ChassisSpeeds
 from wpimath.units import microseconds, seconds
 
@@ -40,7 +40,7 @@ class VisionCamera:
     The pose estimator object from photonvision
     """
 
-    _baseStdDevs: tuple[float, float, float] = (0.05, 0.05, 0.05)
+    _baseStdDevs: tuple[float, float, float] = (0.30, 0.30, 0.30)
     """
     The default standard deviations in meters and radians to modify based on measurement factors
     """
@@ -124,7 +124,10 @@ class VisionCamera:
             # )  # use this to test perfect camera (no noise simulation)
             # the below are type ignore because the sim imports are conditional on RobotBase.isSimulation()
             # that makes them potentially unbound, but always safe to use.
-            simCameraProperties = SimCameraProperties.OV9281_1280_720()  # type: ignore
+            simCameraProperties = SimCameraProperties.OV9281_800_600()  # type: ignore
+            # simCameraProperties.setCalibrationFromFOV(
+            #     800, 600, Rotation2d.fromDegrees(110)
+            # )
             self._simCamera = PhotonCameraSim(self._camera, simCameraProperties)  # type: ignore
             # self._simCamera.setMaxSightRange(5)
             # Wireframe is not implemented in python photonvision yet
@@ -144,7 +147,6 @@ class VisionCamera:
 
         if bestTarget is None:
             return (None, targets)
-        distance = bestTarget.getBestCameraToTarget()
         estPose = self._pose_estimator.estimateCoprocMultiTagPose(result)
         if estPose is None:
             estPose = self._pose_estimator.estimateLowestAmbiguityPose(result)
@@ -152,6 +154,13 @@ class VisionCamera:
             return (None, targets)
         poseRes = estPose.estimatedPose
         if poseRes.X() < 0 or poseRes.Y() < 0:  # or poseRes.Z() < -0.1:
+            return (None, targets)
+
+        _targets = result.getTargets()
+        distance = sum(
+            target.bestCameraToTarget.translation().norm() for target in _targets
+        ) / len(_targets)
+        if distance > 5:
             return (None, targets)
         self._logVisionMeasurement(
             estPose.estimatedPose,
@@ -212,7 +221,7 @@ class VisionCamera:
 
     def _calculateStdDevs(
         self,
-        distance: Transform3d,
+        distance: float,
         ambiguity: float,
         estPose: Pose3d,
         tagsUsed: list[PhotonTrackedTarget],
@@ -238,7 +247,7 @@ class VisionCamera:
             return (float("inf"), float("inf"), float("inf"))
         velocityFactor = 0.05 * (speed**1.5) + 0.5 * (abs(robotSpeed.omega) ** 1.5)
 
-        distanceFactor = 0.005 * distance.translation().norm() ** 1.4
+        distanceFactor = 0.005 * distance**1.4
 
         jerkFactor = 0
         if RobotState.isEnabled():
@@ -263,9 +272,10 @@ class VisionCamera:
             * self._baseStdDevs[2],
         )
 
-        mult = 1
         if RobotState.isAutonomous() and RobotState.isEnabled():
-            mult *= 5
+            return (float("inf"), float("inf"), float("inf"))
+
+        mult = 1
 
         if (
             12 in tagsUsed

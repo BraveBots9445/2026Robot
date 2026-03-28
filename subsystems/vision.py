@@ -28,7 +28,7 @@ from wpimath.kinematics import ChassisSpeeds
 import threading
 import time
 
-from wpilib import RobotBase, Notifier
+from wpilib import RobotBase, Notifier, RobotState
 
 
 from .visionCamera import VisionCamera
@@ -48,28 +48,28 @@ class Vision:
         Translation3d(
             inchesToMeters(-10.5), inchesToMeters(13.5), inchesToMeters(7.75)
         ),
-        Rotation3d.fromDegrees(0, 30 + 8.4, 60),
+        Rotation3d.fromDegrees(0, 30 + 8.4 if RobotBase.isReal() else 0, 60),
     )
 
     _backLeftReverseCameraToRobot: Transform3d = Transform3d(
         Translation3d(
             inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(7.75)
         ),
-        Rotation3d.fromDegrees(0, 30 + 5.6, 120),
+        Rotation3d.fromDegrees(0, 30 + 5.6 if RobotBase.isReal() else 0, 120),
     )
 
     _backRightForwardCameraToRobot: Transform3d = Transform3d(
         Translation3d(
             inchesToMeters(-10.5), inchesToMeters(-13.5), inchesToMeters(7.75)
         ),
-        Rotation3d.fromDegrees(0, 30 + 2.04, -60),
+        Rotation3d.fromDegrees(0, 30 + 2.04 if RobotBase.isReal() else 0, -60),
     )
 
     _backRightReverseCameraToRobot: Transform3d = Transform3d(
         Translation3d(
             inchesToMeters(-12.5), inchesToMeters(-13.5), inchesToMeters(7.75)
         ),
-        Rotation3d.fromDegrees(0, 30, -120),
+        Rotation3d.fromDegrees(0, 30 if RobotBase.isReal() else 0, -120),
     )
 
     _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
@@ -195,7 +195,7 @@ class Vision:
 
     def _periodic(self) -> None:
         # turret camera does not do pose estimation
-        if not self._enabled:
+        if not self._enabled or (RobotState.isAutonomous() and RobotState.isEnabled()):
             return
 
         vel = self._getRobotVelocity()

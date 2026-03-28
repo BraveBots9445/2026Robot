@@ -58,7 +58,7 @@ class OpenLoopWheel(Subsystem):
     The duty cycle to run the wheel at when ready to shoot, but not actually shooting.
     """
 
-    _currentLimit: amperes = 20
+    _currentLimit: amperes = 40
 
     ########## LOGGING ##########
     _nettable: NetworkTable

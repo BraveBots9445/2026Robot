@@ -103,6 +103,7 @@ from commands.baseCommands.shooterStowHood import ShooterStowHood
 from commands.baseCommands.woahvalDejam import WoahvalDejam
 from commands.baseCommands.indexerDejam import IndexerDejam
 from commands.baseCommands.shooterStowHood import ShooterStowHood
+from commands.sequences.shootStaticTowerRight import ShootStaticTowerRight
 
 
 from commands import ShooterTuneDistance
@@ -231,15 +232,17 @@ class RobotContainer:
 
     def set_teleop_bindings(self) -> None:
         """driver"""
-        self.driver_controller.leftTrigger().whileTrue(
-            DrivetrainAutoAlignShoot(
-                self.shootOnMoveCalculator,
-                self.drivetrain,
-                Rebuilt.getPosition(RebuiltPositions.Hub),
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-            )
-        )
+        # self.driver_controller.leftTrigger().whileTrue(
+        #     DrivetrainAutoAlignShoot(
+        #         self.shootOnMoveCalculator,
+        #         self.drivetrain,
+        #         Rebuilt.getPosition(RebuiltPositions.Hub),
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #     )
+        # )
+
+        self.driver_controller.leftTrigger().whileTrue(IntakeRetract(self.intake))
 
         self.drivetrain.setDefaultCommand(
             DrivetrainDriveFieldOriented(
@@ -271,15 +274,20 @@ class RobotContainer:
 
         self.timerManager.startTeleop()
 
-        self.shooter.setDefaultCommand(
-            ShooterShootOrPass(
-                self.shooter, self.shootOnMoveCalculator, self.zoneManager
-            ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
+        # self.shooter.setDefaultCommand(
+        #     ShooterShootOrPass(
+        #         self.shooter, self.shootOnMoveCalculator, self.zoneManager
+        #     ).withInterruptBehavior(Command.InterruptionBehavior.kCancelSelf)
+        # )
+        self.shooter.setDefaultCommand(ShooterStowHood(self.shooter))
+
+        self.operator_controller.povLeft().whileTrue(
+            ShootStaticTowerRight(self.shooter, self.turret)
         )
 
-        self.turret.setDefaultCommand(
-            TurretShootOrPass(self.turret, self.shootOnMoveCalculator, self.zoneManager)
-        )
+        # self.turret.setDefaultCommand(
+        #     TurretShootOrPass(self.turret, self.shootOnMoveCalculator, self.zoneManager)
+        # )
 
         self.climber.setDefaultCommand(ClimberIdle(self.climber))
 
@@ -506,6 +514,10 @@ class RobotContainer:
             ShooterShootOnMove(self.shooter, self.shootOnMoveCalculator).alongWith(
                 TurretShootOnMove(self.turret, self.shootOnMoveCalculator)
             ),
+        )
+
+        NamedCommands.registerCommand(
+            "ShootStaticTowerRight", ShootStaticTowerRight(self.shooter, self.turret)
         )
 
         NamedCommands.registerCommand(

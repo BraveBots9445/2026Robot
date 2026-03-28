@@ -20,4 +20,4 @@ class ShootStaticTowerRight(Command):
     def execute(self):
         self.shooter.setFlywheelSetpoint(4000)
         self.shooter.setHoodAngleSetpointDegrees(45)
-        self.turret.setSetpointDegrees(12)
+        self.turret.setSetpointDegrees(22)
