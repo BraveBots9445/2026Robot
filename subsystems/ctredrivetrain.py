@@ -19,7 +19,7 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
 
     _nom_max_speed: units.meters_per_second = 4.0
     """Nominal maximum speed of the robot in meters per second"""
-    _nom_max_angular_rate: units.radians_per_second = 2 * math.pi
+    _nom_max_angular_rate: units.radians_per_second = 2 * 2 * math.pi
     """Nominal maximum angular rate of the robot in radians per second"""
 
     _curr_max_speed: units.meters_per_second = _nom_max_speed

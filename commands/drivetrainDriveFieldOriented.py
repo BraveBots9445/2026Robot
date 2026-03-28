@@ -8,13 +8,13 @@ from wpimath.units import meters_per_second, degrees_per_second, degreesToRadian
 
 from phoenix6 import swerve
 
-from subsystems.drivetrain import Drivetrain
+from subsystems.ctredrivetrain import CommandSwerveDrivetrain
 
 
 class DrivetrainDriveFieldOriented(Command):
     def __init__(
         self,
-        drivetrain: Drivetrain,
+        drivetrain: CommandSwerveDrivetrain,
         getX: Callable[[], float],
         getY: Callable[[], float],
         getRotation: Callable[[], float],
