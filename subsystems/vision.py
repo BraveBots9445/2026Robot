@@ -1,8 +1,8 @@
 from typing import Callable
 
-from commands2 import Command, InstantCommand, Subsystem
+from commands2 import Command, InstantCommand
 from wpilib import RobotBase, SmartDashboard
-from math import e, pi
+from math import e, pi, hypot
 from ntcore import NetworkTableInstance, StructArrayPublisher
 from ntcore.util import ntproperty
 
@@ -25,40 +25,53 @@ from wpimath.units import (
 )
 from wpimath.kinematics import ChassisSpeeds
 
-from wpilib import RobotBase
+import threading
+import time
+
+from wpilib import RobotBase, Notifier, RobotState
 
 
 from .visionCamera import VisionCamera
 
+from tools.BraveLogger import BraveLogger, ShooterCameraData
 
-class Vision(Subsystem):
+
+class Vision:
     _enabled = ntproperty("000Vision/Enabled", True)
 
     # these names and their associated positions are fake
     _turretCamera: VisionCamera
-    _frontRightCamera: VisionCamera
-    _frontLeftCamera: VisionCamera
-    _rearCamera: VisionCamera
+    _backRightReverseCamera: VisionCamera
+    # _backLeftReverseCamera: VisionCamera
+    _backLeftForwardCamera: VisionCamera
 
     # TODO: The below offsets are all garbage from copilot
-    _turretCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(0), inchesToMeters(0), inchesToMeters(10)),
-        Rotation3d(0, 0, 0),
+    _backLeftForwardCameraToRobot: Transform3d = Transform3d(
+        Translation3d(
+            inchesToMeters(-10.5), inchesToMeters(13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30 + 8.4 if RobotBase.isReal() else 0, 60),
     )
 
-    _frontRightCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(12), inchesToMeters(-12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(45, 0, -45),
+    _backLeftReverseCameraToRobot: Transform3d = Transform3d(
+        Translation3d(
+            inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30 + 5.6 if RobotBase.isReal() else 0, 120),
     )
 
-    _frontLeftCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(12), inchesToMeters(12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(45, 0, 45),
+    _backRightForwardCameraToRobot: Transform3d = Transform3d(
+        Translation3d(
+            inchesToMeters(-10.5), inchesToMeters(-13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30 + 2.04 if RobotBase.isReal() else 0, -60),
     )
 
-    _rearCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-12), inchesToMeters(12.5), inchesToMeters(9)),
-        Rotation3d.fromDegrees(45, 0, 135),
+    _backRightReverseCameraToRobot: Transform3d = Transform3d(
+        Translation3d(
+            inchesToMeters(-12.5), inchesToMeters(-13.5), inchesToMeters(7.75)
+        ),
+        Rotation3d.fromDegrees(0, 30 if RobotBase.isReal() else 0, -120),
     )
 
     _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
@@ -100,34 +113,36 @@ class Vision(Subsystem):
         """
         self.nettable = NetworkTableInstance.getDefault().getTable("000Vision")
 
-        self._turretCamera = VisionCamera(
-            "TurretCamera",
-            self._tagLayout,
-            self._turretCameraToRobot,
-            lambda _arg1, _arg2, _arg3: None,  # the turret never does pose estimation - it just tracks targets
-            lambda: ChassisSpeeds(0, 0, 0),
-        )
+        self._getRobotVelocity = getRobotVelocity
 
-        self._frontRightCamera = VisionCamera(
-            "ArducamOV9281-FL (1)",
+        self._backRightReverseCamera = VisionCamera(
+            "ArducamOV9281-BR-R",
             self._tagLayout,
-            self._frontRightCameraToRobot,
+            self._backRightReverseCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
 
-        self._frontLeftCamera = VisionCamera(
-            "ArducamOV9281-BL",
+        self._backRightForwardCamera = VisionCamera(
+            "ArducamOV9281-BR-F",
             self._tagLayout,
-            self._frontLeftCameraToRobot,
+            self._backRightForwardCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
 
-        self._rearCamera = VisionCamera(
-            "Arducam_OV9281_USB_Camera (1)",
+        self._backLeftReverseCamera = VisionCamera(
+            "ArducamOV9281-BL-R",
             self._tagLayout,
-            self._rearCameraToRobot,
+            self._backLeftReverseCameraToRobot,
+            logVisionMeasurement,
+            getRobotVelocity,
+        )
+
+        self._backLeftForwardCamera = VisionCamera(
+            "ArducamOV9281-BL-F",
+            self._tagLayout,
+            self._backLeftForwardCameraToRobot,
             logVisionMeasurement,
             getRobotVelocity,
         )
@@ -148,40 +163,63 @@ class Vision(Subsystem):
             self._getRobotPose = getRobotPose
             self._visionSim = visionSystemSim.VisionSystemSim("photonvisionSim")
             self._visionSim.addAprilTags(self._tagLayout)
-            # self._visionSim.addCamera(self._turretCamera.getCameraSim(), self._turretCameraToRobot)  # type: ignore
             self._visionSim.addCamera(
-                self._frontRightCamera.getCameraSim(), self._frontRightCameraToRobot  # type: ignore
+                self._backLeftForwardCamera.getCameraSim(), self._backLeftForwardCameraToRobot  # type: ignore
             )
             self._visionSim.addCamera(
-                self._frontLeftCamera.getCameraSim(), self._frontLeftCameraToRobot  # type: ignore
+                self._backLeftReverseCamera.getCameraSim(), self._backLeftReverseCameraToRobot  # type: ignore
             )
-            self._visionSim.addCamera(self._rearCamera.getCameraSim(), self._rearCameraToRobot)  # type: ignore
-            SmartDashboard.putData(self._visionSim.getDebugField())
+            self._visionSim.addCamera(
+                self._backRightForwardCamera.getCameraSim(), self._backRightForwardCameraToRobot  # type: ignore
+            )
+            self._visionSim.addCamera(
+                self._backRightReverseCamera.getCameraSim(), self._backRightReverseCameraToRobot  # type: ignore
+            )
+            # SmartDashboard.putData(self._visionSim.getDebugField())
+            self._simNotifier = Notifier(self._simulationPeriodic)
+            self._simNotifier.startPeriodic(0.02)
+        self._periodicRunning = False
+        self._visionUpdatePeriod = 0.05
+        threading.Thread(
+            target=self._visionLoop, daemon=True, name="Vision-periodic"
+        ).start()
 
-    def periodic(self) -> None:
+    def _visionLoop(self) -> None:
+        """Daemon thread loop: runs _periodic, skipping if a previous run is still active."""
+        while True:
+            time.sleep(self._visionUpdatePeriod)
+            if not self._periodicRunning:
+                self._periodicRunning = True
+                try:
+                    self._periodic()
+                finally:
+                    self._periodicRunning = False
+
+    def _periodic(self) -> None:
         # turret camera does not do pose estimation
-
-        if not self._enabled:
+        if not self._enabled or (RobotState.isAutonomous() and RobotState.isEnabled()):
             return
-        estFL, tagsFL = self._frontRightCamera.update()
-        estFR, tagsFR = self._frontLeftCamera.update()
-        estR, tagsR = self._rearCamera.update()
-        _estTu, tagsTu = self._turretCamera.update()
 
-        self._poseEstPub.set(
-            []
-            + ([self._pose3dToPose2d(estFL)] if estFL is not None else [])
-            + ([self._pose3dToPose2d(estFR)] if estFR is not None else [])
-            + ([self._pose3dToPose2d(estR)] if estR is not None else [])
-        )
+        vel = self._getRobotVelocity()
+        if hypot(vel.vx, vel.vy) > 2.5 or abs(vel.omega) > degreesToRadians(90):
+            return
+
+        _, BLRTags = self._backLeftReverseCamera.update()
+        _, BLFTags = self._backLeftForwardCamera.update()
+        _, BRFTags = self._backRightForwardCamera.update()
+        _, BRRTags = self._backRightReverseCamera.update()
+
         self._detectedTagsPub.set(
-            list(
+            [
                 self._tagLayout.getTagPose(tag)
-                for tag in tagsFL + tagsFR + tagsR + tagsTu
-            )
+                for tag in BLRTags + BLFTags + BRFTags + BRRTags
+            ]
         )
 
-    def simulationPeriodic(self) -> None:
+    def _simulationPeriodic(self) -> None:
+        """
+        This is not simulationPeriodic, but _simulationPeriodic so the command scheduler does not get to it and we can run it in a different thread
+        """
         # self._getRobotPose should never be None in simulation, so type: ignore is safe
         self._visionSim.update(self._getRobotPose())  # type: ignore
 
@@ -214,7 +252,7 @@ class Vision(Subsystem):
         :return: A command that toggles vision processing
         :rtype: Command
         """
-        return InstantCommand(self.toggleEnabled, self)
+        return InstantCommand(self.toggleEnabled)
 
     def enableCommand(self) -> Command:
         """
@@ -223,7 +261,7 @@ class Vision(Subsystem):
         :return: A command that enables vision processing
         :rtype: Command
         """
-        return InstantCommand(lambda: self.setEnabled(True), self)
+        return InstantCommand(lambda: self.setEnabled(True))
 
     def disableCommand(self) -> Command:
         """
@@ -232,9 +270,10 @@ class Vision(Subsystem):
         :return: A command that disables vision processing
         :rtype: Command
         """
-        return InstantCommand(lambda: self.setEnabled(False), self)
+        return InstantCommand(lambda: self.setEnabled(False))
 
-    def _pose3dToPose2d(self, pose3d: Pose3d) -> Pose2d:
+    @staticmethod
+    def _pose3dToPose2d(pose3d: Pose3d) -> Pose2d:
         """
         Convert a Pose3d to a Pose2d by dropping the z component and converting rotation
 
