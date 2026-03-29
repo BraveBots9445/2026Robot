@@ -22,6 +22,7 @@ from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 ########## SUBSYSTEM IMPORTS ##########
 from subsystems.ctredrivetrain import CommandSwerveDrivetrain
 from subsystems.intake import Intake
+from subsystems.shooter import Shooter
 # from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -50,6 +51,7 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
         self.intake = Intake()
+        self.shooter = Shooter()
         self.braveLogger = BraveLogger()
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
 
@@ -81,6 +83,14 @@ class RobotContainer:
                 self.driver_controller.getFRCLY,
                 self.driver_controller.getFRCRY,
                 fieldCentric=True,
+            )
+        )
+
+        self.shooter.setDefaultCommand(
+            ShooterDefault(
+                self.shooter,
+                lambda: self.drivetrain.get_state(),
+                False,
             )
         )
 
@@ -158,6 +168,10 @@ class RobotContainer:
                 Rebuilt.getPosition( RebuiltPositions.Hub ).toPose2d().translation,
                 rotateBy = Rotation2d.fromDegrees(180)
             )
+        )
+
+        self.driver_controller.leftBumper().whileTrue(
+            ShooterStow(self.shooter)
         )
 
         # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())

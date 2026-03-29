@@ -1,3 +1,4 @@
+from enum import Enum, auto, unique
 from typing import ClassVar, Final
 from ntcore import NetworkTableInstance, StructPublisher
 from wpilib import DriverStation
@@ -6,6 +7,12 @@ from wpimath.units import *
 
 
 class Rebuilt:
+    @unique
+    class Zones(Enum):
+        HUB = auto()
+        PASSLEFT = auto()
+        PASSRIGHT = auto()
+
     Length: ClassVar[meters] = inchesToMeters(651.2)
     Width: ClassVar[meters] = inchesToMeters(317.7)
 
@@ -13,11 +20,25 @@ class Rebuilt:
     Rotation: Rotation3d = Rotation3d.fromDegrees(0.0, 0.0, 180.0)
 
     @staticmethod
-    def getPosition(position: RebuiltPositions | Pose3d) -> Pose3d:
+    def getPosition(position: RebuiltPositions | Pose3d ) -> Pose3d:
         pose: Pose3d = position
         if DriverStation.getAlliance() == DriverStation.Alliance.kRed:
             pose = pose.rotateAround(Rebuilt.Translation, Rebuilt.Rotation)
         return pose
+
+    @staticmethod
+    def getZone(position: Pose2d | Pose3d) -> Rebuilt.Zones | None:
+        position = position if isinstance( position, Pose3d ) else Pose3d( position )
+        fieldPos: Translation2d = Rebuilt.getPosition( position ).translation().toTranslation2d()
+        
+        if RebuiltZones.Hub.contains( fieldPos ):
+            return Rebuilt.Zones.HUB
+        if RebuiltZones.PassLeft.contains( fieldPos ):
+            return Rebuilt.Zones.PASSLEFT
+        if RebuiltZones.PassRight.contains( fieldPos ):
+            return Rebuilt.Zones.PASSRIGHT
+        
+        return None
 
     @staticmethod
     def publishPositions() -> list[StructPublisher]:
@@ -53,4 +74,19 @@ class RebuiltPositions:
     PassRight: Final[RebuiltPositions] = Pose3d(
         Translation3d(inchesToMeters(48), inchesToMeters(78), inchesToMeters(20.0)),
         Rotation3d(),
+    )
+
+
+class RebuiltZones:
+    Hub = Rectangle2d(
+        Translation2d(0.0, 0.0),
+        Translation2d( RebuiltPositions.Hub.translation().X(), Rebuilt.Width )
+    )
+    PassLeft = Rectangle2d(
+        RebuiltPositions.Hub.translation().toTranslation2d(),
+        Translation2d( Rebuilt.Length, Rebuilt.Width )
+    )
+    PassRight = Rectangle2d(
+        RebuiltPositions.Hub.translation().toTranslation2d(),
+        Translation2d( Rebuilt.Length, 0 )
     )

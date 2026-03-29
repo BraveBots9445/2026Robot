@@ -13,6 +13,13 @@ from .IntakeDeploy import IntakeDeploy
 from .IntakeEject import IntakeEject
 from .IntakeSetPosition import IntakeSetPosition
 from .IntakeStow import IntakeStow
+from .ShooterAdjustToTarget import ShooterAdjustToTarget
+from .ShooterAtHub import ShooterAtHub
+from .ShooterDefault import ShooterDefault
+from .ShooterPass import ShooterPass
+from .ShooterStatic import ShooterStatic
+from .ShooterStop import ShooterStop
+from .ShooterStow import ShooterStow
 
 __all__ = [
     "DrivetrainDriveFieldOriented",
@@ -30,4 +37,11 @@ __all__ = [
     "IntakeEject",
     "IntakeSetPosition",
     "IntakeStow",
+    "ShooterAdjustToTarget",
+    "ShooterAtHub",
+    "ShooterDefault",
+    "ShooterPass",
+    "ShooterStatic",
+    "ShooterStop",
+    "ShooterStow",
 ]
