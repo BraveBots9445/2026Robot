@@ -8,6 +8,11 @@ from .DriveBrake import DriveBrake
 from .DriveReset import DriveReset
 from .DriveToPose import DriveToPose
 from .DriveToRotation import DriveToRotation
+from .IntakeAgitate import IntakeAgitate
+from .IntakeDeploy import IntakeDeploy
+from .IntakeEject import IntakeEject
+from .IntakeSetPosition import IntakeSetPosition
+from .IntakeStow import IntakeStow
 
 __all__ = [
     "DrivetrainDriveFieldOriented",
@@ -20,4 +25,9 @@ __all__ = [
     "DriveReset",
     "DriveToPose",
     "DriveToRotation",
+    "IntakeAgitate",
+    "IntakeDeploy",
+    "IntakeEject",
+    "IntakeSetPosition",
+    "IntakeStow",
 ]

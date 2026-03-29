@@ -124,21 +124,21 @@ class TimerData:
     rawOurActivePeriod: bool
 
 
-@make_wpistruct
-@dataclass
-class CameraData:
-    hasTarget: bool
-    translationStdev: float
-    rotationStdev: float
-    targetsUsed: list[int]
-    targetsUsedPoses: list[Pose3d]
-    estimatedRobotPose: Pose3d
+# @make_wpistruct
+# @dataclass
+# class CameraData:
+#     hasTarget: bool
+#     translationStdev: float
+#     rotationStdev: float
+#     targetsUsed: list[int]
+#     targetsUsedPoses: list[Pose3d]
+#     estimatedRobotPose: Pose3d
 
 
-@make_wpistruct
-@dataclass
-class ShooterCameraData(CameraData):
-    pass
+# @make_wpistruct
+# @dataclass
+# class ShooterCameraData(CameraData):
+#     pass
 
 
 @make_wpistruct
@@ -152,7 +152,7 @@ class BraveData:
     intakeData: IntakeData
     shooterData: ShooterData
     timerData: TimerData
-    ShooterCameraData: ShooterCameraData
+    #ShooterCameraData: ShooterCameraData
 
 
 class BraveLogger:
@@ -184,7 +184,7 @@ class BraveLogger:
             IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             ShooterData(0, 0, 0, 0, 0, 0, 0),
             TimerData(0, 0, 0, 0, 0, 0, False, False),
-            ShooterCameraData(False, 0, 0, [], [], Pose3d()),
+            #ShooterCameraData(False, 0, 0, [], [], Pose3d()),
         )
 
         def _log_loop():

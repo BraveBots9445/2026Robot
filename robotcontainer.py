@@ -21,6 +21,7 @@ from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 
 ########## SUBSYSTEM IMPORTS ##########
 from subsystems.ctredrivetrain import CommandSwerveDrivetrain
+from subsystems.intake import Intake
 # from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -30,6 +31,7 @@ from commands import *
 
 ########## TEAM IMPORTS ##########
 from tools.CommandXboxController9445 import CommandController9445
+from tools.BraveLogger import BraveLogger
 from tools.rebuilt import Rebuilt, RebuiltPositions
 
 
@@ -47,6 +49,8 @@ class RobotContainer:
         self.level = 1
 
         self.drivetrain = TunerConstants.create_drivetrain()
+        self.intake = Intake()
+        self.braveLogger = BraveLogger()
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
 
         # self.vision = Vision(
@@ -101,45 +105,49 @@ class RobotContainer:
             DrivetrainDoubleSpeed(self.drivetrain)
         )
 
-        # self.driver_controller.b().onTrue(
-        #     InstantCommand(self.drivetrain.seed_field_centric)
+        # Drivetrain A/B/X/Y tests
+        # self.driver_controller.a().onTrue(
+        #     DriveToRotation(
+        #         self.drivetrain,
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #         self.driver_controller.getFRCRY,
+        #         lambda: Rotation2d().fromDegrees(180)
+        #     )
         # )
-        self.driver_controller.a().onTrue(
-            DriveToRotation(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
-                lambda: Rotation2d().fromDegrees(180)
-            )
-        )
-        self.driver_controller.b().onTrue(
-            DriveToRotation(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
-                lambda: Rotation2d().fromDegrees(-90)
-            )
-        )
-        self.driver_controller.x().onTrue(
-            DriveToRotation(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
-                lambda: Rotation2d().fromDegrees(90)
-            )
-        )
-        self.driver_controller.y().onTrue(
-            DriveToRotation(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
-                lambda: Rotation2d().fromDegrees(0)
-            )
-        )
+        # self.driver_controller.b().onTrue(
+        #     DriveToRotation(
+        #         self.drivetrain,
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #         self.driver_controller.getFRCRY,
+        #         lambda: Rotation2d().fromDegrees(-90)
+        #     )
+        # )
+        # self.driver_controller.x().onTrue(
+        #     DriveToRotation(
+        #         self.drivetrain,
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #         self.driver_controller.getFRCRY,
+        #         lambda: Rotation2d().fromDegrees(90)
+        #     )
+        # )
+        # self.driver_controller.y().onTrue(
+        #     DriveToRotation(
+        #         self.drivetrain,
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #         self.driver_controller.getFRCRY,
+        #         lambda: Rotation2d().fromDegrees(0)
+        #     )
+        # )
+
+        # Intake A/B/X/Y tests
+        self.driver_controller.a().onTrue(IntakeDeploy(self.intake))
+        self.driver_controller.b().onTrue(IntakeStow(self.intake))
+        self.driver_controller.x().whileTrue(IntakeEject(self.intake))
+        self.driver_controller.y().whileTrue(IntakeAgitate(self.intake))
 
         self.driver_controller.rightBumper().onTrue(
             DriveToRotation(
