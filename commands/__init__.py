@@ -8,6 +8,12 @@ from .DriveBrake import DriveBrake
 from .DriveReset import DriveReset
 from .DriveToPose import DriveToPose
 from .DriveToRotation import DriveToRotation
+from .hopperEject import HopperEject
+from .hopperFeed import HopperFeed
+from .hopperIdle import HopperIdle
+from .indexerDejam import IndexerDejam
+from .indexerForward import IndexerForward
+from .indexerReverse import IndexerReverse
 from .IntakeAgitate import IntakeAgitate
 from .IntakeDeploy import IntakeDeploy
 from .IntakeEject import IntakeEject
@@ -32,6 +38,12 @@ __all__ = [
     "DriveReset",
     "DriveToPose",
     "DriveToRotation",
+    "HopperEject",
+    "HopperFeed",
+    "HopperIdle",
+    "IndexerDejam",
+    "IndexerForward",
+    "IndexerReverse",
     "IntakeAgitate",
     "IntakeDeploy",
     "IntakeEject",

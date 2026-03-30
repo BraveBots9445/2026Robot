@@ -20,9 +20,11 @@ from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 
 
 ########## SUBSYSTEM IMPORTS ##########
-from subsystems.ctredrivetrain import CommandSwerveDrivetrain
 from subsystems.intake import Intake
 from subsystems.shooter import Shooter
+from subsystems.indexer import Indexer
+from subsystems.hopper import HopperFloor
+
 # from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
@@ -52,6 +54,8 @@ class RobotContainer:
         self.drivetrain = TunerConstants.create_drivetrain()
         self.intake = Intake()
         self.shooter = Shooter()
+        self.indexer = Indexer()
+        self.hopper = HopperFloor()
         self.braveLogger = BraveLogger()
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
 
@@ -94,9 +98,11 @@ class RobotContainer:
             )
         )
 
+        self.hopper.setDefaultCommand(HopperIdle(self.hopper))
+
         # robot oriented on Left stick push hold
         self.driver_controller.leftStick().whileTrue(
-           DriveByStick(
+            DriveByStick(
                 self.drivetrain,
                 self.driver_controller.getFRCLX,
                 self.driver_controller.getFRCLY,
@@ -106,14 +112,14 @@ class RobotContainer:
         )
 
         # slow mode
-        self.driver_controller.leftTrigger().onTrue(
-            DrivetrainHalfSpeed(self.drivetrain)
-        )
+        # self.driver_controller.leftTrigger().onTrue(
+        #     DrivetrainHalfSpeed(self.drivetrain)
+        # )
 
-        # defense mode
-        self.driver_controller.rightTrigger().onTrue(
-            DrivetrainDoubleSpeed(self.drivetrain)
-        )
+        # # defense mode
+        # self.driver_controller.rightTrigger().onTrue(
+        #     DrivetrainDoubleSpeed(self.drivetrain)
+        # )
 
         # Drivetrain A/B/X/Y tests
         # self.driver_controller.a().onTrue(
@@ -165,14 +171,21 @@ class RobotContainer:
                 self.driver_controller.getFRCLX,
                 self.driver_controller.getFRCLY,
                 self.driver_controller.getFRCRY,
-                Rebuilt.getPosition( RebuiltPositions.Hub ).toPose2d().translation,
-                rotateBy = Rotation2d.fromDegrees(180)
+                Rebuilt.getPosition(RebuiltPositions.Hub).toPose2d().translation,
+                rotateBy=Rotation2d.fromDegrees(180),
             )
         )
 
-        self.driver_controller.leftBumper().whileTrue(
-            ShooterStow(self.shooter)
+        self.driver_controller.leftBumper().whileTrue(ShooterStow(self.shooter))
+
+        self.driver_controller.start().whileTrue(IndexerForward(self.indexer))
+        self.driver_controller.back().whileTrue(IndexerReverse(self.indexer))
+        self.driver_controller.povUp().whileTrue(
+            IndexerDejam(self.indexer, timeout=0.25)
         )
+
+        self.driver_controller.povRight().whileTrue(HopperFeed(self.hopper))
+        self.driver_controller.povLeft().whileTrue(HopperEject(self.hopper))
 
         # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 

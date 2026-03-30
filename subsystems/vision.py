@@ -101,6 +101,7 @@ class Vision:
         getRobotVelocity: Callable[[], ChassisSpeeds],
         getRobotPose: Callable[[], Pose2d],
     ):
+        return
         """
         Construct the Vision subsystem
 

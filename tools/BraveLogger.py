@@ -22,30 +22,22 @@ from phoenix6.status_signal import StatusSignal
 
 @make_wpistruct
 @dataclass
-class ClimberData:
-    motorCurrent: amperes
-    motorOutputPercent: float
-    motorPositionRaw: rotation
-    motorVelocityRaw: rotations_per_second
-    state: int
+class IndexerData:
+    dutyCycle: float
+    velocity: rotations_per_second
+    current: amperes
+    dutyCycleSetpoint: float
 
 
 @make_wpistruct
 @dataclass
-class OpenWheelData:
+class HopperData:
     dutyCycle: float
+    dutyCycleSetpoint: float
     velocity: rotations_per_second
     current: amperes
-
-
-class IndexerData(OpenWheelData):
-    # this is just a wrapper with a different name for readability
-    pass
-
-
-class WoahvalData(OpenWheelData):
-    # this is just a wrapper with a different name for readability
-    pass
+    leftTofDistance: float
+    rightTofDistance: float
 
 
 @make_wpistruct
@@ -127,35 +119,31 @@ class TimerData:
     rawOurActivePeriod: bool
 
 
-# @make_wpistruct
-# @dataclass
-# class CameraData:
-#     hasTarget: bool
-#     translationStdev: float
-#     rotationStdev: float
-#     targetsUsed: list[int]
-#     targetsUsedPoses: list[Pose3d]
-#     estimatedRobotPose: Pose3d
+@make_wpistruct
+@dataclass
+class CameraData:
+    hasTarget: bool
+    translationStdev: float
+    rotationStdev: float
+    estimatedRobotPose: Pose3d
 
 
-# @make_wpistruct
-# @dataclass
-# class ShooterCameraData(CameraData):
-#     pass
+@make_wpistruct
+@dataclass
+class ShooterCameraData(CameraData):
+    pass
 
 
 @make_wpistruct
 @dataclass
 class BraveData:
     turretData: TurretData
-    climberData: ClimberData
     indexerData: IndexerData
-    woahvalData: WoahvalData
-    passiveHooksData: PassiveHooksData
+    hopperData: HopperData
     intakeData: IntakeData
     shooterData: ShooterData
     timerData: TimerData
-    #ShooterCameraData: ShooterCameraData
+    # ShooterCameraData: ShooterCameraData
 
 
 class BraveLogger:
@@ -180,14 +168,12 @@ class BraveLogger:
         ).publish()
         BraveLogger._data = BraveData(
             TurretData(0, 0, 0, 0),
-            ClimberData(0, 0, 0, 0, 0),
-            IndexerData(0, 0, 0),
-            WoahvalData(0, 0, 0),
-            PassiveHooksData(0, False),
+            IndexerData(0, 0, 0, 0),
+            HopperData(0, 0, 0, 0, 0, 0),
             IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             ShooterData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             TimerData(0, 0, 0, 0, 0, 0, False, False),
-            #ShooterCameraData(False, 0, 0, [], [], Pose3d()),
+            # ShooterCameraData(False, 0, 0, [], [], Pose3d()),
         )
 
         def _log_loop():
@@ -235,14 +221,10 @@ class BraveLogger:
         """
         if isinstance(data, TurretData):
             BraveLogger._data.turretData = data
-        elif isinstance(data, ClimberData):
-            BraveLogger._data.climberData = data
         elif isinstance(data, IndexerData):
             BraveLogger._data.indexerData = data
-        elif isinstance(data, WoahvalData):
-            BraveLogger._data.woahvalData = data
-        elif isinstance(data, PassiveHooksData):
-            BraveLogger._data.passiveHooksData = data
+        elif isinstance(data, HopperData):
+            BraveLogger._data.hopperData = data
         elif isinstance(data, IntakeData):
             BraveLogger._data.intakeData = data
         elif isinstance(data, ShooterData):
