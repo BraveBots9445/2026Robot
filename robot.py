@@ -1,10 +1,5 @@
 from commands2 import Command, CommandScheduler
-from wpilib import (
-    DriverStation,
-    TimedRobot,
-    run,
-    DataLogManager,
-)
+from wpilib import DriverStation, TimedRobot, DataLogManager, RobotBase
 import wpilib
 
 from robotcontainer import RobotContainer
@@ -17,8 +12,9 @@ class Robot(TimedRobot):
     # Initialize Robot
     def robotInit(self):
         self.m_robotContainer = RobotContainer()
-        DataLogManager.start()
-        DriverStation.startDataLog(DataLogManager.getLog())
+        if RobotBase.isReal():
+            DataLogManager.start()
+            DriverStation.startDataLog(DataLogManager.getLog())
 
     def robotPeriodic(self) -> None:
         CommandScheduler.getInstance().run()

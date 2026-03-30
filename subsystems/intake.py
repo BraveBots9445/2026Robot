@@ -111,7 +111,9 @@ class Intake(Subsystem):
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """
 
-    _pivotMotorDirection: InvertedValue = InvertedValue.CLOCKWISE_POSITIVE #COUNTER_CLOCKWISE_POSITIVE
+    _pivotMotorDirection: InvertedValue = (
+        InvertedValue.CLOCKWISE_POSITIVE
+    )  # COUNTER_CLOCKWISE_POSITIVE
     """
     The motor direction for the pivot such that a positive output pulls the intake in 
     """
@@ -252,8 +254,6 @@ class Intake(Subsystem):
                 MotorOutputConfigs()
                 .with_inverted(self._pivotMotorDirection)
                 .with_neutral_mode(NeutralModeValue.COAST)
-                .with_peak_forward_duty_cycle(1.0)
-                .with_peak_reverse_duty_cycle(-0.75)
             )
         )
 
@@ -274,8 +274,6 @@ class Intake(Subsystem):
                 MotorOutputConfigs()
                 .with_inverted(self._pivotMotorDirection)
                 .with_neutral_mode(NeutralModeValue.COAST)
-                .with_peak_forward_duty_cycle(1.0)
-                .with_peak_reverse_duty_cycle(-0.75)
             )
         )
 
@@ -310,8 +308,12 @@ class Intake(Subsystem):
         self._pivotDutyCycleSignal = self._pivotMotor.get_duty_cycle(False)
         self._pivotPositionSignal = self._pivotMotor.get_position(False)
         self._pivotVelocitySignal = self._pivotMotor.get_velocity(False)
-        self._pivotFollowerCurrentSignal = self._pivotFollowerMotor.get_stator_current(False)
-        self._pivotFollowerDutyCycleSignal = self._pivotFollowerMotor.get_duty_cycle(False)
+        self._pivotFollowerCurrentSignal = self._pivotFollowerMotor.get_stator_current(
+            False
+        )
+        self._pivotFollowerDutyCycleSignal = self._pivotFollowerMotor.get_duty_cycle(
+            False
+        )
         self._pivotFollowerVelocitySignal = self._pivotFollowerMotor.get_velocity(False)
         self._rollerCurrentSignal = self._rollerMotor.get_stator_current(False)
         self._rollerVelocitySignal = self._rollerMotor.get_velocity(False)
@@ -350,7 +352,8 @@ class Intake(Subsystem):
             degreesToRadians(90),
         )
         self._encoderSimState.set_raw_position(
-            radiansToRotations(-self._pivotSim.getAngle()) + self._pivotAbsoluteEncoderOffset
+            radiansToRotations(-self._pivotSim.getAngle())
+            + self._pivotAbsoluteEncoderOffset
         )
 
         self.setPivotSetpoint(
@@ -384,7 +387,7 @@ class Intake(Subsystem):
 
     def periodic(self) -> None:
         if RobotState.isDisabled():
-            self.setPivotSetpoint( self.getAngle() )
+            self.setPivotSetpoint(self.getAngle())
 
         pivotPosition = Rotation2d.fromRotations(
             self._pivotPositionSignal.value_as_double
@@ -412,6 +415,7 @@ class Intake(Subsystem):
             self._pivotSetpoint.radians()
         )
         self._pivotMotor.set_control(self._positionDutyCycleRequest)
+        self._pivotFollowerMotor.set_control(self._pivotFollowerRequest)
 
     def simulationPeriodic(self) -> None:
         self._pivotSim.setInputVoltage(self._pivotMotor.get() * 12)
@@ -425,8 +429,10 @@ class Intake(Subsystem):
         # self._pivotFollowerSimState.set_rotor_velocity(-pivotRotorVelocity)
         # self._pivotFollowerSimState.add_rotor_position(-pivotRotorVelocity * 0.02)
 
-        self._encoderSimState.set_velocity(-pivotVelocity ) # / self._pivotGearRatio)
-        self._encoderSimState.add_position(-pivotVelocity * 0.02 ) # / self._pivotGearRatio * 0.02)
+        self._encoderSimState.set_velocity(-pivotVelocity)  # / self._pivotGearRatio)
+        self._encoderSimState.add_position(
+            -pivotVelocity * 0.02
+        )  # / self._pivotGearRatio * 0.02)
 
         rollerVelocity = radiansToRotations(
             self._rollerMotor.get() * DCMotor.krakenX60().freeSpeed

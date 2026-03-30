@@ -90,9 +90,12 @@ class ShooterData:
     desiredHoodAngleDegrees: degrees
     # actualHoodAngle: Rotation2d
     # desiredHoodAngle: Rotation2d
-    motorCurrent: float
-    motorDutyCycle: float
+    flywheelMotorCurrent: float
+    flywheelMotorDutyCycle: float
     hoodMotorCurrent: float
+    hoodMotorDutyCycle: float
+    hoodMotorVelocity: rotations_per_second
+    hoodMotorPosition: float
 
 
 @make_wpistruct
@@ -178,11 +181,11 @@ class BraveLogger:
         BraveLogger._data = BraveData(
             TurretData(0, 0, 0, 0),
             ClimberData(0, 0, 0, 0, 0),
-            IndexerData(0, 0, False),
-            WoahvalData(0, 0, False),
+            IndexerData(0, 0, 0),
+            WoahvalData(0, 0, 0),
             PassiveHooksData(0, False),
             IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-            ShooterData(0, 0, 0, 0, 0, 0, 0),
+            ShooterData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             TimerData(0, 0, 0, 0, 0, 0, False, False),
             #ShooterCameraData(False, 0, 0, [], [], Pose3d()),
         )
