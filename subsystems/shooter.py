@@ -118,7 +118,7 @@ class Shooter(Subsystem):
     _hoodConfig: TalonFXConfiguration
 
     # TODO: Validate
-    _hoodGearRatio: float = 170 / (17 * 5)
+    _hoodGearRatio: float = 170 / (16 * 5)
     """
     The gear ratio between the hood motor and the hood output. 
     This is calculated as (motor rotations) / (hood rotations)
