@@ -33,7 +33,10 @@ from wpilib import RobotBase, Notifier, RobotState
 
 from .visionCamera import VisionCamera
 
-from tools.BraveLogger import BraveLogger, ShooterCameraData
+from tools.BraveLogger import (
+    ShooterLeftCameraData,
+    ShooterRightCameraData,
+)
 
 
 class Vision:
@@ -41,38 +44,36 @@ class Vision:
 
     # these names and their associated positions are fake
     _turretCamera: VisionCamera
-    _backRightReverseCamera: VisionCamera
+    _shooterRightCamera: VisionCamera
     # _backLeftReverseCamera: VisionCamera
-    _backLeftForwardCamera: VisionCamera
+    _shooterLeftCamera: VisionCamera
 
     # TODO: The below offsets are all garbage from copilot
-    _backLeftForwardCameraToRobot: Transform3d = Transform3d(
+    _shooterLeftRobotToCamera: Transform3d = Transform3d(
         Translation3d(
-            inchesToMeters(-10.5), inchesToMeters(13.5), inchesToMeters(7.75)
+            inchesToMeters(-3.5), inchesToMeters(-9.5), inchesToMeters(16.75)
         ),
-        Rotation3d.fromDegrees(0, 30 + 8.4 if RobotBase.isReal() else 0, 60),
+        Rotation3d.fromDegrees(0, 15, 170),
     )
 
-    _backLeftReverseCameraToRobot: Transform3d = Transform3d(
-        Translation3d(
-            inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(7.75)
-        ),
-        Rotation3d.fromDegrees(0, 30 + 5.6 if RobotBase.isReal() else 0, 120),
+    _shooterRightCameraToRobot: Transform3d = Transform3d(
+        Translation3d(inchesToMeters(-3.5), inchesToMeters(9.5), inchesToMeters(16.75)),
+        Rotation3d.fromDegrees(0, 10.58, 180),
     )
 
-    _backRightForwardCameraToRobot: Transform3d = Transform3d(
-        Translation3d(
-            inchesToMeters(-10.5), inchesToMeters(-13.5), inchesToMeters(7.75)
-        ),
-        Rotation3d.fromDegrees(0, 30 + 2.04 if RobotBase.isReal() else 0, -60),
-    )
+    # _backLeftReverseCameraToRobot: Transform3d = Transform3d(
+    #     Translation3d(
+    #         inchesToMeters(-12.5), inchesToMeters(13.5), inchesToMeters(7.75)
+    #     ),
+    #     Rotation3d.fromDegrees(0, 30 + 5.6 if RobotBase.isReal() else 0, 120),
+    # )
 
-    _backRightReverseCameraToRobot: Transform3d = Transform3d(
-        Translation3d(
-            inchesToMeters(-12.5), inchesToMeters(-13.5), inchesToMeters(7.75)
-        ),
-        Rotation3d.fromDegrees(0, 30 if RobotBase.isReal() else 0, -120),
-    )
+    # _backRightForwardCameraToRobot: Transform3d = Transform3d(
+    #     Translation3d(
+    #         inchesToMeters(-10.5), inchesToMeters(-13.5), inchesToMeters(7.75)
+    #     ),
+    #     Rotation3d.fromDegrees(0, 30 + 2.04 if RobotBase.isReal() else 0, -60),
+    # )
 
     _tagLayout: AprilTagFieldLayout = AprilTagFieldLayout.loadField(
         # AprilTagField.kDefaultField
@@ -101,7 +102,6 @@ class Vision:
         getRobotVelocity: Callable[[], ChassisSpeeds],
         getRobotPose: Callable[[], Pose2d],
     ):
-        return
         """
         Construct the Vision subsystem
 
@@ -116,37 +116,37 @@ class Vision:
 
         self._getRobotVelocity = getRobotVelocity
 
-        self._backRightReverseCamera = VisionCamera(
-            "ArducamOV9281-BR-R",
+        self._shooterRightCamera = VisionCamera(
+            "ArducamOV9281-ShooterRight",
             self._tagLayout,
-            self._backRightReverseCameraToRobot,
+            self._shooterRightCameraToRobot,
             logVisionMeasurement,
-            getRobotVelocity,
+            ShooterRightCameraData(False, 0, 0, Pose3d()),
         )
 
-        self._backRightForwardCamera = VisionCamera(
-            "ArducamOV9281-BR-F",
+        self._shooterLeftCamera = VisionCamera(
+            "ArducamOV9281-ShooterLeft",
             self._tagLayout,
-            self._backRightForwardCameraToRobot,
+            self._shooterLeftRobotToCamera,
             logVisionMeasurement,
-            getRobotVelocity,
+            ShooterLeftCameraData(False, 0, 0, Pose3d()),
         )
 
-        self._backLeftReverseCamera = VisionCamera(
-            "ArducamOV9281-BL-R",
-            self._tagLayout,
-            self._backLeftReverseCameraToRobot,
-            logVisionMeasurement,
-            getRobotVelocity,
-        )
+        # self._backRightForwardCamera = VisionCamera(
+        #     "ArducamOV9281-BR-F",
+        #     self._tagLayout,
+        #     self._backRightForwardCameraToRobot,
+        #     logVisionMeasurement,
+        #     getRobotVelocity,
+        # )
 
-        self._backLeftForwardCamera = VisionCamera(
-            "ArducamOV9281-BL-F",
-            self._tagLayout,
-            self._backLeftForwardCameraToRobot,
-            logVisionMeasurement,
-            getRobotVelocity,
-        )
+        # self._backLeftReverseCamera = VisionCamera(
+        #     "ArducamOV9281-BL-R",
+        #     self._tagLayout,
+        #     self._backLeftReverseCameraToRobot,
+        #     logVisionMeasurement,
+        #     getRobotVelocity,
+        # )
 
         self._poseEstPub = self.nettable.getStructArrayTopic(
             "EstimatedPoses",
@@ -165,17 +165,17 @@ class Vision:
             self._visionSim = visionSystemSim.VisionSystemSim("photonvisionSim")
             self._visionSim.addAprilTags(self._tagLayout)
             self._visionSim.addCamera(
-                self._backLeftForwardCamera.getCameraSim(), self._backLeftForwardCameraToRobot  # type: ignore
+                self._shooterLeftCamera.getCameraSim(), self._shooterLeftRobotToCamera  # type: ignore
             )
-            self._visionSim.addCamera(
-                self._backLeftReverseCamera.getCameraSim(), self._backLeftReverseCameraToRobot  # type: ignore
-            )
-            self._visionSim.addCamera(
-                self._backRightForwardCamera.getCameraSim(), self._backRightForwardCameraToRobot  # type: ignore
-            )
-            self._visionSim.addCamera(
-                self._backRightReverseCamera.getCameraSim(), self._backRightReverseCameraToRobot  # type: ignore
-            )
+            # self._visionSim.addCamera(
+            #     self._backLeftReverseCamera.getCameraSim(), self._backLeftReverseCameraToRobot  # type: ignore
+            # )
+            # self._visionSim.addCamera(
+            #     self._backRightForwardCamera.getCameraSim(), self._backRightForwardCameraToRobot  # type: ignore
+            # )
+            # self._visionSim.addCamera(
+            #     self._shooterRightCamera.getCameraSim(), self._shooterRightCameraToRobot  # type: ignore
+            # )
             # SmartDashboard.putData(self._visionSim.getDebugField())
             self._simNotifier = Notifier(self._simulationPeriodic)
             self._simNotifier.startPeriodic(0.02)
@@ -198,24 +198,30 @@ class Vision:
 
     def _periodic(self) -> None:
         # turret camera does not do pose estimation
-        if not self._enabled or (RobotState.isAutonomous() and RobotState.isEnabled()):
-            return
+        enabled = self._enabled
+        if (
+            not self._enabled
+        ):  # or (RobotState.isAutonomous() and RobotState.isEnabled()):
+            enabled = False
 
         vel = self._getRobotVelocity()
-        if hypot(vel.vx, vel.vy) > 2.5 or abs(vel.omega) > degreesToRadians(90):
-            return
+        if hypot(vel.vx, vel.vy) > 3.0 or abs(vel.omega) > degreesToRadians(180):
+            enabled = False
 
-        _, BLRTags = self._backLeftReverseCamera.update()
-        _, BLFTags = self._backLeftForwardCamera.update()
-        _, BRFTags = self._backRightForwardCamera.update()
-        _, BRRTags = self._backRightReverseCamera.update()
-
-        self._detectedTagsPub.set(
-            [
-                self._tagLayout.getTagPose(tag)
-                for tag in BLRTags + BLFTags + BRFTags + BRRTags
-            ]
+        tags = []
+        # _, BLRTags = self._backLeftReverseCamera.update()
+        _, shooterRightTags = self._shooterRightCamera.update(
+            0.2, 0.5, enabled, RobotState.isDisabled()
         )
+        tags.extend(shooterRightTags)
+        # _, BRFTags = self._backRightForwardCamera.update()
+        # if not tags:
+        _, ShooterLeftTags = self._shooterLeftCamera.update(
+            0.2, 0.5, enabled, RobotState.isDisabled()
+        )
+        tags.extend(ShooterLeftTags)
+
+        self._detectedTagsPub.set([self._tagLayout.getTagPose(tag) for tag in tags])
 
     def _simulationPeriodic(self) -> None:
         """

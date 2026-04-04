@@ -13,7 +13,7 @@ class ShooterStow(Command):
     def initialize(self):
         self.shooter.setForceNotReady(True)
         # self.shooter.setFlywheelSetpoint(0)
-        self.shooter.setHoodAngleSetpoint(self.shooter.minHoodAngle)
+        self.shooter.setHoodAngleSetpoint(self.shooter.maxHoodAngle)
 
     def end(self, interrupted: bool):
         self.shooter.setForceNotReady(False)

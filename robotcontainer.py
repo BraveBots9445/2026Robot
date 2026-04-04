@@ -16,7 +16,12 @@ from ntcore.util import ntproperty
 
 
 ########## VENDOR (etc) IMPORTS ##########
-from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
+from pathplannerlib.auto import (
+    AutoBuilder,
+    NamedCommands,
+    PathConstraints,
+    EventTrigger,
+)
 
 
 ########## SUBSYSTEM IMPORTS ##########
@@ -24,6 +29,7 @@ from subsystems.intake import Intake
 from subsystems.shooter import Shooter
 from subsystems.indexer import Indexer
 from subsystems.hopper import HopperFloor
+from subsystems.vision import Vision
 
 # from subsystems.vision import Vision
 from telemetry import Telemetry
@@ -43,13 +49,11 @@ class RobotContainer:
     _max_angular_rate_percent = ntproperty("MaxOmegaPercent", 1.0)
 
     def __init__(self) -> None:
-        self.driver_controller = CommandController9445(0)
-        self.operator_controller = CommandController9445(1)
+        self.driver_controller = CommandController9445(0, 0.1)
+        # self.operator_controller = CommandController9445(1)
         self.pdh = PowerDistribution()
         self.pdh.setSwitchableChannel(True)
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
-
-        self.level = 1
 
         self.drivetrain = TunerConstants.create_drivetrain()
         self.intake = Intake()
@@ -59,19 +63,19 @@ class RobotContainer:
         self.braveLogger = BraveLogger()
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
 
-        # self.vision = Vision(
-        #     lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
-        #         Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
-        #     ),
-        #     lambda: self.drivetrain.get_state().speeds,
-        #     lambda: self.drivetrain.get_state().pose,
-        # )
+        self.set_pp_named_commands()
+
+        self.vision = Vision(
+            lambda pose, timestamp, stdevs: self.drivetrain.add_vision_measurement(
+                Vision._pose3dToPose2d(pose), timestamp, stdevs
+            ),
+            lambda: self.drivetrain.get_state().speeds,
+            lambda: self.drivetrain.get_state().pose,
+        )
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
         )
-
-        self.set_pp_named_commands()
 
         self.auto_chooser = AutoBuilder.buildAutoChooser()
 
@@ -90,6 +94,8 @@ class RobotContainer:
             )
         )
 
+        # self.shooter.setDefaultCommand(ShooterStatic(self.shooter))
+
         self.shooter.setDefaultCommand(
             ShooterDefault(
                 self.shooter,
@@ -98,10 +104,12 @@ class RobotContainer:
             )
         )
 
-        self.hopper.setDefaultCommand(HopperIdle(self.hopper))
+        # self.intake.setDefaultCommand(IntakeStow(self.intake))
+
+        # self.hopper.setDefaultCommand(HopperIdle(self.hopper))
 
         # robot oriented on Left stick push hold
-        self.driver_controller.leftStick().whileTrue(
+        self.driver_controller.leftStick().toggleOnTrue(
             DriveByStick(
                 self.drivetrain,
                 self.driver_controller.getFRCLX,
@@ -110,6 +118,14 @@ class RobotContainer:
                 fieldCentric=False,
             )
         )
+
+        self.driver_controller.leftTrigger().whileTrue(IntakeDeploy(self.intake, 0.50))
+
+        self.driver_controller.leftBumper().toggleOnTrue(IntakeAgitate(self.intake))
+
+        # self.driver_controller.b().onTrue(
+        #     InstantCommand(self.drivetrain.seed_field_centric())
+        # )
 
         # slow mode
         # self.driver_controller.leftTrigger().onTrue(
@@ -128,7 +144,7 @@ class RobotContainer:
         #         self.driver_controller.getFRCLX,
         #         self.driver_controller.getFRCLY,
         #         self.driver_controller.getFRCRY,
-        #         lambda: Rotation2d().fromDegrees(180)
+        #         lambda: Rotation2d().fromDegrees(180),
         #     )
         # )
         # self.driver_controller.b().onTrue(
@@ -137,7 +153,7 @@ class RobotContainer:
         #         self.driver_controller.getFRCLX,
         #         self.driver_controller.getFRCLY,
         #         self.driver_controller.getFRCRY,
-        #         lambda: Rotation2d().fromDegrees(-90)
+        #         lambda: Rotation2d().fromDegrees(-90),
         #     )
         # )
         # self.driver_controller.x().onTrue(
@@ -146,7 +162,7 @@ class RobotContainer:
         #         self.driver_controller.getFRCLX,
         #         self.driver_controller.getFRCLY,
         #         self.driver_controller.getFRCRY,
-        #         lambda: Rotation2d().fromDegrees(90)
+        #         lambda: Rotation2d().fromDegrees(90),
         #     )
         # )
         # self.driver_controller.y().onTrue(
@@ -155,39 +171,46 @@ class RobotContainer:
         #         self.driver_controller.getFRCLX,
         #         self.driver_controller.getFRCLY,
         #         self.driver_controller.getFRCRY,
-        #         lambda: Rotation2d().fromDegrees(0)
+        #         lambda: Rotation2d().fromDegrees(0),
         #     )
         # )
 
-        # Intake A/B/X/Y tests
-        self.driver_controller.a().onTrue(IntakeDeploy(self.intake))
-        self.driver_controller.b().onTrue(IntakeStow(self.intake))
-        self.driver_controller.x().whileTrue(IntakeEject(self.intake))
-        self.driver_controller.y().whileTrue(IntakeAgitate(self.intake))
+        # # Intake A/B/X/Y tests
+        # # self.driver_controller.a().onTrue(IntakeDeploy(self.intake))
+        # # self.driver_controller.b().onTrue(IntakeStow(self.intake))
+        # # self.driver_controller.x().whileTrue(IntakeEject(self.intake))
+        # # self.driver_controller.y().whileTrue(IntakeAgitate(self.intake))
 
-        self.driver_controller.rightBumper().onTrue(
-            DriveToRotation(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
-                Rebuilt.getPosition(RebuiltPositions.Hub).toPose2d().translation,
-                rotateBy=Rotation2d.fromDegrees(180),
-            )
-        )
+        # self.driver_controller.rightTrigger().onTrue(
+        #     DriveToRotation(
+        #         self.drivetrain,
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #         self.driver_controller.getFRCRY,
+        #         Rebuilt.getPosition(RebuiltPositions.Hub).toPose2d().translation,
+        #         rotateBy=Rotation2d.fromDegrees(180),
+        #     )
+        # )
 
-        self.driver_controller.leftBumper().whileTrue(ShooterStow(self.shooter))
+        self.driver_controller.rightBumper().whileTrue(
+            FeedShooter(self.indexer, self.hopper)
+        )  # known good 4/3/26 5:35
 
-        self.driver_controller.start().whileTrue(IndexerForward(self.indexer))
-        self.driver_controller.back().whileTrue(IndexerReverse(self.indexer))
-        self.driver_controller.povUp().whileTrue(
-            IndexerDejam(self.indexer, timeout=0.25)
-        )
+        # self.shooter.setDefaultCommand(ShooterStow(self.shooter))
+        # self.driver_controller.povUp().whileTrue(ShooterStatic(self.shooter))
 
-        self.driver_controller.povRight().whileTrue(HopperFeed(self.hopper))
-        self.driver_controller.povLeft().whileTrue(HopperEject(self.hopper))
+        # self.driver_controller.leftBumper().whileTrue(ShooterStow(self.shooter))
 
-        # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
+        # self.driver_controller.start().whileTrue(IndexerForward(self.indexer))
+        # self.driver_controller.back().whileTrue(IndexerReverse(self.indexer))
+        # self.driver_controller.povUp().whileTrue(
+        #     IndexerDejam(self.indexer, timeout=0.25)
+        # )
+
+        # self.driver_controller.povRight().whileTrue(HopperFeed(self.hopper))
+        # self.driver_controller.povLeft().whileTrue(HopperEject(self.hopper))
+
+        # # self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
         """Operator"""
         """
@@ -198,11 +221,33 @@ class RobotContainer:
         # will be sysid testing for drivetrain (+others?) sometime
         self.test_remote = CommandController9445(2)
 
+        self.shooter.setDefaultCommand(
+            ShooterTuneDistance(
+                self.shooter,
+                self.test_remote.getFRCLX,
+                self.test_remote.getFRCRX,
+                lambda: self.test_remote.rightTrigger().getAsBoolean(),
+                lambda: self.drivetrain.get_state()
+                .pose.translation()
+                .distance(
+                    Rebuilt.getPosition(RebuiltPositions.Hub).toPose2d().translation()
+                ),
+            )
+        )
+        self.test_remote.rightBumper().whileTrue(FeedShooter(self.indexer, self.hopper))
+
     def set_pp_named_commands(self) -> None:
         """
         Insert code here for the pathplanner named commands
         That will be scheduled during path following
         """
+        NamedCommands.registerCommand("ShooterStatic", ShooterStatic(self.shooter))
+        NamedCommands.registerCommand(
+            "ShooterFlywheelReady", ShooterFlywheelReady(self.shooter)
+        )
+        NamedCommands.registerCommand("IntakeDeploy", IntakeDeploy(self.intake))
+        EventTrigger("IntakeDepot").whileTrue(IntakeSetPosition(self.intake, 5.0))
+        EventTrigger("IntakeDeploy").onTrue(IntakeDeploy(self.intake))
 
     def get_auto_command(self) -> Command:
         return self.auto_chooser.getSelected()

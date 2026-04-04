@@ -26,6 +26,9 @@ from .ShooterPass import ShooterPass
 from .ShooterStatic import ShooterStatic
 from .ShooterStop import ShooterStop
 from .ShooterStow import ShooterStow
+from .ShooterFlywheelReady import ShooterFlywheelReady
+from .feedShooter import FeedShooter
+from .shooterTuneDistance import ShooterTuneDistance
 
 __all__ = [
     "DrivetrainDriveFieldOriented",
@@ -56,4 +59,7 @@ __all__ = [
     "ShooterStatic",
     "ShooterStop",
     "ShooterStow",
+    "ShooterFlywheelReady",
+    "FeedShooter",
+    "ShooterTuneDistance",
 ]

@@ -130,7 +130,13 @@ class CameraData:
 
 @make_wpistruct
 @dataclass
-class ShooterCameraData(CameraData):
+class ShooterLeftCameraData(CameraData):
+    pass
+
+
+@make_wpistruct
+@dataclass
+class ShooterRightCameraData(CameraData):
     pass
 
 
@@ -143,7 +149,8 @@ class BraveData:
     intakeData: IntakeData
     shooterData: ShooterData
     timerData: TimerData
-    # ShooterCameraData: ShooterCameraData
+    ShooterLeftCameraData: ShooterLeftCameraData
+    ShooterRightCameraData: ShooterRightCameraData
 
 
 class BraveLogger:
@@ -173,7 +180,8 @@ class BraveLogger:
             IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             ShooterData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             TimerData(0, 0, 0, 0, 0, 0, False, False),
-            # ShooterCameraData(False, 0, 0, [], [], Pose3d()),
+            ShooterLeftCameraData(False, 0, 0, Pose3d()),
+            ShooterRightCameraData(False, 0, 0, Pose3d()),
         )
 
         def _log_loop():
@@ -209,7 +217,8 @@ class BraveLogger:
         """
 
         for _bus, signals in BraveLogger._statusSignals.items():
-            StatusSignal.refresh_all(signals)  # type: ignore
+            if signals:
+                StatusSignal.refresh_all(signals)  # type: ignore
 
     @staticmethod
     def pushSubsystemData(data: Any) -> None:
@@ -231,6 +240,10 @@ class BraveLogger:
             BraveLogger._data.shooterData = data
         elif isinstance(data, TimerData):
             BraveLogger._data.timerData = data
+        elif isinstance(data, ShooterLeftCameraData):
+            BraveLogger._data.ShooterLeftCameraData = data
+        elif isinstance(data, ShooterRightCameraData):
+            BraveLogger._data.ShooterRightCameraData = data
 
     @staticmethod
     def registerStatusSignal(

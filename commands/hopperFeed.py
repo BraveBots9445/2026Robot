@@ -9,7 +9,7 @@ class HopperFeed(Command):
         self.addRequirements(hopper)
 
     def initialize(self) -> None:
-        self._hopper.setSetpoint(1.0)
+        self._hopper.setSetpoint(0.5)
 
     def isFinished(self) -> bool:
         return False

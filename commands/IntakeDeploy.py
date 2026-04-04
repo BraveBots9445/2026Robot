@@ -25,3 +25,6 @@ class IntakeDeploy(Command):
 
     def isFinished(self) -> bool:
         return self.intake.atSetpoint()
+
+    def end(self, interrupted) -> None:
+        self.intake.setRollerSetpoint(0)

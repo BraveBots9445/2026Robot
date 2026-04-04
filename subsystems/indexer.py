@@ -11,7 +11,7 @@ from phoenix6.configs import (
     MotorOutputConfigs,
 )
 from phoenix6.hardware import TalonFX
-from phoenix6.signals import NeutralModeValue
+from phoenix6.signals import NeutralModeValue, InvertedValue
 from phoenix6.sim import TalonFXSimState
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotations_per_second
@@ -68,7 +68,7 @@ class Indexer(Subsystem):
     def __init__(
         self,
         rampTime: float = 0.5,
-        inverted: bool = False,
+        inverted: bool = True,
         shootingDutyCycle: float = 0.5,
         idleDutyCycle: float = 0.1,
     ) -> None:

@@ -98,33 +98,33 @@ class Intake(Subsystem):
     """
 
     ########## CONFIGURATION ##########
-    _canbus: str = ""
+    _canbus: str = "canivore1"
 
-    _pivotGearRatio: float = 27 / 1
+    _pivotGearRatio: float = 15 / 1
     """
     The gear ratio of the pivot mechanism.
     This is measured as (motor rotations) / (pivot rotations).
     """
 
-    _pivotAbsoluteEncoderOffset: float = 0.1667
+    _pivotAbsoluteEncoderOffset: float = -0.4018
     """
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """
 
     _pivotMotorDirection: InvertedValue = (
-        InvertedValue.CLOCKWISE_POSITIVE
+        InvertedValue.COUNTER_CLOCKWISE_POSITIVE
     )  # COUNTER_CLOCKWISE_POSITIVE
     """
     The motor direction for the pivot such that a positive output pulls the intake in 
     """
 
-    _rollerMotorDirection: InvertedValue = InvertedValue.CLOCKWISE_POSITIVE
+    _rollerMotorDirection: InvertedValue = InvertedValue.COUNTER_CLOCKWISE_POSITIVE
     """
     The motor direction for the roller such that a positive output pulls fuel into the robot 
     """
 
     _pivotAbsoluteEncoderDirection: SensorDirectionValue = (
-        SensorDirectionValue.CLOCKWISE_POSITIVE
+        SensorDirectionValue.COUNTER_CLOCKWISE_POSITIVE
     )
     """
     The direction for the cancoder such that it increases when the intake is pulled in 
@@ -150,10 +150,10 @@ class Intake(Subsystem):
         if RobotBase.isSimulation()
         else (
             Slot0Configs()
-            .with_k_p(1.0)
+            .with_k_p(0.85)
             .with_k_i(0.0)
             .with_k_d(0.0)
-            .with_k_g(0.025)
+            .with_k_g(0.35)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
     )
@@ -237,8 +237,8 @@ class Intake(Subsystem):
             )
             .with_software_limit_switch(
                 SoftwareLimitSwitchConfigs()
-                .with_forward_soft_limit_enable(True)
-                .with_reverse_soft_limit_enable(True)
+                .with_forward_soft_limit_enable(False)
+                .with_reverse_soft_limit_enable(False)
                 .with_forward_soft_limit_threshold(degreesToRotations(90))
                 .with_reverse_soft_limit_threshold(degreesToRotations(-3.5))
             )
@@ -286,7 +286,7 @@ class Intake(Subsystem):
             )
             .with_current_limits(
                 CurrentLimitsConfigs()
-                .with_stator_current_limit(40)
+                .with_stator_current_limit(50)
                 .with_stator_current_limit_enable(True)
             )
         )
@@ -389,9 +389,9 @@ class Intake(Subsystem):
         if RobotState.isDisabled():
             self.setPivotSetpoint(self.getAngle())
 
-        pivotPosition = Rotation2d.fromRotations(
-            self._pivotPositionSignal.value_as_double
-        )
+        v = self._pivotPositionSignal.value_as_double
+        pivotPosition = Rotation2d.fromRotations(v)
+        print(f"\t{v}")
         self._data.pivotPositionDegrees = pivotPosition.degrees()
         self._data.pivotSetpointDegrees = self._pivotSetpoint.degrees()
         self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
@@ -414,6 +414,8 @@ class Intake(Subsystem):
         self._positionDutyCycleRequest.position = radiansToRotations(
             self._pivotSetpoint.radians()
         )
+        print(radiansToRotations(self._pivotSetpoint.radians()))
+
         self._pivotMotor.set_control(self._positionDutyCycleRequest)
         self._pivotFollowerMotor.set_control(self._pivotFollowerRequest)
 

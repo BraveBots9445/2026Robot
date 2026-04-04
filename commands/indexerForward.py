@@ -9,7 +9,7 @@ class IndexerForward(Command):
         self.addRequirements(indexer)
 
     def initialize(self) -> None:
-        self._indexer.setSetpoint(1.0)
+        self._indexer.setSetpoint(0.5)
 
     def isFinished(self) -> bool:
         return False

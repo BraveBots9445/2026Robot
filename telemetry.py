@@ -87,8 +87,8 @@ class Telemetry:
         ]
 
         # Set up the module state Mechanism2d telemetry
-        for i, module_mechanism in enumerate(self._module_mechanisms):
-            SmartDashboard.putData(f"Module {i}", module_mechanism)
+        # for i, module_mechanism in enumerate(self._module_mechanisms):
+        #     SmartDashboard.putData(f"Module {i}", module_mechanism)
 
     def telemeterize(self, state: swerve.SwerveDrivetrain.SwerveDriveState):
         """

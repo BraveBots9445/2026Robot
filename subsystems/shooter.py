@@ -33,7 +33,7 @@ from wpimath.geometry import Rotation2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
 from wpimath.controller import BangBangController, ArmFeedforward
 
-from phoenix6.hardware import TalonFX
+from phoenix6.hardware import TalonFX, CANdi
 from phoenix6.sim import TalonFXSimState
 from phoenix6.configs import (
     TalonFXConfiguration,
@@ -42,6 +42,7 @@ from phoenix6.configs import (
     CurrentLimitsConfigs,
     MotorOutputConfigs,
     HardwareLimitSwitchConfigs,
+    SoftwareLimitSwitchConfigs,
 )
 from phoenix6.signals import (
     NeutralModeValue,
@@ -49,10 +50,12 @@ from phoenix6.signals import (
     ReverseLimitSourceValue,
     ForwardLimitTypeValue,
     ReverseLimitTypeValue,
+    MotorAlignmentValue,
+    InvertedValue,
 )
 from phoenix6.status_signal import StatusSignal
 from phoenix6.units import rotations_per_second
-from phoenix6.controls import VelocityVoltage, PositionVoltage
+from phoenix6.controls import VelocityVoltage, PositionVoltage, Follower
 
 
 from tools.BraveLogger import BraveLogger, ShooterData
@@ -72,6 +75,8 @@ class Shooter(Subsystem):
     """
     The motor that spins the flywheel
     """
+
+    _flywheelFollowerMotor: TalonFX
 
     _hoodMotor: TalonFX
 
@@ -99,11 +104,11 @@ class Shooter(Subsystem):
 
     _flywheelSlot0Configs: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(0.35)
+        .with_k_p(0.001)
         .with_k_i(0)
         .with_k_d(0.0)
         .with_k_s(0)
-        .with_k_v(0.115)
+        .with_k_v(0.1196331221)
         .with_k_a(0)
     )
 
@@ -118,7 +123,7 @@ class Shooter(Subsystem):
     _hoodConfig: TalonFXConfiguration
 
     # TODO: Validate
-    _hoodGearRatio: float = 170 / (16 * 5)
+    _hoodGearRatio: float = 36 * 16 / 170
     """
     The gear ratio between the hood motor and the hood output. 
     This is calculated as (motor rotations) / (hood rotations)
@@ -133,19 +138,19 @@ class Shooter(Subsystem):
 
     _hoodArmLength: meters = inchesToMeters(9.5)
 
-    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(-5)
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(65)
     """
     The minimum angle of the hood. This is where the hood is fully retracted
     """
 
-    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(63)
+    _hoodMaxAngle: Rotation2d = Rotation2d.fromDegrees(73)
     """
     The max angle of the hood. This is where the hood is fully extended 
     """
 
     # hood PIDs
     _hoodSlot0Configs: Slot0Configs = (
-        Slot0Configs().with_k_p(1.0).with_k_i(0).with_k_d(0)
+        Slot0Configs().with_k_p(6.5).with_k_i(0).with_k_d(0)
     )
 
     ########################## SETPOINTS ##########################
@@ -244,7 +249,11 @@ class Shooter(Subsystem):
 
     def __init__(self) -> None:
         self._flywheelMotor = TalonFX(26, self._canBus)
-        self._hoodMotor = TalonFX(27, self._canBus)
+        self._flywheelFollowerMotor = TalonFX(27, self._canBus)
+        self._hoodMotor = TalonFX(28, self._canBus)
+
+        if RobotBase.isSimulation():
+            self._candi = CANdi(0, self._canBus)
 
         self._flywheelConfig = (
             TalonFXConfiguration()
@@ -260,7 +269,9 @@ class Shooter(Subsystem):
                 .with_stator_current_limit_enable(True)
             )
             .with_motor_output(
-                MotorOutputConfigs().with_neutral_mode(NeutralModeValue.COAST)
+                MotorOutputConfigs()
+                .with_neutral_mode(NeutralModeValue.COAST)
+                .with_inverted(InvertedValue.COUNTER_CLOCKWISE_POSITIVE)
             )
         )
 
@@ -275,28 +286,34 @@ class Shooter(Subsystem):
                 .with_stator_current_limit(30)
                 .with_stator_current_limit_enable(RobotBase.isReal())
             )
+            .with_motor_output(
+                MotorOutputConfigs()
+                .with_neutral_mode(NeutralModeValue.COAST)
+                .with_inverted(InvertedValue.COUNTER_CLOCKWISE_POSITIVE)
+            )
             # TODO: Hardware limit switches based on CANDi
             # requires validating that the wiring is correct, and what the acutal angles are
-            # .with_hardware_limit_switch(
-            #     HardwareLimitSwitchConfigs()
-            #     .with_forward_limit_enable(True)
-            #     .with_forward_limit_source(ForwardLimitSourceValue.REMOTE_CANDI_S1)
-            #     .with_forward_limit_remote_sensor_id(27)
-            #     .with_forward_limit_autoset_position_enable(True)
-            #     .with_forward_limit_autoset_position_value(
-            #         self._hoodMaxAngle.degrees() / 360 * self._hoodGearRatio
-            #     )
-            #     .with_reverse_limit_enable(True)
-            #     .with_reverse_limit_source(ReverseLimitSourceValue.REMOTE_CANDI_S2)
-            #     .with_reverse_limit_remote_sensor_id(27)
-            #     .with_reverse_limit_autoset_position_enable(True)
-            #     .with_reverse_limit_autoset_position_value(
-            #         self._hoodMinAngle.degrees() / 360 * self._hoodGearRatio
-            #     )
-            # )
+            .with_hardware_limit_switch(
+                HardwareLimitSwitchConfigs()
+                .with_forward_limit_enable(True)
+                .with_forward_limit_source(ForwardLimitSourceValue.REMOTE_CANDI_S2)
+                .with_forward_limit_type(ForwardLimitTypeValue.NORMALLY_OPEN)
+                .with_forward_limit_remote_sensor_id(0)
+                .with_forward_limit_autoset_position_enable(True)
+                .with_forward_limit_autoset_position_value(
+                    self._hoodMaxAngle.degrees() + 2  # * self._hoodGearRatio
+                )
+            )
+            .with_software_limit_switch(
+                SoftwareLimitSwitchConfigs()
+                .with_forward_soft_limit_enable(False)
+                .with_reverse_soft_limit_enable(True)
+                .with_reverse_soft_limit_threshold(self._hoodMinAngle.degrees())
+            )
         )
 
         self._flywheelMotor.configurator.apply(self._flywheelConfig)
+        self._flywheelFollowerMotor.configurator.apply(self._flywheelConfig)
         self._hoodMotor.configurator.apply(self._hoodConfig)
 
         self._getVelocitySignal = self._flywheelMotor.get_velocity(False)
@@ -322,6 +339,9 @@ class Shooter(Subsystem):
         )
 
         self._velocityVoltageRequest = VelocityVoltage(0)
+        self._followerRequest = Follower(
+            self._flywheelMotor.device_id, MotorAlignmentValue.OPPOSED
+        )
         self._hoodPositionVoltageRequest = PositionVoltage(0)
 
         self._hoodFeedForward = ArmFeedforward(0, 0.5, 0, 0)
@@ -379,9 +399,7 @@ class Shooter(Subsystem):
         )
         desiredFlywheelVelocity = self.getFlywheelSetpoint()
         hoodAngleSetpoint = self.getHoodAngleSetpoint()
-        hoodAngle = Rotation2d.fromRotations(
-            self._getHoodPositionSignal.value_as_double
-        )
+        hoodAngle = Rotation2d.fromDegrees(self._getHoodPositionSignal.value_as_double)
         hoodVelocity = self._getHoodVelocitySignal.value_as_double
 
         self._data.actualFlywheelSpeedRpm = flywheelVelocity
@@ -410,11 +428,10 @@ class Shooter(Subsystem):
                 / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
             )
             self._flywheelMotor.set_control(self._velocityVoltageRequest)
+        self._flywheelFollowerMotor.set_control(self._followerRequest)
 
         self._hoodMotor.set_control(
-            self._hoodPositionVoltageRequest.with_position(
-                hoodAngleSetpoint.degrees() / 360 * self._hoodGearRatio
-            )
+            self._hoodPositionVoltageRequest.with_position(hoodAngleSetpoint.degrees())
         )
 
     def simulationPeriodic(self) -> None:
@@ -505,7 +522,7 @@ class Shooter(Subsystem):
         :return: The current hood angle
         :rtype: Rotation2d
         """
-        return Rotation2d(self.getData().actualHoodAngleDegrees)
+        return Rotation2d.fromDegrees(self.getData().actualHoodAngleDegrees)
 
     def getHoodVelocity(self) -> rotations_per_second:
         """
@@ -635,3 +652,8 @@ class Shooter(Subsystem):
 
     def dumpHoodFudgeCommand(self, dumpVal: float = 1.0) -> Command:
         return cmd.runOnce(lambda: self.dumpHoodFudge(dumpVal))
+
+    def setHoodIdle(self, coast: bool = False) -> None:
+        self._hoodMotor.setNeutralMode(
+            NeutralModeValue.COAST if coast else NeutralModeValue.BRAKE
+        )

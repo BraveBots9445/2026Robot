@@ -53,8 +53,6 @@ class VisionCamera:
     A method of the drivetrain passed as a clalable to be used to determine how fast the robot is moving
     """
 
-    _prevEst: Pose3d | None = None
-
     _data: CameraData
 
     def __init__(
@@ -104,7 +102,13 @@ class VisionCamera:
             # Wireframe is not implemented in python photonvision yet
             # self._simCamera.enableDrawWireframe(True)
 
-    def update(self, baseConfidence: float) -> tuple[Pose3d | None, list[int]]:
+    def update(
+        self,
+        baseConfidence: float,
+        baseRotationConfidence: float,
+        visionEnabled: bool = True,
+        trustRotation: bool = False,
+    ) -> tuple[Pose3d | None, list[int]]:
         """
         Updates the pose estimator with the latest camera results
         The Vision class is responsible for calling this periodically
@@ -112,32 +116,63 @@ class VisionCamera:
         :return: The estimated robot pose and the list of seen target IDs
         :rtype: tuple[Pose3d | None, list[int]]
         """
-        targets: list[int] = []
-        result = self._camera.getLatestResult()
-        bestTarget = result.getBestTarget()
-        if bestTarget is None:
-            return (None, targets)
-        distance = bestTarget.getBestCameraToTarget()
-        estPose = self._poseEstimator.estimateCoprocMultiTagPose(result)
-        if estPose is None:
-            estPose = self._poseEstimator.estimateLowestAmbiguityPose(result)
-        if estPose is None:
-            return (None, targets)
-        poseRes = estPose.estimatedPose
-        if poseRes.X() < 0 or poseRes.Y() < 0 or poseRes.Z() < -0.1:
-            return (None, targets)
-        self._logVisionMeasurement(
-            estPose.estimatedPose,
-            estPose.timestampSeconds,
-            self._calculateStdDevs(
-                distance, bestTarget.poseAmbiguity, estPose.estimatedPose
-            ),
-        )
-        self._prevEst = estPose.estimatedPose
-        lastPose = estPose.estimatedPose
-        targets.extend(tag.getFiducialId() for tag in result.getTargets())
+        if not self._camera.isConnected():
+            return (None, [])
+        try:
+            targets: list[int] = []
+            result = self._camera.getLatestResult()
+            poseEstimate = self._poseEstimator.estimateCoprocMultiTagPose(result)
+            if poseEstimate is None:
+                poseEstimate = self._poseEstimator.estimateLowestAmbiguityPose(result)
 
-        return (lastPose, targets)
+            if poseEstimate is None:
+                return (None, [])
+
+            poseEst = poseEstimate.estimatedPose
+            # if poseEst.X() < 0 or poseEst.Y() < 0 or poseEst.Z() < -0.1:
+            #     self._data.hasTarget = False
+            #     return (None, targets)
+
+            multitag = result.multitagResult
+            tagCount = (
+                len(multitag.fiducialIDsUsed)
+                if multitag is not None
+                else len(result.getTargets())
+            )
+            if tagCount == 0:
+                print("urmom")
+                self._data.hasTarget = False
+                return (None, targets)
+
+            avgDist = (
+                sum(
+                    target.bestCameraToTarget.translation().norm()
+                    for target in result.getTargets()
+                )
+                / tagCount
+            )
+            stdevs = self._calculateStdDevs(
+                baseConfidence,
+                baseRotationConfidence,
+                avgDist,
+                tagCount,
+                trustRotation,
+            )
+            self._data.hasTarget = True
+            self._data.estimatedRobotPose = poseEst
+            self._data.translationStdev = stdevs[0]
+            self._data.rotationStdev = stdevs[2]
+            if visionEnabled:
+                self._logVisionMeasurement(
+                    poseEst,
+                    poseEstimate.timestampSeconds,
+                    stdevs,
+                )
+            targets.extend(tag.getFiducialId() for tag in result.getTargets())
+
+            return (poseEst, targets)
+        finally:
+            BraveLogger.pushSubsystemData(self._data)
 
     def getCameraSim(self) -> PhotonCameraSim | None:
         """
@@ -151,14 +186,24 @@ class VisionCamera:
     def _calculateStdDevs(
         self,
         baseConfidence: float,
+        baseRotationConfidence: float,
         avgTagDistance: float,
         tagCount: int,
         trustRotation: bool = False,
     ) -> tuple[float, float, float]:
         translationConfidence = baseConfidence * (avgTagDistance**2) / tagCount
-        rotationConfidence = baseConfidence * (avgTagDistance**2) / tagCount
+        rotationConfidence = baseRotationConfidence * (avgTagDistance**2) / tagCount
         return (
             translationConfidence,
             translationConfidence,
-            (float("inf") if trustRotation else rotationConfidence),
+            (float("inf") if not trustRotation else rotationConfidence),
+        )
+
+    @staticmethod
+    def _transformToPose(transform: Transform3d) -> Pose3d:
+        return Pose3d(
+            transform.X(),
+            transform.Y(),
+            transform.Z(),
+            transform.rotation(),
         )

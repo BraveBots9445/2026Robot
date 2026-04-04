@@ -54,7 +54,7 @@ class DriveByStick(Command):
         self.addRequirements(self.drivetrain)
 
     def execute(self):
-        maxLinearSpeed  = self.drivetrain.getMaxSpeed()
+        maxLinearSpeed = self.drivetrain.getMaxSpeed()
         maxAngularSpeed = self.drivetrain.getMaxAngularRate()
 
         x = self.getX() * maxLinearSpeed
