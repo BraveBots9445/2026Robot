@@ -19,10 +19,11 @@ class IntakeAgitate(RepeatCommand):
         self._startingPivotDegrees = 0.0
 
         sequence = SequentialCommandGroup(
-            IntakeSetPosition(intake, 60.0),
-            IntakeSetPosition(intake, 30.0),
+            # IntakeSetPosition(intake, 60.0),
             IntakeSetPosition(intake, 45.0),
-            IntakeSetPosition(intake, 30.0),
+            IntakeSetPosition(intake, 5.0),
+            # IntakeSetPosition(intake, 45.0),
+            # IntakeSetPosition(intake, 30.0),
         )
 
         super().__init__(sequence)

@@ -36,7 +36,6 @@ from phoenix6.configs import (
     CANcoderConfiguration,
     CurrentLimitsConfigs,
     Slot0Configs,
-    Slot1Configs,
     FeedbackConfigs,
     MagnetSensorConfigs,
     MotorOutputConfigs,
@@ -141,35 +140,24 @@ class Intake(Subsystem):
     _pivotSlot0Config: Slot0Configs = (
         (
             Slot0Configs()
-            .with_k_p(5.0)
+            .with_k_p(8.0)
             .with_k_i(0.0)
-            .with_k_d(0.1)
-            .with_k_g(0.0)
+            .with_k_d(0.0)
+            .with_k_g(0.6)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
         if RobotBase.isSimulation()
         else (
             Slot0Configs()
-            .with_k_p(0.85)
+            .with_k_p(8.0)
             .with_k_i(0.0)
             .with_k_d(0.0)
-            .with_k_g(0.35)
+            .with_k_g(0.2)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
     )
     """
     This is the PID configuration the pivot motor uses when moving between setpoints
-    """
-
-    _pivotSlot1Config: Slot1Configs = (
-        Slot1Configs()
-        .with_k_p(0.8)
-        .with_k_i(0.0)
-        .with_k_d(0.005)
-        .with_k_g(0.015)
-        .with_gravity_type(GravityTypeValue.ARM_COSINE)
-    )
-    """
     """
 
     ########## LOGGING ##########
@@ -235,15 +223,14 @@ class Intake(Subsystem):
                 .with_stator_current_limit(40)
                 .with_stator_current_limit_enable(True)
             )
+            .with_slot0(self._pivotSlot0Config)
             .with_software_limit_switch(
                 SoftwareLimitSwitchConfigs()
-                .with_forward_soft_limit_enable(False)
-                .with_reverse_soft_limit_enable(False)
-                .with_forward_soft_limit_threshold(degreesToRotations(90))
-                .with_reverse_soft_limit_threshold(degreesToRotations(-3.5))
+                .with_forward_soft_limit_enable(True)
+                .with_forward_soft_limit_threshold(0.20)
+                .with_reverse_soft_limit_enable(True)
+                .with_reverse_soft_limit_threshold(-0.05)
             )
-            .with_slot0(self._pivotSlot0Config)
-            .with_slot1(self._pivotSlot1Config)
             .with_feedback(
                 FeedbackConfigs()
                 .with_feedback_remote_sensor_id(self._pivotEncoder.device_id)
@@ -290,7 +277,6 @@ class Intake(Subsystem):
                 .with_stator_current_limit_enable(True)
             )
         )
-
         self._pivotMotor.configurator.apply(self._pivotMotorConfig)
         self._pivotFollowerMotor.configurator.apply(self._pivotFollowerMotorConfig)
         self._pivotEncoder.configurator.apply(self._pivotEncoderConfig)
@@ -391,7 +377,6 @@ class Intake(Subsystem):
 
         v = self._pivotPositionSignal.value_as_double
         pivotPosition = Rotation2d.fromRotations(v)
-        print(f"\t{v}")
         self._data.pivotPositionDegrees = pivotPosition.degrees()
         self._data.pivotSetpointDegrees = self._pivotSetpoint.degrees()
         self._data.pivotCurrent = self._pivotCurrentSignal.value_as_double
@@ -411,10 +396,9 @@ class Intake(Subsystem):
         self._pivotAngleMech.setAngle(pivotPosition.degrees())
         self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
-        self._positionDutyCycleRequest.position = radiansToRotations(
-            self._pivotSetpoint.radians()
+        self._positionDutyCycleRequest.position = (
+            radiansToRotations(self._pivotSetpoint.radians()) * self._pivotGearRatio
         )
-        print(radiansToRotations(self._pivotSetpoint.radians()))
 
         self._pivotMotor.set_control(self._positionDutyCycleRequest)
         self._pivotFollowerMotor.set_control(self._pivotFollowerRequest)

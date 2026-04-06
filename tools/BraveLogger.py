@@ -88,6 +88,8 @@ class ShooterData:
     hoodMotorDutyCycle: float
     hoodMotorVelocity: rotations_per_second
     hoodMotorPosition: float
+    hoodSensorDistance: float
+    hoodDetected: bool
 
 
 @make_wpistruct

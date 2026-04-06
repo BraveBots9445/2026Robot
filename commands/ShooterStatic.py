@@ -4,8 +4,10 @@ from subsystems.shooter import Shooter
 
 
 class ShooterStatic(Command):
-    def __init__(self, shooter: Shooter):
+    def __init__(self, shooter: Shooter, willFinish: bool = False):
         self.shooter = shooter
+
+        self.willFinish = willFinish
 
         self.setName("ShooterStatic")
         self.addRequirements(self.shooter)
@@ -15,4 +17,4 @@ class ShooterStatic(Command):
         self.shooter.setHoodAngleSetpointDegrees(67)
 
     def isFinished(self) -> bool:
-        return False
+        return self.willFinish

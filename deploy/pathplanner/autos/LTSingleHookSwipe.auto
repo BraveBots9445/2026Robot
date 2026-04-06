@@ -21,6 +21,12 @@
           "data": {
             "name": "ShooterStatic"
           }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "FeedShooter"
+          }
         }
       ]
     }

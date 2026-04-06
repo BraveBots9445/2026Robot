@@ -16,16 +16,16 @@
     },
     {
       "anchor": {
-        "x": 2.226975903614458,
-        "y": 4.548602409638555
+        "x": 2.6158059914407983,
+        "y": 4.533138373751783
       },
       "prevControl": {
-        "x": 2.226975903614458,
-        "y": 4.056061385814647
+        "x": 2.6158059914407983,
+        "y": 4.040597349927875
       },
       "nextControl": {
-        "x": 2.226975903614458,
-        "y": 5.641933593497744
+        "x": 2.6158059914407983,
+        "y": 5.626469557610973
       },
       "isLocked": false,
       "linkedName": null
@@ -49,9 +49,21 @@
   "pointTowardsZones": [],
   "eventMarkers": [
     {
+      "name": "IntakeDeploy",
+      "waypointRelativePos": 0,
+      "endWaypointRelativePos": null,
+      "command": null
+    },
+    {
       "name": "IntakeDepot",
       "waypointRelativePos": 1.3955334987592973,
       "endWaypointRelativePos": 1.9593052109181164,
+      "command": null
+    },
+    {
+      "name": "IntakeDeploy",
+      "waypointRelativePos": 1.8960162052667096,
+      "endWaypointRelativePos": null,
       "command": null
     }
   ],

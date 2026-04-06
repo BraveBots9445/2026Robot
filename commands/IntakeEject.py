@@ -27,7 +27,7 @@ class IntakeEject(Command):
 
     def execute(self):
         if self.intake.atSetpoint():
-            self.intake.setRollerSetpoint(-1.0)
+            self.intake.setRollerSetpoint(-0.6)
 
     def end(self, interrupted: bool):
         self.intake.setRollerSetpoint(self._startingRollerSpeed)

@@ -205,19 +205,22 @@ class Vision:
             enabled = False
 
         vel = self._getRobotVelocity()
-        if hypot(vel.vx, vel.vy) > 3.0 or abs(vel.omega) > degreesToRadians(180):
+        speed = hypot(vel.vx, vel.vy)
+        if speed > 2.75 or abs(vel.omega) > degreesToRadians(180):
             enabled = False
 
         tags = []
+        trustRotation = speed < 0.5 and vel.omega_dps < 15
+        rotationMultiplier = 1 if RobotState.isDisabled() else 2
         # _, BLRTags = self._backLeftReverseCamera.update()
         _, shooterRightTags = self._shooterRightCamera.update(
-            0.2, 0.5, enabled, RobotState.isDisabled()
+            0.2, rotationMultiplier, enabled, trustRotation
         )
         tags.extend(shooterRightTags)
         # _, BRFTags = self._backRightForwardCamera.update()
         # if not tags:
         _, ShooterLeftTags = self._shooterLeftCamera.update(
-            0.2, 0.5, enabled, RobotState.isDisabled()
+            0.2, 0.3 * rotationMultiplier, enabled, trustRotation
         )
         tags.extend(ShooterLeftTags)
 

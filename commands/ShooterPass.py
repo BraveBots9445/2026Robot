@@ -17,9 +17,9 @@ class ShooterPass(ShooterAdjustToTarget):
 
     # Interpolation table maps distance in meters -> (flywheel RPM, hood angle degrees).
     interpTable: dict[float, tuple[float, float]] = {
-        2.0: (2200.0, 14.0),
-        3.0: (2400.0, 20.0),
-        4.0: (2600.0, 26.0),
+        2.0: (2200.0, 72.0),
+        3.0: (2400.0, 68.0),
+        4.0: (2600.0, 67.0),
     }
 
     def __init__(

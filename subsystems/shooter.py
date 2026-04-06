@@ -33,16 +33,19 @@ from wpimath.geometry import Rotation2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
 from wpimath.controller import BangBangController, ArmFeedforward
 
-from phoenix6.hardware import TalonFX, CANdi
+from phoenix6.hardware import TalonFX, CANrange
 from phoenix6.sim import TalonFXSimState
 from phoenix6.configs import (
     TalonFXConfiguration,
+    CANrangeConfiguration,
     Slot0Configs,
     FeedbackConfigs,
     CurrentLimitsConfigs,
     MotorOutputConfigs,
     HardwareLimitSwitchConfigs,
     SoftwareLimitSwitchConfigs,
+    ProximityParamsConfigs,
+    FovParamsConfigs,
 )
 from phoenix6.signals import (
     NeutralModeValue,
@@ -138,7 +141,7 @@ class Shooter(Subsystem):
 
     _hoodArmLength: meters = inchesToMeters(9.5)
 
-    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(65)
+    _hoodMinAngle: Rotation2d = Rotation2d.fromDegrees(70)
     """
     The minimum angle of the hood. This is where the hood is fully retracted
     """
@@ -252,8 +255,17 @@ class Shooter(Subsystem):
         self._flywheelFollowerMotor = TalonFX(27, self._canBus)
         self._hoodMotor = TalonFX(28, self._canBus)
 
-        if RobotBase.isSimulation():
-            self._candi = CANdi(0, self._canBus)
+        self._canrange = CANrange(0, self._canBus)
+
+        self._canrangeConfig = (
+            CANrangeConfiguration()
+            .with_proximity_params(
+                ProximityParamsConfigs().with_proximity_threshold(0.05)
+            )
+            .with_fov_params(
+                FovParamsConfigs().with_fov_range_x(6.75).with_fov_range_y(6.75)
+            )
+        )
 
         self._flywheelConfig = (
             TalonFXConfiguration()
@@ -296,12 +308,12 @@ class Shooter(Subsystem):
             .with_hardware_limit_switch(
                 HardwareLimitSwitchConfigs()
                 .with_forward_limit_enable(True)
-                .with_forward_limit_source(ForwardLimitSourceValue.REMOTE_CANDI_S2)
+                .with_forward_limit_source(ForwardLimitSourceValue.REMOTE_CANRANGE)
                 .with_forward_limit_type(ForwardLimitTypeValue.NORMALLY_OPEN)
                 .with_forward_limit_remote_sensor_id(0)
                 .with_forward_limit_autoset_position_enable(True)
                 .with_forward_limit_autoset_position_value(
-                    self._hoodMaxAngle.degrees() + 2  # * self._hoodGearRatio
+                    self._hoodMaxAngle.degrees() + 0.5  # * self._hoodGearRatio
                 )
             )
             .with_software_limit_switch(
@@ -315,6 +327,7 @@ class Shooter(Subsystem):
         self._flywheelMotor.configurator.apply(self._flywheelConfig)
         self._flywheelFollowerMotor.configurator.apply(self._flywheelConfig)
         self._hoodMotor.configurator.apply(self._hoodConfig)
+        self._canrange.configurator.apply(self._canrangeConfig)
 
         self._getVelocitySignal = self._flywheelMotor.get_velocity(False)
         self._getFlywheelCurrentSignal = self._flywheelMotor.get_stator_current(False)
@@ -325,6 +338,9 @@ class Shooter(Subsystem):
         self._getHoodCurrentSignal = self._hoodMotor.get_stator_current(False)
         self._getHoodDutyCycleSignal = self._hoodMotor.get_duty_cycle(False)
 
+        self._getHoodSensorDistanceSignal = self._canrange.get_distance(False)
+        self._getHoodDetectedSignal = self._canrange.get_is_detected(False)
+
         BraveLogger.registerStatusSignal(
             [
                 self._getVelocitySignal,
@@ -334,6 +350,8 @@ class Shooter(Subsystem):
                 self._getHoodVelocitySignal,
                 self._getHoodCurrentSignal,
                 self._getHoodDutyCycleSignal,
+                self._getHoodDetectedSignal,
+                self._getHoodSensorDistanceSignal,
             ],
             self._canBus,
         )
@@ -350,7 +368,9 @@ class Shooter(Subsystem):
 
         self._hoodMotorSimState = self._hoodMotor.sim_state
 
-        self._data = ShooterData(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        self._data = ShooterData(
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, False
+        )
 
         hoodMech = Mechanism2d(100, 100)
         self._hoodMech = hoodMech.getRoot("hood", 50, 50).appendLigament(
@@ -412,6 +432,10 @@ class Shooter(Subsystem):
         self._data.hoodMotorDutyCycle = self._getHoodDutyCycleSignal.value_as_double
         self._data.hoodMotorVelocity = hoodVelocity
         self._data.hoodMotorPosition = self._getHoodPositionSignal.value_as_double
+        self._data.hoodSensorDistance = (
+            self._getHoodSensorDistanceSignal.value_as_double
+        )
+        self._data.hoodDetected = self._getHoodDetectedSignal.value
 
         BraveLogger.pushSubsystemData(self._data)
 
@@ -430,9 +454,9 @@ class Shooter(Subsystem):
             self._flywheelMotor.set_control(self._velocityVoltageRequest)
         self._flywheelFollowerMotor.set_control(self._followerRequest)
 
-        self._hoodMotor.set_control(
-            self._hoodPositionVoltageRequest.with_position(hoodAngleSetpoint.degrees())
-        )
+        # self._hoodMotor.set_control(
+        #     self._hoodPositionVoltageRequest.with_position(hoodAngleSetpoint.degrees())
+        # )
 
     def simulationPeriodic(self) -> None:
 

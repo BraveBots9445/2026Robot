@@ -140,7 +140,6 @@ class VisionCamera:
                 else len(result.getTargets())
             )
             if tagCount == 0:
-                print("urmom")
                 self._data.hasTarget = False
                 return (None, targets)
 

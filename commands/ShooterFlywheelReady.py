@@ -15,4 +15,4 @@ class ShooterFlywheelReady(Command):
         self.shooter.setFlywheelSetpoint(self.speedRPM)
 
     def isFinished(self) -> bool:
-        return False
+        return True

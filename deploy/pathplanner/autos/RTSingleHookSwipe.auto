@@ -13,19 +13,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "HCDepot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "DepotExit"
+            "pathName": "RTHookSwipe"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "IntakeDeploy"
+            "name": "ShooterStatic"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "FeedShooter"
           }
         }
       ]

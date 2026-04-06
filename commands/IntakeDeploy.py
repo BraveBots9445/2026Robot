@@ -4,7 +4,9 @@ from subsystems.intake import Intake
 
 
 class IntakeDeploy(Command):
-    def __init__(self, intake: Intake, rollerSpeed: float = 1.0):
+    def __init__(
+        self, intake: Intake, rollerSpeed: float = 1.0, willFinish: bool = True
+    ):
         """
         Deploy the intake and start the roller.
 
@@ -15,6 +17,7 @@ class IntakeDeploy(Command):
         """
         self.intake = intake
         self.rollerSpeed = rollerSpeed
+        self.willFinish = willFinish
 
         self.setName("IntakeDeploy")
         self.addRequirements(self.intake)
@@ -24,7 +27,7 @@ class IntakeDeploy(Command):
         self.intake.setRollerSetpoint(self.rollerSpeed)
 
     def isFinished(self) -> bool:
-        return self.intake.atSetpoint()
+        return self.willFinish and self.intake.atSetpoint()
 
     def end(self, interrupted) -> None:
         self.intake.setRollerSetpoint(0)
