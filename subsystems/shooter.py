@@ -107,7 +107,7 @@ class Shooter(Subsystem):
 
     _flywheelSlot0Configs: Slot0Configs = (
         Slot0Configs()
-        .with_k_p(0.001)
+        .with_k_p(0.0002)
         .with_k_i(0)
         .with_k_d(0.0)
         .with_k_s(0)

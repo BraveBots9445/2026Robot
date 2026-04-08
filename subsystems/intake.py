@@ -105,7 +105,7 @@ class Intake(Subsystem):
     This is measured as (motor rotations) / (pivot rotations).
     """
 
-    _pivotAbsoluteEncoderOffset: float = -0.24658
+    _pivotAbsoluteEncoderOffset: float = -0.06958
     """
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """

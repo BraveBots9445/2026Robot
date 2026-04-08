@@ -173,9 +173,9 @@ class Vision:
             # self._visionSim.addCamera(
             #     self._backRightForwardCamera.getCameraSim(), self._backRightForwardCameraToRobot  # type: ignore
             # )
-            # self._visionSim.addCamera(
-            #     self._shooterRightCamera.getCameraSim(), self._shooterRightCameraToRobot  # type: ignore
-            # )
+            self._visionSim.addCamera(
+                self._shooterRightCamera.getCameraSim(), self._shooterRightCameraToRobot  # type: ignore
+            )
             # SmartDashboard.putData(self._visionSim.getDebugField())
             self._simNotifier = Notifier(self._simulationPeriodic)
             self._simNotifier.startPeriodic(0.02)
@@ -211,16 +211,20 @@ class Vision:
 
         tags = []
         trustRotation = speed < 0.5 and vel.omega_dps < 15
-        rotationMultiplier = 1 if RobotState.isDisabled() else 2
+        baseConfidence = 0.2
+        rotationConfidence = 0.3 if RobotState.isDisabled() else 10
         # _, BLRTags = self._backLeftReverseCamera.update()
         _, shooterRightTags = self._shooterRightCamera.update(
-            0.2, rotationMultiplier, enabled, trustRotation
+            baseConfidence, rotationConfidence, enabled, trustRotation
         )
         tags.extend(shooterRightTags)
         # _, BRFTags = self._backRightForwardCamera.update()
         # if not tags:
         _, ShooterLeftTags = self._shooterLeftCamera.update(
-            0.2, 0.3 * rotationMultiplier, enabled, trustRotation
+            baseConfidence * (len(tags) + 1),
+            rotationConfidence * (len(tags) + 1),
+            enabled,
+            trustRotation,
         )
         tags.extend(ShooterLeftTags)
 
