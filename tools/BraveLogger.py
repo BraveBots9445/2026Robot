@@ -180,7 +180,7 @@ class BraveLogger:
             IndexerData(0, 0, 0, 0),
             HopperData(0, 0, 0, 0, 0, 0),
             IntakeData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-            ShooterData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            ShooterData(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, False),
             TimerData(0, 0, 0, 0, 0, 0, False, False),
             ShooterLeftCameraData(False, 0, 0, Pose3d()),
             ShooterRightCameraData(False, 0, 0, Pose3d()),

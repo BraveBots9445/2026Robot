@@ -1,4 +1,4 @@
-from commands2 import RepeatCommand, SequentialCommandGroup
+from commands2 import RepeatCommand, SequentialCommandGroup, WaitCommand
 
 from subsystems.intake import Intake
 
@@ -19,11 +19,14 @@ class IntakeAgitate(RepeatCommand):
         self._startingPivotDegrees = 0.0
 
         sequence = SequentialCommandGroup(
-            # IntakeSetPosition(intake, 60.0),
+            IntakeSetPosition(intake, 60.0),
+            WaitCommand(0.1),
+            IntakeSetPosition(intake, 30.0),
+            WaitCommand(0.05),
             IntakeSetPosition(intake, 45.0),
-            IntakeSetPosition(intake, 5.0),
-            # IntakeSetPosition(intake, 45.0),
-            # IntakeSetPosition(intake, 30.0),
+            WaitCommand(0.1),
+            IntakeSetPosition(intake, 30.0),
+            WaitCommand(0.05),
         )
 
         super().__init__(sequence)

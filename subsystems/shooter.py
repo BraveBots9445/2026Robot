@@ -454,9 +454,9 @@ class Shooter(Subsystem):
             self._flywheelMotor.set_control(self._velocityVoltageRequest)
         self._flywheelFollowerMotor.set_control(self._followerRequest)
 
-        # self._hoodMotor.set_control(
-        #     self._hoodPositionVoltageRequest.with_position(hoodAngleSetpoint.degrees())
-        # )
+        self._hoodMotor.set_control(
+            self._hoodPositionVoltageRequest.with_position(hoodAngleSetpoint.degrees())
+        )
 
     def simulationPeriodic(self) -> None:
 

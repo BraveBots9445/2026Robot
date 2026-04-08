@@ -105,7 +105,7 @@ class Intake(Subsystem):
     This is measured as (motor rotations) / (pivot rotations).
     """
 
-    _pivotAbsoluteEncoderOffset: float = -0.4018
+    _pivotAbsoluteEncoderOffset: float = -0.24658
     """
     The offset for the cancoder in rotations such that it reads 0 when the pivot is fully extended.
     """
@@ -149,10 +149,10 @@ class Intake(Subsystem):
         if RobotBase.isSimulation()
         else (
             Slot0Configs()
-            .with_k_p(8.0)
+            .with_k_p(7.0)
             .with_k_i(0.0)
             .with_k_d(0.0)
-            .with_k_g(0.2)
+            .with_k_g(0.0)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
     )
@@ -396,9 +396,9 @@ class Intake(Subsystem):
         self._pivotAngleMech.setAngle(pivotPosition.degrees())
         self._pivotAngleSetpointMech.setAngle(self._pivotSetpoint.degrees())
 
-        self._positionDutyCycleRequest.position = (
-            radiansToRotations(self._pivotSetpoint.radians()) * self._pivotGearRatio
-        )
+        self._positionDutyCycleRequest.position = radiansToRotations(
+            self._pivotSetpoint.radians()
+        )  # * self._pivotGearRatio
 
         self._pivotMotor.set_control(self._positionDutyCycleRequest)
         self._pivotFollowerMotor.set_control(self._pivotFollowerRequest)

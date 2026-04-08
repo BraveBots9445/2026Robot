@@ -50,15 +50,15 @@ class Vision:
 
     # TODO: The below offsets are all garbage from copilot
     _shooterLeftRobotToCamera: Transform3d = Transform3d(
-        Translation3d(
-            inchesToMeters(-3.5), inchesToMeters(-9.5), inchesToMeters(16.75)
-        ),
-        Rotation3d.fromDegrees(0, 15, 170),
+        Translation3d(inchesToMeters(-3.5), inchesToMeters(9.5), inchesToMeters(16.75)),
+        Rotation3d.fromDegrees(0, 9.0584, -155),
     )
 
     _shooterRightCameraToRobot: Transform3d = Transform3d(
-        Translation3d(inchesToMeters(-3.5), inchesToMeters(9.5), inchesToMeters(16.75)),
-        Rotation3d.fromDegrees(0, 10.58, 180),
+        Translation3d(
+            inchesToMeters(-3.5), inchesToMeters(-9.5), inchesToMeters(16.75)
+        ),
+        Rotation3d.fromDegrees(0, 9.0584, 155),
     )
 
     # _backLeftReverseCameraToRobot: Transform3d = Transform3d(
