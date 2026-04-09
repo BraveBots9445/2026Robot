@@ -17,7 +17,7 @@ class IntakeStow(Command):
         self.addRequirements(self.intake)
 
     def initialize(self):
-        self.intake.setPivotSetpointDegrees(90.0)
+        self.intake.setPivotSetpointDegrees(125.0)
         self.intake.setRollerSetpoint(0.0)
 
     def isFinished(self) -> bool:

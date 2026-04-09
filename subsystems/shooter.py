@@ -448,6 +448,7 @@ class Shooter(Subsystem):
         else:
             self._velocityVoltageRequest.velocity = (
                 self._flywheelSetpoint
+                * self._flywheelFudgeFactor
                 / kSECONDS_PER_MINUTE
                 / self._flywheelConfig.feedback.sensor_to_mechanism_ratio
             )
@@ -455,7 +456,9 @@ class Shooter(Subsystem):
         self._flywheelFollowerMotor.set_control(self._followerRequest)
 
         self._hoodMotor.set_control(
-            self._hoodPositionVoltageRequest.with_position(hoodAngleSetpoint.degrees())
+            self._hoodPositionVoltageRequest.with_position(
+                hoodAngleSetpoint.degrees() + self._hoodFudgeFactor
+            )
         )
 
     def simulationPeriodic(self) -> None:
@@ -492,7 +495,7 @@ class Shooter(Subsystem):
         :param setpoint: The target speed in RPM
         :type setpoint: revolutions_per_minute
         """
-        setpoint = max(min(setpoint, 6000), 0) * self._flywheelFudgeFactor
+        setpoint = max(min(setpoint, 6000), 0)
         self._flywheelSetpoint = setpoint
 
     def setHoodAngleSetpoint(
@@ -503,8 +506,6 @@ class Shooter(Subsystem):
         :param setpoint: The target hood angle
         :type setpoint: Rotation2d
         """
-        if not ignoreManual:
-            setpoint += Rotation2d.fromDegrees(self._hoodFudgeFactor)
         if setpoint.radians() < self._hoodMinAngle.radians():
             setpoint = self._hoodMinAngle
         elif setpoint.radians() > self._hoodMaxAngle.radians():
@@ -608,13 +609,20 @@ class Shooter(Subsystem):
 
     def atFlywheelSetpoint(self) -> bool:
         return (
-            abs(self._data.actualFlywheelSpeedRpm - self._data.desiredFlywheelSpeedRpm)
+            abs(
+                (self._data.actualFlywheelSpeedRpm * self._flywheelFudgeFactor)
+                - self._data.desiredFlywheelSpeedRpm
+            )
             < 50
         )
 
     def atHoodSetpoint(self) -> bool:
         return (
-            abs(self._data.actualHoodAngleDegrees - self._data.desiredHoodAngleDegrees)
+            abs(
+                self._data.actualHoodAngleDegrees
+                + self._hoodFudgeFactor
+                - self._data.desiredHoodAngleDegrees
+            )
             < 3
         )
 

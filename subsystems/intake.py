@@ -140,10 +140,10 @@ class Intake(Subsystem):
     _pivotSlot0Config: Slot0Configs = (
         (
             Slot0Configs()
-            .with_k_p(8.0)
+            .with_k_p(6.5)
             .with_k_i(0.0)
-            .with_k_d(0.0)
-            .with_k_g(0.6)
+            .with_k_d(0.2)
+            .with_k_g(0.3)
             .with_gravity_type(GravityTypeValue.ARM_COSINE)
         )
         if RobotBase.isSimulation()
@@ -227,7 +227,7 @@ class Intake(Subsystem):
             .with_software_limit_switch(
                 SoftwareLimitSwitchConfigs()
                 .with_forward_soft_limit_enable(True)
-                .with_forward_soft_limit_threshold(0.20)
+                .with_forward_soft_limit_threshold(0.40)
                 .with_reverse_soft_limit_enable(True)
                 .with_reverse_soft_limit_threshold(-0.05)
             )

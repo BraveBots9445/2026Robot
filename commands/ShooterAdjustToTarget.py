@@ -46,9 +46,15 @@ class ShooterAdjustToTarget(Command):
         # Snapshot table values now so interpolation remains static for this command instance.
         sortedRows = sorted(interpolationTable.items())
         if sortedRows:
-            self._interpDistances = np.array([row[0] for row in sortedRows], dtype=float)
-            self._interpFlywheelRpms = np.array([row[1][0] for row in sortedRows], dtype=float)
-            self._interpHoodDegrees = np.array([row[1][1] for row in sortedRows], dtype=float)
+            self._interpDistances = np.array(
+                [row[0] for row in sortedRows], dtype=float
+            )
+            self._interpFlywheelRpms = np.array(
+                [row[1][0] for row in sortedRows], dtype=float
+            )
+            self._interpHoodDegrees = np.array(
+                [row[1][1] for row in sortedRows], dtype=float
+            )
 
         # Stored for future shoot-on-the-move compensation logic.
         self.enableShootOnMove = enableShootOnMove
@@ -60,12 +66,13 @@ class ShooterAdjustToTarget(Command):
         if self._interpDistances.size == 0:
             return 0.0, self.shooter.minHoodAngle.degrees()
 
-        rpm = float(np.interp(distanceMeters, self._interpDistances, self._interpFlywheelRpms))
-        deg = float(np.interp(distanceMeters, self._interpDistances, self._interpHoodDegrees))
+        rpm = float(
+            np.interp(distanceMeters, self._interpDistances, self._interpFlywheelRpms)
+        )
+        deg = float(
+            np.interp(distanceMeters, self._interpDistances, self._interpHoodDegrees)
+        )
         return rpm, deg
-
-    def initialize(self):
-        self.execute()
 
     def _getRobotPoseFromState(self) -> Pose2d:
         state = self.robotState()
@@ -74,9 +81,7 @@ class ShooterAdjustToTarget(Command):
     def execute(self):
         robotPose = self._getRobotPoseFromState()
 
-        distanceMeters = robotPose.translation().distance(
-            self.targetPose.translation()
-        )
+        distanceMeters = robotPose.translation().distance(self.targetPose.translation())
         flywheelRpm, hoodDegrees = self._lookupSetpoints(distanceMeters)
 
         self.shooter.setFlywheelSetpoint(flywheelRpm)

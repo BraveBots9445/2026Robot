@@ -1,10 +1,10 @@
 ########## STANDARD LIBRARY IMPORTS ##########
 
 ########## WPILIB IMPORTS ##########
-from commands2 import (
-    Command,
-    InstantCommand,
-)
+from commands2 import Command, RepeatCommand, SequentialCommandGroup, WaitCommand
+from commands2.button import Trigger
+from commands2 import cmd
+
 from wpilib import PowerDistribution, SmartDashboard
 
 from wpimath import applyDeadband
@@ -50,7 +50,7 @@ class RobotContainer:
 
     def __init__(self) -> None:
         self.driver_controller = CommandController9445(0)
-        # self.operator_controller = CommandController9445(1)
+        self.operator_controller = CommandController9445(1)
         self.pdh = PowerDistribution()
         self.pdh.setSwitchableChannel(True)
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
@@ -119,7 +119,7 @@ class RobotContainer:
         )
 
         self.driver_controller.leftTrigger().toggleOnTrue(
-            IntakeDeploy(self.intake, 0.50, True)
+            IntakeDeploy(self.intake, 0.50, False)
         )
 
         self.driver_controller.a().whileTrue(
@@ -127,6 +127,42 @@ class RobotContainer:
         )
 
         self.driver_controller.leftBumper().toggleOnTrue(IntakeAgitate(self.intake))
+
+        Trigger(lambda: self.operator_controller.getFRCLX() > 0.1).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.bumpFlywheelFudgeCommand(),
+                    WaitCommand(0.05),
+                )
+            )
+        )
+
+        Trigger(lambda: self.operator_controller.getFRCLX() < -0.1).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.dumpFlywheelFudgeCommand(), WaitCommand(0.05)
+                )
+            )
+        )
+
+        Trigger(lambda: self.operator_controller.getFRCRX() > 0.1).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.bumpHoodFudgeCommand(), WaitCommand(0.05)
+                )
+            )
+        )
+
+        Trigger(lambda: self.operator_controller.getFRCRX() < -0.1).whileTrue(
+            RepeatCommand(
+                SequentialCommandGroup(
+                    self.shooter.dumpHoodFudgeCommand(), WaitCommand(0.05)
+                )
+            )
+        )
+
+        self.operator_controller.a().onTrue(IntakeStow(self.intake))
+        self.operator_controller.y().whileTrue(ShooterStatic(self.shooter))
 
         # self.driver_controller.b().onTrue(
         #     InstantCommand(self.drivetrain.seed_field_centric())
