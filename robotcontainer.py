@@ -119,7 +119,7 @@ class RobotContainer:
         )
 
         self.driver_controller.leftTrigger().toggleOnTrue(
-            IntakeDeploy(self.intake, 0.50, False)
+            IntakeDeploy(self.intake, 0.50, True)
         )
 
         self.driver_controller.a().whileTrue(
