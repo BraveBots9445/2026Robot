@@ -108,23 +108,21 @@ class RobotContainer:
         # self.hopper.setDefaultCommand(HopperIdle(self.hopper))
 
         # robot oriented on Left stick push hold
-        self.driver_controller.leftStick().toggleOnTrue(
-            DriveByStick(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
-                fieldCentric=False,
-            )
-        )
+        # self.driver_controller.leftStick().toggleOnTrue(
+        #     DriveByStick(
+        #         self.drivetrain,
+        #         self.driver_controller.getFRCLX,
+        #         self.driver_controller.getFRCLY,
+        #         self.driver_controller.getFRCRY,
+        #         fieldCentric=False,
+        #     )
+        # )
 
         self.driver_controller.leftTrigger().toggleOnTrue(
-            IntakeDeploy(self.intake, 0.50, False)
+            IntakeDeploy(self.intake, 0.85, False)
         )
 
-        self.driver_controller.a().whileTrue(
-            IntakeEject(self.intake).alongWith(HopperEject(self.hopper))
-        )
+        self.driver_controller.a().whileTrue(IntakeEject(self.intake))
 
         self.driver_controller.leftBumper().toggleOnTrue(IntakeAgitate(self.intake))
 
@@ -162,7 +160,9 @@ class RobotContainer:
         )
 
         self.operator_controller.a().onTrue(IntakeStow(self.intake))
-        self.operator_controller.y().whileTrue(ShooterStatic(self.shooter))
+        self.operator_controller.y().whileTrue(ShooterReverse(self.shooter))
+
+        self.operator_controller.x().whileTrue(IntakeEject(self.intake))
 
         # self.driver_controller.b().onTrue(
         #     InstantCommand(self.drivetrain.seed_field_centric())
@@ -227,6 +227,16 @@ class RobotContainer:
             FeedShooter(self.indexer, self.hopper)
         )  # known good 4/3/26 5:35
 
+        self.operator_controller.povLeft().onTrue(
+            self.shooter.resetManualOffsetsCommand()
+        )
+
+        self.operator_controller.povUp().whileTrue(ShooterStaticIdeal(self.shooter))
+        self.operator_controller.povDown().whileTrue(ShootPassIdeal(self.shooter))
+        self.operator_controller.povRight().whileTrue(
+            ShootPassIdealFullField(self.shooter)
+        )
+
         # self.shooter.setDefaultCommand(ShooterStow(self.shooter))
         # self.driver_controller.povUp().whileTrue(ShooterStatic(self.shooter))
 
@@ -287,16 +297,22 @@ class RobotContainer:
             "ShooterStatic", ShooterStatic(self.shooter, True)
         )
         NamedCommands.registerCommand(
+            "ShooterAtHub", ShooterAtHub(self.shooter, self.drivetrain.get_state)
+        )
+        NamedCommands.registerCommand(
             "FeedShooter", FeedShooter(self.indexer, self.hopper)
         )
         NamedCommands.registerCommand(
             "ShooterFlywheelReady", ShooterFlywheelReady(self.shooter)
         )
         NamedCommands.registerCommand(
-            "IntakeDeploy", IntakeDeploy(self.intake, 0.5, False)
+            "IntakeDeploy", IntakeDeploy(self.intake, 0.85, False)
         )
-        EventTrigger("IntakeDepot").whileTrue(IntakeSetPosition(self.intake, 5.0))
-        EventTrigger("IntakeDeploy").onTrue(IntakeDeploy(self.intake, 0.5, False))
+        EventTrigger("IntakeDepot").whileTrue(IntakeSetPosition(self.intake, 10.0))
+        EventTrigger("IntakeDeploy").onTrue(IntakeDeploy(self.intake, 0.90, False))
+        EventTrigger(
+            "IntakeAgitate",
+        ).onTrue(SequentialCommandGroup(WaitCommand(5), IntakeAgitate(self.intake)))
 
     def get_auto_command(self) -> Command:
         return self.auto_chooser.getSelected()

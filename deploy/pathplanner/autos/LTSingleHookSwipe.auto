@@ -17,15 +17,22 @@
           }
         },
         {
-          "type": "named",
+          "type": "parallel",
           "data": {
-            "name": "ShooterStatic"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "FeedShooter"
+            "commands": [
+              {
+                "type": "named",
+                "data": {
+                  "name": "ShooterAtHub"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "FeedShooter"
+                }
+              }
+            ]
           }
         }
       ]

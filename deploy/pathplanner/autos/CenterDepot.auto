@@ -23,9 +23,28 @@
           }
         },
         {
-          "type": "named",
+          "type": "parallel",
           "data": {
-            "name": "IntakeDeploy"
+            "commands": [
+              {
+                "type": "named",
+                "data": {
+                  "name": "ShooterAtHub"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "FeedShooter"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 10.0
           }
         }
       ]

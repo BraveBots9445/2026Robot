@@ -34,8 +34,10 @@ class IntakeAgitate(RepeatCommand):
 
     def initialize(self):
         self._startingPivotDegrees = self.intake.getAngle().degrees()
+        self.intake.setRollerSetpoint(0.7)
         super().initialize()
 
     def end(self, interrupted: bool):
         super().end(interrupted)
         self.intake.setPivotSetpointDegrees(self._startingPivotDegrees)
+        self.intake.setRollerSetpoint(0)

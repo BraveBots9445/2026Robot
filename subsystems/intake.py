@@ -241,6 +241,8 @@ class Intake(Subsystem):
                 MotorOutputConfigs()
                 .with_inverted(self._pivotMotorDirection)
                 .with_neutral_mode(NeutralModeValue.COAST)
+                .with_peak_forward_duty_cycle(0.25)
+                .with_peak_reverse_duty_cycle(-0.25)
             )
         )
 
@@ -273,7 +275,7 @@ class Intake(Subsystem):
             )
             .with_current_limits(
                 CurrentLimitsConfigs()
-                .with_stator_current_limit(50)
+                .with_stator_current_limit(60)
                 .with_stator_current_limit_enable(True)
             )
         )

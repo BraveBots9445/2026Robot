@@ -262,9 +262,7 @@ class Shooter(Subsystem):
             .with_proximity_params(
                 ProximityParamsConfigs().with_proximity_threshold(0.05)
             )
-            .with_fov_params(
-                FovParamsConfigs().with_fov_range_x(6.75).with_fov_range_y(6.75)
-            )
+            .with_fov_params(FovParamsConfigs().with_fov_range_x(4).with_fov_range_y(4))
         )
 
         self._flywheelConfig = (
@@ -313,7 +311,7 @@ class Shooter(Subsystem):
                 .with_forward_limit_remote_sensor_id(0)
                 .with_forward_limit_autoset_position_enable(True)
                 .with_forward_limit_autoset_position_value(
-                    self._hoodMaxAngle.degrees() + 0.5  # * self._hoodGearRatio
+                    self._hoodMaxAngle.degrees() + 0.1  # * self._hoodGearRatio
                 )
             )
             .with_software_limit_switch(
@@ -684,6 +682,13 @@ class Shooter(Subsystem):
 
     def dumpHoodFudgeCommand(self, dumpVal: float = 1.0) -> Command:
         return cmd.runOnce(lambda: self.dumpHoodFudge(dumpVal))
+
+    def resetManualOffsets(self) -> None:
+        self._hoodFudgeFactor = 0
+        self._flywheelFudgeFactor = 1
+
+    def resetManualOffsetsCommand(self) -> Command:
+        return cmd.runOnce(self.resetManualOffsets)
 
     def setHoodIdle(self, coast: bool = False) -> None:
         self._hoodMotor.setNeutralMode(

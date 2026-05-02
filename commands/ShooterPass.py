@@ -24,6 +24,7 @@ class ShooterPass(ShooterAdjustToTarget):
         8.0: (2900.0, 67.0),
         10.0: (3050.0, 67.0),
         12.0: (3200.0, 67.0),
+        20.0: (4700, 67.0),
     }
 
     def __init__(

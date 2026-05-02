@@ -14,7 +14,7 @@ class ShooterStatic(Command):
 
     def initialize(self):
         self.shooter.setFlywheelSetpoint(3000)
-        self.shooter.setHoodAngleSetpointDegrees(67)
+        self.shooter.setHoodAngleSetpointDegrees(70)
 
     def isFinished(self) -> bool:
         return self.willFinish

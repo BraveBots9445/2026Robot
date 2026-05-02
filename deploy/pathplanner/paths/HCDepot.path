@@ -32,12 +32,12 @@
     },
     {
       "anchor": {
-        "x": 0.7366,
-        "y": 5.964
+        "x": 0.5585592011412266,
+        "y": 5.982268188302426
       },
       "prevControl": {
-        "x": 1.9473782869193461,
-        "y": 5.940828035805015
+        "x": 1.7693374880605726,
+        "y": 5.95909622410744
       },
       "nextControl": null,
       "isLocked": false,
@@ -48,7 +48,7 @@
   "constraintZones": [
     {
       "name": "Constraints Zone",
-      "minWaypointRelativePos": 1.7015530047265213,
+      "minWaypointRelativePos": 1.5827143821742105,
       "maxWaypointRelativePos": 2.0,
       "constraints": {
         "maxVelocity": 1.5,
@@ -64,14 +64,14 @@
   "eventMarkers": [
     {
       "name": "IntakeDeploy",
-      "waypointRelativePos": 0,
+      "waypointRelativePos": 0.8318703578663076,
       "endWaypointRelativePos": null,
       "command": null
     },
     {
       "name": "IntakeDepot",
-      "waypointRelativePos": 1.3955334987592973,
-      "endWaypointRelativePos": 1.9593052109181164,
+      "waypointRelativePos": 1.3612424037812298,
+      "endWaypointRelativePos": 2.0,
       "command": null
     },
     {

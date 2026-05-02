@@ -3,37 +3,42 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 0.7366,
-        "y": 5.964
+        "x": 0.5585592011412266,
+        "y": 5.982268188302426
       },
       "prevControl": null,
       "nextControl": {
-        "x": 1.159656928667462,
-        "y": 5.964
+        "x": 1.8006704707560623,
+        "y": 5.89169757489301
       },
       "isLocked": false,
       "linkedName": "DepotInside"
     },
     {
       "anchor": {
-        "x": 1.9974939758995203,
-        "y": 5.964
+        "x": 1.710099857346647,
+        "y": 4.753095577746078
       },
       "prevControl": {
-        "x": 1.5770184173096666,
-        "y": 5.964
+        "x": 1.723038516405135,
+        "y": 5.257703281027104
       },
       "nextControl": null,
       "isLocked": false,
       "linkedName": null
     }
   ],
-  "rotationTargets": [],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.3646055437100218,
+      "rotationDegrees": 180.0
+    }
+  ],
   "constraintZones": [
     {
       "name": "Constraints Zone",
       "minWaypointRelativePos": 0,
-      "maxWaypointRelativePos": 0.17285617825792546,
+      "maxWaypointRelativePos": 0.2511816340310571,
       "constraints": {
         "maxVelocity": 1.5,
         "maxAcceleration": 3.0,
@@ -45,7 +50,14 @@
     }
   ],
   "pointTowardsZones": [],
-  "eventMarkers": [],
+  "eventMarkers": [
+    {
+      "name": "IntakeAgitate",
+      "waypointRelativePos": 0.9,
+      "endWaypointRelativePos": null,
+      "command": null
+    }
+  ],
   "globalConstraints": {
     "maxVelocity": 5.0,
     "maxAcceleration": 3.0,
@@ -56,7 +68,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 145.0
+    "rotation": 163.0
   },
   "reversed": false,
   "folder": null,

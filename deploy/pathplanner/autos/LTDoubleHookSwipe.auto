@@ -13,7 +13,38 @@
         {
           "type": "path",
           "data": {
-            "pathName": "RTHookSwipe"
+            "pathName": "LTHookSwipe"
+          }
+        },
+        {
+          "type": "race",
+          "data": {
+            "commands": [
+              {
+                "type": "named",
+                "data": {
+                  "name": "ShooterAtHub"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "FeedShooter"
+                }
+              },
+              {
+                "type": "wait",
+                "data": {
+                  "waitTime": 5.0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "LTHookSwipe2"
           }
         },
         {
