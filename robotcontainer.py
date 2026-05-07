@@ -110,65 +110,25 @@ class RobotContainer:
         # self.hopper.setDefaultCommand(HopperIdle(self.hopper))
 
         # robot oriented on Left stick push hold
-        # self.driver_controller.leftStick().toggleOnTrue(
-        #     DriveByStick(
-        #         self.drivetrain,
-        #         self.driver_controller.getFRCLX,
-        #         self.driver_controller.getFRCLY,
-        #         self.driver_controller.getFRCRY,
-        #         fieldCentric=False,
-        #     )
-        # )
-
-        self.driver_controller.leftTrigger().toggleOnTrue(
-            IntakeDeploy(self.intake, 0.85, False)
-        )
-
-        self.driver_controller.a().whileTrue(IntakeEject(self.intake))
-
-        self.driver_controller.leftBumper().toggleOnTrue(IntakeAgitate(self.intake))
-
-        Trigger(lambda: self.operator_controller.getFRCLX() > 0.1).whileTrue(
-            RepeatCommand(
-                SequentialCommandGroup(
-                    self.shooter.bumpFlywheelFudgeCommand(),
-                    WaitCommand(0.05),
-                )
+        self.driver_controller.leftStick().whileTrue(
+           DriveByStick(
+                self.drivetrain,
+                self.driver_controller.getFRCLX,
+                self.driver_controller.getFRCLY,
+                self.driver_controller.getFRCRY,
+                fieldCentric=False,
             )
         )
 
-        Trigger(lambda: self.operator_controller.getFRCLX() < -0.1).whileTrue(
-            RepeatCommand(
-                SequentialCommandGroup(
-                    self.shooter.dumpFlywheelFudgeCommand(), WaitCommand(0.05)
-                )
-            )
+        # slow mode
+        self.driver_controller.leftTrigger().onTrue(
+            DrivetrainHalfSpeed(self.drivetrain)
         )
 
-        Trigger(lambda: self.operator_controller.getFRCRX() > 0.1).whileTrue(
-            RepeatCommand(
-                SequentialCommandGroup(
-                    self.shooter.bumpHoodFudgeCommand(), WaitCommand(0.05)
-                )
-            )
+        # defense mode
+        self.driver_controller.rightTrigger().onTrue(
+            DrivetrainDoubleSpeed(self.drivetrain)
         )
-
-        Trigger(lambda: self.operator_controller.getFRCRX() < -0.1).whileTrue(
-            RepeatCommand(
-                SequentialCommandGroup(
-                    self.shooter.dumpHoodFudgeCommand(), WaitCommand(0.05)
-                )
-            )
-        )
-
-        self.operator_controller.a().onTrue(IntakeStow(self.intake))
-        self.operator_controller.y().whileTrue(ShooterReverse(self.shooter))
-
-        self.operator_controller.x().whileTrue(IntakeEject(self.intake))
-
-        # self.driver_controller.b().onTrue(
-        #     InstantCommand(self.drivetrain.seed_field_centric())
-        # )
 
         # Drivetrain A/B/X/Y tests
         self.driver_controller.a().onTrue(
