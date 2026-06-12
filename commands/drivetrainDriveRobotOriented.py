@@ -6,13 +6,13 @@ from commands2 import Command
 
 from phoenix6 import swerve
 
-from subsystems.drivetrain import Drivetrain
+from subsystems.ctredrivetrain import CommandSwerveDrivetrain
 
 
 class DrivetrainDriveRobotOriented(Command):
     def __init__(
         self,
-        drivetrain: Drivetrain,
+        drivetrain: CommandSwerveDrivetrain,
         getX: Callable[[], float],
         getY: Callable[[], float],
         getRotation: Callable[[], float],

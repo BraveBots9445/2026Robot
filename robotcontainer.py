@@ -14,13 +14,10 @@ from wpimath.units import inchesToMeters
 from ntcore import NetworkTableInstance
 from ntcore.util import ntproperty
 
-
 ########## VENDOR (etc) IMPORTS ##########
 from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 
-
 ########## SUBSYSTEM IMPORTS ##########
-from subsystems.vision import Vision
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
 
@@ -46,14 +43,6 @@ class RobotContainer:
 
         self.drivetrain = TunerConstants.create_drivetrain()
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
-
-        self.vision = Vision(
-            lambda arg1, arg2, arg3: self.drivetrain.add_vision_measurement(
-                Pose2d(arg1.X(), arg1.Y(), arg1.rotation().toRotation2d()), arg2, arg3
-            ),
-            lambda: self.drivetrain.get_state().speeds,
-            lambda: self.drivetrain.get_state().pose,
-        )
 
         self.drivetrain.register_telemetry(
             lambda telem: self._logger.telemeterize(telem)
@@ -104,8 +93,6 @@ class RobotContainer:
         self.driver_controller.b().onTrue(
             InstantCommand(self.drivetrain.seed_field_centric)
         )
-
-        self.driver_controller.x().onTrue(self.vision.toggleEnabledCommand())
 
         """Operator"""
         """

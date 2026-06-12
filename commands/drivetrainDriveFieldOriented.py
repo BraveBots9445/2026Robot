@@ -8,13 +8,13 @@ from wpimath.units import meters_per_second, degrees_per_second, degreesToRadian
 
 from phoenix6 import swerve
 
-from subsystems.drivetrain import Drivetrain
+from subsystems.ctredrivetrain import CommandSwerveDrivetrain
 
 
 class DrivetrainDriveFieldOriented(Command):
     def __init__(
         self,
-        drivetrain: Drivetrain,
+        drivetrain: CommandSwerveDrivetrain,
         getX: Callable[[], float],
         getY: Callable[[], float],
         getRotation: Callable[[], float],
@@ -26,7 +26,7 @@ class DrivetrainDriveFieldOriented(Command):
         Deadbands should be handled by the controller input functions
 
         :param drivetrain: The drivetrain subsystem object
-        :type drivetrain: Drivetrain
+        :type drivetrain: CommandSwerveDrivetrain
         :param getX: Get the forwards velocity % input from the controller
         :type getX: Callable[[], float]
         :param getY: Get the sideways velocity % input from the controller
