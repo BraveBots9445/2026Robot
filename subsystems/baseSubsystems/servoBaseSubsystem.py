@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 from wpilib.simulation import ElevatorSim, SingleJointedArmSim, DCMotorSim
 
+from wpiutil.wpistruct import make_wpistruct
+
 from phoenix6.hardware import TalonFX, CANcoder
 from phoenix6.configs import TalonFXConfiguration, CANcoderConfiguration
 from phoenix6.status_signal import StatusSignal
@@ -18,9 +20,9 @@ class MechanismPosition(float):
     ...
 
 
+@make_wpistruct
 @dataclass
 class ServoBaseSubsystemData:
-    name: str
     position: float
     rotorPosition: float
     statorCurrent: float
@@ -99,7 +101,6 @@ class ServoBaseSubsystem:
             self._motor.stopMotor()
 
         return ServoBaseSubsystemData(
-            self._name,
             self._positionSignal.value,
             self._rotorPositionSignal.value,
             self._statorCurrentSignal.value,
@@ -131,6 +132,9 @@ class ServoBaseSubsystem:
 
     def atSetpoint(self, tolerance: MechanismPosition | float = 0.05) -> bool:
         return abs(self._setpoint - self._positionSignal.value) < tolerance
+
+    def getPosition(self) -> MechanismPosition | float:
+        return self._positionSignal.value
 
     def setEnabled(self, enabled: bool) -> None:
         self._enabled = enabled

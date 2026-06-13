@@ -20,6 +20,7 @@ from pathplannerlib.auto import AutoBuilder, NamedCommands, PathConstraints
 ########## SUBSYSTEM IMPORTS ##########
 from telemetry import Telemetry
 from generated.tuner_constants import TunerConstants
+from subsystems.superstructure import Superstructure
 
 ########## COMMAND IMPORTS ##########
 from commands import *
@@ -39,7 +40,7 @@ class RobotContainer:
         self.pdh.setSwitchableChannel(True)
         self.nettable = NetworkTableInstance.getDefault().getTable("0000DriverInfo")
 
-        self.level = 1
+        self.superstructure = Superstructure()
 
         self.drivetrain = TunerConstants.create_drivetrain()
         self._logger = Telemetry(self.drivetrain.getMaxSpeed())
@@ -68,31 +69,15 @@ class RobotContainer:
             )
         )
 
-        # robot oriented on Left stick push hold
-        self.driver_controller.leftStick().whileTrue(
-            DrivetrainDriveRobotOriented(
-                self.drivetrain,
-                self.driver_controller.getFRCLX,
-                self.driver_controller.getFRCLY,
-                self.driver_controller.getFRCRY,
-                self.drivetrain.getMaxSpeed,
-                self.drivetrain.getMaxAngularRateDeg,
-            )
+        self.driver_controller.povLeft().onTrue(self.superstructure.shooterIdle())
+        self.driver_controller.povRight().onTrue(
+            self.superstructure.shooterPassStatic()
         )
+        self.driver_controller.povUp().onTrue(self.superstructure.shooterShootStatic())
 
-        # slow mode
-        self.driver_controller.leftTrigger().onTrue(
-            DrivetrainHalfSpeed(self.drivetrain)
-        )
-
-        # defense mode
-        self.driver_controller.rightTrigger().onTrue(
-            DrivetrainDoubleSpeed(self.drivetrain)
-        )
-
-        self.driver_controller.b().onTrue(
-            InstantCommand(self.drivetrain.seed_field_centric)
-        )
+        self.driver_controller.a().onTrue(self.superstructure.intakeAgitate())
+        self.driver_controller.y().onTrue(self.superstructure.intakeStow())
+        self.driver_controller.b().onTrue(self.superstructure.intakeExtend())
 
         """Operator"""
         """

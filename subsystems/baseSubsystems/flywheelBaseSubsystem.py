@@ -12,7 +12,6 @@ class FlywheelBaseSubsystemData(RollerBaseSubsystemData):
     @staticmethod
     def withRollerBaseSubsystemData(motorRef: float, parent: RollerBaseSubsystemData):
         return FlywheelBaseSubsystemData(
-            parent.name,
             parent.velocity,
             parent.rotorVelocity,
             parent.statorCurrent,
@@ -46,6 +45,7 @@ class FlywheelBaseSubsystem(RollerBaseSubsystem):
             simObject,
             canbus,
             motorToMechanismRatio=motorToMechanismRatio,
+            isRoller=False,
             dt=dt,
             enabled=enabled,
         )

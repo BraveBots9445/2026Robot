@@ -4,6 +4,8 @@ from wpilib.simulation import FlywheelSim
 
 from wpimath.units import radiansToRotations
 
+from wpiutil.wpistruct import make_wpistruct
+
 from phoenix6.hardware import TalonFX, CANcoder
 from phoenix6.configs import TalonFXConfiguration, CANcoderConfiguration
 from phoenix6.status_signal import StatusSignal
@@ -19,9 +21,9 @@ class MechanismVelocity(float):
     ...
 
 
+@make_wpistruct
 @dataclass
 class RollerBaseSubsystemData:
-    name: str
     velocity: float
     rotorVelocity: float
     statorCurrent: float
@@ -41,11 +43,13 @@ class RollerBaseSubsystem:
         canbus: str,
         *,
         motorToMechanismRatio: float = 1.0 / 1.0,
+        isRoller: bool = True,
         dt: float = 0.02,
         enabled: bool = True
     ):
         self._dt = dt
         self._name = name
+        self._isRoller = isRoller
         self._motor = TalonFX(motorID, canbus)
         self._motorConfigs = motorConfig
         self._motor.configurator.apply(self._motorConfigs)
@@ -81,16 +85,13 @@ class RollerBaseSubsystem:
             self._motorSlotSignal,
         )
 
-        if (
-            type(self) == RollerBaseSubsystem
-        ):  # check that this is not a `FlywheelBaseSubsystem`
+        if self._isRoller:
             if self._enabled:
                 self._motor.set(self._setpoint)
             else:
                 self._motor.stopMotor()
 
         return RollerBaseSubsystemData(
-            self._name,
             self._velocitySignal.value,
             self._rotorVelocitySignal.value,
             self._statorCurrentSignal.value,
@@ -109,6 +110,7 @@ class RollerBaseSubsystem:
             radiansToRotations(self._simObj.getAngularVelocity())
             / self._motorToMechRatio
         )
+
         self._motorSimState.set_rotor_velocity(motorVel)
         self._motorSimState.add_rotor_position(motorVel * self._dt)
 
