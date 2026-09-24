@@ -31,7 +31,7 @@ from wpilib import RobotBase
 
 class Vision(Subsystem):
     enabled: bool = True
-
+    
     strategy: photonPoseEstimator.PoseStrategy = (
         photonPoseEstimator.PoseStrategy.MULTI_TAG_PNP_ON_COPROCESSOR
     )
