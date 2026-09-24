@@ -135,7 +135,7 @@ class RollerBaseSubsystem:
     def isEnabled(self) -> bool:
         return self._enabled
 
-    def addSlave(self, slave: RollerBaseSubsystem) -> None:
+    def addSlave(self, slave: RollerBaseSubsystemData) -> None:
         """
         It is the responsibility of the caller to properly invert motors that should be
         inverted in the motor's configurations prior to calling this method

@@ -74,7 +74,7 @@ class FlywheelBaseSubsystem(RollerBaseSubsystem):
     def atSetpoint(self, tolerance: MechanismVelocity | float = 1) -> bool:
         return abs(self._setpoint - self._velocitySignal.value) < tolerance
 
-    def addSlave(self, slave: FlywheelBaseSubsystem, invertedFromMaster: bool) -> None:  # type: ignore # we want special setup for flywheels that does not match the parent.
+    def addSlave(self, slave: FlywheelBaseSubsystemData, invertedFromMaster: bool) -> None:  # type: ignore # we want special setup for flywheels that does not match the parent.
         # it is not expected to slave a roller to a flywheel or the opposite
         slave.masterInfo = (self._motor.device_id, invertedFromMaster)
         return super().addSlave(slave)
